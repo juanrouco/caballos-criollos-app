@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+ios/build/
+android/build/
+android/.gradle/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
