@@ -1,8 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { Icon, Crest, Card, Medal, Divider, SectionLabel, F } from '../components';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Icon, Crest, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
-import { HORSES } from '../data';
+import { fetchAnimalPedigree, mapAnimalPedigree } from '../api';
+
+// Cache por id de animal — mismo patrón que EventDetailScreen: evita re-fetch
+// y spinner al volver al mismo caballo dentro de la sesión.
+const animalCache = new Map();
 
 // 4-gen pedigree tree: 3 columns × 8 rows.
 function PedigreeNode({ parent, t, level }) {
@@ -11,10 +15,11 @@ function PedigreeNode({ parent, t, level }) {
   if (!parent || !parent.name) {
     return <View style={{ flex: 1, backgroundColor: withAlpha(t.surface2, 0.35), borderRadius: 6 }} />;
   }
+  const sub = [parent.year, parent.sex].filter(Boolean).join(' · ');
   return (
     <View style={{ flex: 1, backgroundColor: accent ? t.surface2 : t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 6, padding: level === 1 ? 10 : 7, justifyContent: 'center' }}>
       <Text numberOfLines={2} style={{ fontFamily: F.display, fontSize, color: accent ? t.accent : t.text }}>{parent.name}</Text>
-      {parent.year ? <Text style={{ fontSize: level === 1 ? 10 : 9, color: t.textMute, marginTop: 3, fontFamily: F.mono }}>{parent.year}{parent.sex ? ` · ${parent.sex}` : ''}</Text> : null}
+      {!!sub && <Text style={{ fontSize: level === 1 ? 10 : 9, color: t.textMute, marginTop: 3, fontFamily: F.mono }}>{sub}</Text>}
     </View>
   );
 }
@@ -23,7 +28,6 @@ function PedigreeTree({ h, t }) {
   const sire = h.sire || {}, dam = h.dam || {};
   const ss = sire.sire || {}, sd = sire.dam || {}, ds = dam.sire || {}, dd = dam.dam || {};
   const ROW = 46, GAP = 5;
-  // column heights: col1 nodes span 4 rows, col2 span 2, col3 span 1
   const h4 = ROW * 4 + GAP * 3;
   const h2 = ROW * 2 + GAP;
   return (
@@ -50,62 +54,110 @@ function PedigreeTree({ h, t }) {
   );
 }
 
+function BackButton({ t, onPress }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 22 }}>
+      <Icon name="arrowL" size={18} color={t.text} />
+    </TouchableOpacity>
+  );
+}
+
 export default function HorseDetailScreen({ t, navigation, route }) {
-  const h = HORSES.find((x) => x.id === route.params?.id) || HORSES[0];
+  const id = route.params?.id;
+  const [horse, setHorse] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    if (id == null) { setError('Falta el id del animal.'); return; }
+    let cancelled = false;
+    const cached = animalCache.get(String(id));
+    if (cached) { setHorse(cached); setError(null); return; }
+    setHorse(null); setError(null);
+    fetchAnimalPedigree(id)
+      .then((payload) => {
+        if (cancelled) return;
+        const mapped = mapAnimalPedigree(payload);
+        animalCache.set(String(id), mapped);
+        setHorse(mapped);
+      })
+      .catch((err) => { if (!cancelled) setError(err.message || 'No se pudo cargar el animal.'); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const onBack = () => navigation.goBack();
+
+  if (error) {
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
+        <BackButton t={t} onPress={onBack} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center', marginBottom: 14 }}>{error}</Text>
+          <TouchableOpacity onPress={onBack} style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: t.accent }}>
+            <Text style={{ color: t.bg, fontFamily: F.bodyBold, fontSize: 13 }}>Volver</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!horse) {
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
+        <BackButton t={t} onPress={onBack} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={t.accent} />
+        </View>
+      </View>
+    );
+  }
+
+  const idLine = [horse.rp ? `R.P. ${horse.rp}` : '', horse.sba ? `S.B.A. ${horse.sba}` : '']
+    .filter(Boolean).join(' · ');
+  const metaFields = [
+    ['Nacimiento', horse.born],
+    ['Sexo',       horse.sex],
+    ['Pelaje',     horse.pelaje],
+  ].filter(([, v]) => v);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 22 }}>
-          <Icon name="arrowL" size={18} color={t.text} />
-        </TouchableOpacity>
+        <BackButton t={t} onPress={onBack} />
 
         <View style={{ flexDirection: 'row', gap: 16, marginBottom: 22 }}>
           <Crest size={76} color={t.accent} bg={withAlpha(t.accent, 0.07)} ring={withAlpha(t.accent, 0.33)} horse />
           <View style={{ flex: 1, paddingTop: 4 }}>
-            <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }}>{h.name}</Text>
-            <Text style={{ fontSize: 11, color: t.accent, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 6, fontFamily: F.bodyBold }}>R.P. {h.rp || '—'} · S.B.A. {h.sba || '—'}</Text>
+            <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }}>{horse.name}</Text>
+            {!!idLine && (
+              <Text style={{ fontSize: 11, color: t.accent, letterSpacing: 1.6, textTransform: 'uppercase', marginTop: 6, fontFamily: F.bodyBold }}>{idLine}</Text>
+            )}
           </View>
         </View>
 
-        {/* Meta */}
-        <View style={{ flexDirection: 'row', backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
-          {[['Nacimiento', h.born], ['Sexo', h.sex], ['Pelaje', h.pelaje]].map(([k, v], i) => (
-            <View key={k} style={{ flex: 1, padding: 12, borderRightWidth: i < 2 ? 1 : 0, borderRightColor: t.border }}>
-              <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{k}</Text>
-              <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{v}</Text>
-            </View>
-          ))}
-        </View>
+        {metaFields.length > 0 && (
+          <View style={{ flexDirection: 'row', backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.border, overflow: 'hidden' }}>
+            {metaFields.map(([k, v], i) => (
+              <View key={k} style={{ flex: 1, padding: 12, borderRightWidth: i < metaFields.length - 1 ? 1 : 0, borderRightColor: t.border }}>
+                <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>{k}</Text>
+                <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{v}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
-        <View style={{ marginTop: 14, padding: 14, backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.border }}>
-          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Criador</Text>
-          <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{h.criador}</Text>
-          <Text style={{ fontSize: 12, color: t.accent, marginTop: 4, fontFamily: F.bodyMed }}>{h.criadero}</Text>
-        </View>
+        {!!horse.propietario && (
+          <View style={{ marginTop: 14, padding: 14, backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.border }}>
+            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Propietario</Text>
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{horse.propietario}</Text>
+            {!!horse.propietarioNum && (
+              <Text style={{ fontSize: 12, color: t.accent, marginTop: 4, fontFamily: F.bodyMed }}>N° {horse.propietarioNum}</Text>
+            )}
+          </View>
+        )}
       </View>
 
       <SectionLabel t={t}>Pedigree · 4 generaciones</SectionLabel>
-      <View style={{ paddingHorizontal: 20 }}><PedigreeTree h={h} t={t} /></View>
-
-      {h.titles && h.titles.length > 0 && (
-        <View style={{ marginTop: 28 }}>
-          <SectionLabel t={t}>Palmarés</SectionLabel>
-          <View style={{ paddingHorizontal: 20 }}>
-            <Card t={t}>
-              {h.titles.map((title, i) => (
-                <View key={i}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-                    <Medal size={22} t={t} />
-                    <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, flex: 1 }}>{title}</Text>
-                  </View>
-                  {i < h.titles.length - 1 && <Divider t={t} style={{ marginLeft: 16 }} />}
-                </View>
-              ))}
-            </Card>
-          </View>
-        </View>
-      )}
+      <View style={{ paddingHorizontal: 20 }}><PedigreeTree h={horse} t={t} /></View>
     </ScrollView>
   );
 }

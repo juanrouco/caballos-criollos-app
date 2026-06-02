@@ -8,4 +8,7 @@ export {
   mapEvent, isEmptyCatalog, isEmptyResults,
 } from './eventos';
 export { fetchVivos } from './vivos';
+export {
+  fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
+} from './animales';
 export { todayISO } from './utils';
