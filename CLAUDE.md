@@ -45,9 +45,23 @@ When adding a new screen, register it in `App.js` wrapped in `withT(...)` so it 
 `src/components.js` exports the shared primitives: `Icon`, `Crest`, `Card`, `Medal`, `Divider`, `SectionLabel`, plus the `F` alias for `fonts`. Icons are inline `react-native-svg` paths in a single `switch` in `Icon` — to add an icon, add a new `case` there. Discipline icons are different: white-on-transparent PNGs in `assets/disc-*.png`, tinted via `<Image tintColor={...} />` (CSS masks don't exist in RN).
 
 ### Data
-`src/data.js` contains all mock data: `HORSES` (with nested `sire`/`dam` trees up to 3–4 generations), `EVENTS`, `DISCIPLINES`, `NEWS`, `RESULTS`, `LOTES`, `CATALOG_CATEGORIES`, `MORFOLOGIA_RESULTS`, `PREMIO_SOLANET`, `DISCIPLINE_RANKINGS`. The `P(...)` helper near `MORFOLOGIA_RESULTS` builds placement records concisely. Lote numbers are assigned sequentially across categories at module load via a side-effecting `forEach`.
+`src/data.js` contains the remaining mock data: `HORSES` (with nested `sire`/`dam` trees up to 3–4 generations), `DISCIPLINES`, `NEWS`, `RESULTS`, `LOTES`, `CATALOG_CATEGORIES`, `MORFOLOGIA_RESULTS`, `PREMIO_SOLANET`, `DISCIPLINE_RANKINGS`. The `P(...)` helper near `MORFOLOGIA_RESULTS` builds placement records concisely. Lote numbers are assigned sequentially across categories at module load via a side-effecting `forEach`.
+
+Eventos / vivos ya vienen de la API (ver "API client" abajo); el resto sigue siendo mock hasta que se migre cada pantalla.
 
 Ranking categories have `kind: 'view'` (rendered as an in-app table from `top: [...]`) or `kind: 'pdf'` (intended to link to an external document — not yet implemented).
+
+### API client
+`src/api/` — un archivo por endpoint. Toda screen importa desde `'../api'` (barrel en `src/api/index.js`); nunca desde un archivo específico, para que mover/renombrar endpoints sea local.
+
+- `client.js` — `apiGet(path, params)` + `API_BASE`. La base se elige con `__DEV__`: dev usa `EXPO_PUBLIC_API_BASE_DEV` (fallback a la IP local del Mac), prod usa `EXPO_PUBLIC_API_BASE_PROD` (fallback a `caballoscriollos.com`). Ambas overrideables vía `.env` — copiar `.env.example` y reiniciar `expo start`.
+- `eventos.js`, `vivos.js`, … — un archivo por recurso. Exporta los `fetchXxx` y los mappers de normalización (ej. `mapEvent` lleva el shape de la API al shape que ya consumían las pantallas en `src/data.js`).
+- `utils.js` — helpers compartidos (ej. `todayISO()`).
+
+El simulador iOS no resuelve `localhost` al Mac; siempre usa la IP del Mac en la LAN (la que `expo start` muestra en el QR / URL `exp://`).
+
+### Estado global del vivo
+`src/LiveContext.js` expone `LiveProvider` + `useLive()`. Hace polling cada 60s a `/vivos?estado=en_vivo` (alineado con el `Cache-Control` del backend). Lo consumen el banner de la home y el botón EN VIVO del footer (`CustomTabBar` en `App.js`). El botón pasa a rojo y navega a `EventDetail` del evento del vivo cuando hay uno; gris + Eventos tab cuando no.
 
 ### Live video
 `EventDetailScreen.js` embeds a YouTube live stream via `react-native-webview` when the event's `status === 'live'`. The embed URL is hardcoded.

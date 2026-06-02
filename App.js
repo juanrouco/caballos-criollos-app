@@ -9,6 +9,7 @@ import { InterTight_600SemiBold, InterTight_700Bold } from '@expo-google-fonts/i
 
 import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
 import { Icon } from './src/components';
+import { LiveProvider, useLive } from './src/LiveContext';
 import HomeScreen from './src/screens/HomeScreen';
 import EventsScreen from './src/screens/EventsScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
@@ -35,6 +36,8 @@ const Stack = createNativeStackNavigator();
 
 function CustomTabBar({ state, navigation }) {
   const t = useT();
+  const { live } = useLive();
+  const hasLive = !!live;
   const tabs = [
     { name: 'InicioTab', icon: 'home', label: 'Inicio' },
     { name: 'EventosTab', icon: 'calendar', label: 'Eventos' },
@@ -45,15 +48,22 @@ function CustomTabBar({ state, navigation }) {
   const routeIndexByName = {};
   state.routes.forEach((r, i) => { routeIndexByName[r.name] = i; });
 
+  const onLivePress = () => {
+    if (hasLive) navigation.navigate('EventDetail', { id: live.evento.id });
+    else navigation.navigate('EventosTab');
+  };
+
   return (
     <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 22, paddingTop: 8, backgroundColor: t.bg }}>
       <View style={{ marginHorizontal: 12, height: 64, borderRadius: 22, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
         {tabs.map((tab, i) => {
           if (tab.center) {
+            const bg = hasLive ? t.live : t.surface2;
+            const fg = hasLive ? '#fff' : t.textMute;
             return (
-              <TouchableOpacity key="center" onPress={() => navigation.navigate('EventosTab')} style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: t.accent, borderWidth: 3, borderColor: t.bg, alignItems: 'center', justifyContent: 'center', top: -22 }}>
-                <Icon name="tv" size={20} color={t.bg} stroke={2} />
-                <Text style={{ fontSize: 8.5, fontFamily: 'Roboto_700Bold', color: t.bg, marginTop: 2, letterSpacing: 0.5 }}>EN VIVO</Text>
+              <TouchableOpacity key="center" onPress={onLivePress} style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: bg, borderWidth: 3, borderColor: t.bg, alignItems: 'center', justifyContent: 'center', top: -22 }}>
+                <Icon name="tv" size={20} color={fg} stroke={2} />
+                <Text style={{ fontSize: 8.5, fontFamily: 'Roboto_700Bold', color: fg, marginTop: 2, letterSpacing: 0.5 }}>EN VIVO</Text>
               </TouchableOpacity>
             );
           }
@@ -101,17 +111,19 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeCtx.Provider value={t}>
-        <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
-        <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-          <NavigationContainer theme={navTheme}>
-            <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
-              <Stack.Screen name="Tabs" component={Tabs} />
-              <Stack.Screen name="EventDetail" component={withT(EventDetailScreen)} />
-              <Stack.Screen name="HorseDetail" component={withT(HorseDetailScreen)} />
-              <Stack.Screen name="RankingCat" component={withT(RankingCatScreen)} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </SafeAreaView>
+        <LiveProvider>
+          <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
+          <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+            <NavigationContainer theme={navTheme}>
+              <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
+                <Stack.Screen name="Tabs" component={Tabs} />
+                <Stack.Screen name="EventDetail" component={withT(EventDetailScreen)} />
+                <Stack.Screen name="HorseDetail" component={withT(HorseDetailScreen)} />
+                <Stack.Screen name="RankingCat" component={withT(RankingCatScreen)} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </SafeAreaView>
+        </LiveProvider>
       </ThemeCtx.Provider>
     </SafeAreaProvider>
   );

@@ -1,15 +1,39 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Icon, Crest, Card, Medal, Divider, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
-import { EVENTS, DISCIPLINES, RESULTS, NEWS } from '../data';
+import { DISCIPLINES, RESULTS, NEWS } from '../data';
+import { fetchEventos, mapEvent, todayISO } from '../api';
+import { useLive } from '../LiveContext';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
 
 export default function HomeScreen({ t, navigation }) {
-  const liveEvent = EVENTS.find((e) => e.status === 'live');
-  const upcoming = EVENTS.filter((e) => e.status === 'soon').slice(0, 3);
+  const { live } = useLive();
+  const [events, setEvents] = React.useState(null); // null = loading, [] = vacío, [...] = ok
+  const [error, setError] = React.useState(null);
+
+  const load = React.useCallback(async () => {
+    setError(null);
+    try {
+      const r = await fetchEventos({ fecha_desde: todayISO(), limit: 10 });
+      const mapped = (r.data || [])
+        .map(mapEvent)
+        .filter((e) => !e.suspendido);
+      setEvents(mapped);
+    } catch (e) {
+      setEvents([]);
+      setError(e.message || 'No se pudieron cargar los eventos.');
+    }
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  // Buscar el evento del vivo dentro del listado (puede no estar si su fecha
+  // ya pasó pero la transmisión sigue en aire — fallback a los datos del vivo).
+  const liveEvent = live ? events?.find((e) => e.id === live.evento.id) || null : null;
+  const upcoming = (events || []).filter((e) => !live || e.id !== live.evento.id).slice(0, 5);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
@@ -34,9 +58,9 @@ export default function HomeScreen({ t, navigation }) {
       </TouchableOpacity>
 
       {/* Live banner */}
-      {liveEvent && (
+      {live && (
         <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { id: liveEvent.id })}>
+          <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { id: live.evento.id })}>
             <Card t={t} style={{ borderColor: withAlpha(t.live, 0.4) }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
                 <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: withAlpha(t.live, 0.13), alignItems: 'center', justifyContent: 'center' }}>
@@ -47,10 +71,14 @@ export default function HomeScreen({ t, navigation }) {
                     <View style={{ backgroundColor: t.live, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
                       <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.6 }}>● EN VIVO</Text>
                     </View>
-                    <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.body }}>{liveEvent.disciplines[0]}</Text>
+                    {!!live.titulo && (
+                      <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.body }} numberOfLines={1}>{live.titulo}</Text>
+                    )}
                   </View>
-                  <Text style={{ fontFamily: F.display, fontSize: 18, color: t.text }}>{liveEvent.name}</Text>
-                  <Text style={{ fontSize: 12, color: t.textMute, marginTop: 3, fontFamily: F.body }}>{liveEvent.location}</Text>
+                  <Text style={{ fontFamily: F.display, fontSize: 18, color: t.text }} numberOfLines={2}>{live.evento?.titulo || ''}</Text>
+                  {!!liveEvent?.location && (
+                    <Text style={{ fontSize: 12, color: t.textMute, marginTop: 3, fontFamily: F.body }} numberOfLines={1}>{liveEvent.location}</Text>
+                  )}
                 </View>
                 <Icon name="arrow" size={18} color={t.textMute} />
               </View>
@@ -61,23 +89,46 @@ export default function HomeScreen({ t, navigation }) {
 
       {/* Próximos eventos */}
       <SectionLabel t={t}>Próximos eventos</SectionLabel>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12, paddingBottom: 28 }}>
-        {upcoming.map((e) => (
-          <TouchableOpacity key={e.id} onPress={() => navigation.navigate('EventDetail', { id: e.id })} style={{ width: 230 }}>
+      {events === null ? (
+        <View style={{ paddingHorizontal: 20, paddingVertical: 24, paddingBottom: 28 }}>
+          <ActivityIndicator color={t.accent} />
+        </View>
+      ) : error ? (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 28 }}>
+          <TouchableOpacity onPress={load}>
             <Card t={t}>
-              <Image source={EVENT_PHOTO} style={{ width: '100%', height: 110 }} resizeMode="cover" />
-              <View style={{ padding: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-                  <Text style={{ fontFamily: F.display, fontSize: 22, color: t.accent }}>{e.date.split(' ')[0]}</Text>
-                  <Text style={{ fontSize: 11, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase' }}>{e.date.split(' ')[1]}</Text>
-                </View>
-                <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text }}>{e.name}</Text>
-                <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4 }}>{e.location}</Text>
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12.5, color: t.textMute, textAlign: 'center', marginBottom: 6 }}>No se pudieron cargar los eventos.</Text>
+                <Text style={{ fontSize: 12, color: t.accent, fontFamily: F.bodyBold }}>Reintentar</Text>
               </View>
             </Card>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
+      ) : upcoming.length === 0 ? (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 28 }}>
+          <Card t={t}>
+            <Text style={{ padding: 20, fontSize: 12.5, color: t.textMute, textAlign: 'center' }}>No hay eventos próximos.</Text>
+          </Card>
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12, paddingBottom: 28 }}>
+          {upcoming.map((e) => (
+            <TouchableOpacity key={e.id} onPress={() => navigation.navigate('EventDetail', { id: e.id })} style={{ width: 230 }}>
+              <Card t={t}>
+                <Image source={EVENT_PHOTO} style={{ width: '100%', height: 110 }} resizeMode="cover" />
+                <View style={{ padding: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                    <Text style={{ fontFamily: F.display, fontSize: 22, color: t.accent }}>{e.date.split(' ')[0]}</Text>
+                    <Text style={{ fontSize: 11, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase' }}>{e.date.split(' ')[1]}</Text>
+                  </View>
+                  <Text style={{ fontFamily: F.display, fontSize: 16, lineHeight: 20, color: t.text, minHeight: 40 }} numberOfLines={2}>{e.name}</Text>
+                  <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4 }} numberOfLines={1}>{e.location}</Text>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
       {/* Disciplinas */}
       <SectionLabel t={t}>Disciplinas</SectionLabel>
