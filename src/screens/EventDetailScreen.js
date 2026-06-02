@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
@@ -9,6 +10,7 @@ import {
 } from '../api';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
+const MAX_DISCIPLINE_CHIPS = 3;
 
 function youtubeId(url) {
   if (!url) return null;
@@ -128,6 +130,19 @@ export default function EventDetailScreen({ t, navigation, route }) {
       {/* Hero */}
       <View style={{ height: 200 }}>
         <Image source={EVENT_PHOTO} style={{ width: '100%', height: 200 }} resizeMode="cover" />
+        {/* Fade hacia el bg al pie de la foto — ayuda a leer los chips y
+            evita el corte duro contra el resto de la pantalla. */}
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 }} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="heroFade" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={t.bg} stopOpacity="0" />
+                <Stop offset="1" stopColor={t.bg} stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroFade)" />
+          </Svg>
+        </View>
         <TouchableOpacity onPress={onBack} style={{ position: 'absolute', top: 14, left: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: withAlpha(t.bg, 0.8), borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
@@ -140,9 +155,16 @@ export default function EventDetailScreen({ t, navigation, route }) {
               <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold }}>● EN VIVO</Text>
             </View>
           )}
-          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: withAlpha(t.accent, 0.33) }}>
-            <Text style={{ color: t.accent, fontSize: 10, fontFamily: F.bodyBold }}>{mapped.type}</Text>
-          </View>
+          {mapped.disciplines.slice(0, MAX_DISCIPLINE_CHIPS).map((d) => (
+            <View key={d} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: withAlpha(t.bg, 0.85), borderWidth: 1, borderColor: withAlpha(t.accent, 0.4) }}>
+              <Text style={{ color: t.accent, fontSize: 10, fontFamily: F.bodyBold }}>{d}</Text>
+            </View>
+          ))}
+          {mapped.disciplines.length > MAX_DISCIPLINE_CHIPS && (
+            <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: withAlpha(t.bg, 0.85), borderWidth: 1, borderColor: withAlpha(t.accent, 0.4) }}>
+              <Text style={{ color: t.accent, fontSize: 10, fontFamily: F.bodyBold }}>+{mapped.disciplines.length - MAX_DISCIPLINE_CHIPS}</Text>
+            </View>
+          )}
         </View>
         <Text style={{ fontFamily: F.display, fontSize: 30, color: t.text }}>{mapped.name}</Text>
         <Text style={{ fontSize: 13, color: t.textMute, marginTop: 10 }}>
