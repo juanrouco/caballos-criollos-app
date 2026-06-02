@@ -3,6 +3,9 @@
 // va en su propio archivo y se re-exporta acá.
 
 export { API_BASE, apiGet } from './client';
-export { fetchEventos, mapEvent } from './eventos';
+export {
+  fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
+  mapEvent, isEmptyCatalog, isEmptyResults,
+} from './eventos';
 export { fetchVivos } from './vivos';
 export { todayISO } from './utils';

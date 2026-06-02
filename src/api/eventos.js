@@ -1,6 +1,35 @@
 import { apiGet } from './client';
 
-export const fetchEventos = (params) => apiGet('/eventos', params);
+export const fetchEventos           = (params) => apiGet('/eventos', params);
+export const fetchEvento            = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}`);
+export const fetchEventoCatalogo    = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/catalogo`);
+export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/resultados`);
+
+// Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales.
+export function isEmptyCatalog(c) {
+  if (!c) return true;
+  const pf = c.pruebas_funcionales || [];
+  const mo = c.morfologicas || [];
+  const pfHas = pf.some((p) => (p.categorias || []).some((cat) => (cat.animales || []).length > 0));
+  const moHas = mo.some((cat) => (cat.animales || []).length > 0);
+  return !(pfHas || moHas);
+}
+
+// Resultados "vacíos" = ninguno de los grupos (morfología / tipo y aptitud,
+// y dentro: gran_campeonato / campeonato / categorias) trae entries.
+export function isEmptyResults(r) {
+  if (!r) return true;
+  const groups = [r.morfologia, r.tipo_aptitud].filter(Boolean);
+  for (const g of groups) {
+    const gc = g.gran_campeonato || [];
+    const cp = g.campeonato || [];
+    const cats = g.categorias || [];
+    if (gc.some((x) => (x.resultados || []).length > 0)) return false;
+    if (cp.some((x) => (x.resultados || []).length > 0)) return false;
+    if (cats.some((x) => (x.premios || []).length > 0)) return false;
+  }
+  return true;
+}
 
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MONTHS_LONG  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

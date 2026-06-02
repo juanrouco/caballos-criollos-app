@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import { Icon, Crest, Card, Medal, Divider, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES, RESULTS, NEWS } from '../data';
@@ -13,6 +14,34 @@ export default function HomeScreen({ t, navigation }) {
   const { live } = useLive();
   const [events, setEvents] = React.useState(null); // null = loading, [] = vacío, [...] = ok
   const [error, setError] = React.useState(null);
+
+  // Navega al detalle de un evento abriéndolo en el stack de EventosTab.
+  // En vez de `navigate('EventosTab', { screen, params })` — que no fuerza
+  // re-render cuando ya hay un EventDetail en el stack — reescribimos el
+  // state del Tab Navigator dejando EventosTab con [EventsList, EventDetail].
+  // El EventDetail nuevo monta limpio con los params correctos.
+  const openEventDetail = (eventId) => {
+    const tabNav = navigation.getParent();
+    if (!tabNav) return;
+    const tabState = tabNav.getState();
+    const eventosIdx = tabState.routes.findIndex((r) => r.name === 'EventosTab');
+    if (eventosIdx < 0) return;
+    const routes = tabState.routes.map((r) =>
+      r.name === 'EventosTab'
+        ? {
+            name: 'EventosTab',
+            state: {
+              index: 1,
+              routes: [
+                { name: 'EventsList' },
+                { name: 'EventDetail', params: { id: eventId, from: 'home' } },
+              ],
+            },
+          }
+        : (r.state ? { name: r.name, state: r.state } : { name: r.name })
+    );
+    tabNav.dispatch(CommonActions.reset({ index: eventosIdx, routes }));
+  };
 
   const load = React.useCallback(async () => {
     setError(null);
@@ -60,7 +89,7 @@ export default function HomeScreen({ t, navigation }) {
       {/* Live banner */}
       {live && (
         <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-          <TouchableOpacity onPress={() => navigation.navigate('EventDetail', { id: live.evento.id })}>
+          <TouchableOpacity onPress={() => openEventDetail(live.evento.id)}>
             <Card t={t} style={{ borderColor: withAlpha(t.live, 0.4) }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
                 <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: withAlpha(t.live, 0.13), alignItems: 'center', justifyContent: 'center' }}>
@@ -113,7 +142,7 @@ export default function HomeScreen({ t, navigation }) {
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12, paddingBottom: 28 }}>
           {upcoming.map((e) => (
-            <TouchableOpacity key={e.id} onPress={() => navigation.navigate('EventDetail', { id: e.id })} style={{ width: 230 }}>
+            <TouchableOpacity key={e.id} onPress={() => openEventDetail(e.id)} style={{ width: 230 }}>
               <Card t={t}>
                 <Image source={EVENT_PHOTO} style={{ width: '100%', height: 110 }} resizeMode="cover" />
                 <View style={{ padding: 14 }}>

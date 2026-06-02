@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, StatusBar, Platform } from 'react-native';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme, CommonActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -19,20 +19,91 @@ import RankingsScreen from './src/screens/RankingsScreen';
 import RankingCatScreen from './src/screens/RankingCatScreen';
 
 // ── Theme context ────────────────────────────────────────────────
-// Toggle PALETTE / MODE here to switch the whole app (the prototype's "Tweaks").
 const PALETTE = 'tabaco';
 const MODE = 'light'; // 'light' | 'dark'
 export const ThemeCtx = React.createContext(getTheme(PALETTE, MODE));
 const useT = () => React.useContext(ThemeCtx);
 
-// inject theme prop into a screen
 const withT = (Comp) => (props) => {
   const t = useT();
   return <Comp {...props} t={t} />;
 };
 
+// Wrappers a nivel de módulo: si los llamáramos inline dentro del JSX del
+// Stack.Navigator, cada render generaría un componente nuevo y los Screens
+// se desmontarían perdiendo state (tab activa, acordeones, scroll, etc.).
+const HomeT       = withT(HomeScreen);
+const EventsT     = withT(EventsScreen);
+const EventT      = withT(EventDetailScreen);
+const PedigreeT   = withT(PedigreeScreen);
+const HorseT      = withT(HorseDetailScreen);
+const RankingsT   = withT(RankingsScreen);
+const RankingCatT = withT(RankingCatScreen);
+
+// ── Navigators ───────────────────────────────────────────────────
+// Cada tab tiene su propio stack — así el footer (CustomTabBar) queda
+// visible siempre y el back de un screen pusheado vuelve al inicial
+// del stack de la tab. Para abrir EventDetail desde Home se navega con
+// `navigate('EventosTab', { screen: 'EventDetail', params })` — eso
+// cambia a la tab Eventos y empuja el detail; el back va a EventsScreen.
+// HorseDetail dentro del EventosStack se abre como modal, así el detail
+// del evento queda debajo sin desmontarse — preserva tab, scroll, etc.
+
 const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const InicioStackN = createNativeStackNavigator();
+const EventosStackN = createNativeStackNavigator();
+const PedigreeStackN = createNativeStackNavigator();
+const RankingsStackN = createNativeStackNavigator();
+
+const stackOpts = (t) => ({ headerShown: false, contentStyle: { backgroundColor: t.bg } });
+
+function InicioStack() {
+  const t = useT();
+  return (
+    <InicioStackN.Navigator screenOptions={stackOpts(t)}>
+      <InicioStackN.Screen name="Home" component={HomeT} />
+    </InicioStackN.Navigator>
+  );
+}
+
+function EventosStack() {
+  const t = useT();
+  return (
+    <EventosStackN.Navigator screenOptions={stackOpts(t)}>
+      <EventosStackN.Screen name="EventsList" component={EventsT} />
+      <EventosStackN.Screen
+        name="EventDetail"
+        component={EventT}
+        getId={({ params }) => String(params?.id ?? '')}
+      />
+      <EventosStackN.Screen
+        name="HorseDetail"
+        component={HorseT}
+        options={{ presentation: 'modal' }}
+      />
+    </EventosStackN.Navigator>
+  );
+}
+
+function PedigreeStack() {
+  const t = useT();
+  return (
+    <PedigreeStackN.Navigator screenOptions={stackOpts(t)}>
+      <PedigreeStackN.Screen name="PedigreeSearch" component={PedigreeT} />
+      <PedigreeStackN.Screen name="HorseDetail" component={HorseT} />
+    </PedigreeStackN.Navigator>
+  );
+}
+
+function RankingsStack() {
+  const t = useT();
+  return (
+    <RankingsStackN.Navigator screenOptions={stackOpts(t)}>
+      <RankingsStackN.Screen name="RankingsList" component={RankingsT} />
+      <RankingsStackN.Screen name="RankingCat" component={RankingCatT} />
+    </RankingsStackN.Navigator>
+  );
+}
 
 function CustomTabBar({ state, navigation }) {
   const t = useT();
@@ -48,9 +119,59 @@ function CustomTabBar({ state, navigation }) {
   const routeIndexByName = {};
   state.routes.forEach((r, i) => { routeIndexByName[r.name] = i; });
 
+  // Al tappear una tab, reseteamos su stack child al screen inicial. Es la
+  // forma fiable de garantizar que no veas un screen colgado del flujo
+  // anterior (ej. EventDetail después de haber entrado desde la home).
+  // Re-armamos el state del Tab Navigator preservando los stacks de las
+  // OTRAS tabs y solo reescribiendo el de la tab destino.
+  const INITIAL_SCREEN = {
+    InicioTab: 'Home',
+    EventosTab: 'EventsList',
+    PedigreeTab: 'PedigreeSearch',
+    RankingsTab: 'RankingsList',
+  };
+
+  const goToTab = (tabName) => {
+    const initial = INITIAL_SCREEN[tabName];
+    const targetIdx = routeIndexByName[tabName];
+    if (targetIdx == null || !initial) {
+      navigation.navigate(tabName);
+      return;
+    }
+    const routes = state.routes.map((r) =>
+      r.name === tabName
+        ? { name: tabName, state: { index: 0, routes: [{ name: initial }] } }
+        : (r.state ? { name: r.name, state: r.state } : { name: r.name })
+    );
+    navigation.dispatch(CommonActions.reset({ index: targetIdx, routes }));
+  };
+
+  // Para abrir el EventDetail del vivo desde el footer, reescribimos el state
+  // de EventosTab a [EventsList, EventDetail(liveId)]. Mismo motivo que en
+  // HomeScreen: `navigate('EventosTab', { screen: 'EventDetail', params })`
+  // no fuerza re-render si ya hay un EventDetail con otro id en el stack.
   const onLivePress = () => {
-    if (hasLive) navigation.navigate('EventDetail', { id: live.evento.id });
-    else navigation.navigate('EventosTab');
+    if (!hasLive) {
+      goToTab('EventosTab');
+      return;
+    }
+    const eventosIdx = routeIndexByName['EventosTab'];
+    if (eventosIdx == null) return;
+    const routes = state.routes.map((r) =>
+      r.name === 'EventosTab'
+        ? {
+            name: 'EventosTab',
+            state: {
+              index: 1,
+              routes: [
+                { name: 'EventsList' },
+                { name: 'EventDetail', params: { id: live.evento.id } },
+              ],
+            },
+          }
+        : (r.state ? { name: r.name, state: r.state } : { name: r.name })
+    );
+    navigation.dispatch(CommonActions.reset({ index: eventosIdx, routes }));
   };
 
   return (
@@ -70,7 +191,7 @@ function CustomTabBar({ state, navigation }) {
           const idx = routeIndexByName[tab.name];
           const focused = state.index === idx;
           return (
-            <TouchableOpacity key={tab.name} onPress={() => navigation.navigate(tab.name)} style={{ flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+            <TouchableOpacity key={tab.name} onPress={() => goToTab(tab.name)} style={{ flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
               <Icon name={tab.icon} size={20} color={focused ? t.accent : t.textMute} stroke={focused ? 2 : 1.7} />
               <Text style={{ fontSize: 10, fontFamily: focused ? 'Roboto_700Bold' : 'Roboto_500Medium', color: focused ? t.accent : t.textMute }}>{tab.label}</Text>
             </TouchableOpacity>
@@ -88,10 +209,10 @@ function Tabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false, sceneContainerStyle: { backgroundColor: t.bg } }}
     >
-      <Tab.Screen name="InicioTab" component={withT(HomeScreen)} />
-      <Tab.Screen name="EventosTab" component={withT(EventsScreen)} />
-      <Tab.Screen name="PedigreeTab" component={withT(PedigreeScreen)} />
-      <Tab.Screen name="RankingsTab" component={withT(RankingsScreen)} />
+      <Tab.Screen name="InicioTab"   component={InicioStack} />
+      <Tab.Screen name="EventosTab"  component={EventosStack} />
+      <Tab.Screen name="PedigreeTab" component={PedigreeStack} />
+      <Tab.Screen name="RankingsTab" component={RankingsStack} />
     </Tab.Navigator>
   );
 }
@@ -115,12 +236,7 @@ export default function App() {
           <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
           <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
             <NavigationContainer theme={navTheme}>
-              <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
-                <Stack.Screen name="Tabs" component={Tabs} />
-                <Stack.Screen name="EventDetail" component={withT(EventDetailScreen)} />
-                <Stack.Screen name="HorseDetail" component={withT(HorseDetailScreen)} />
-                <Stack.Screen name="RankingCat" component={withT(RankingCatScreen)} />
-              </Stack.Navigator>
+              <Tabs />
             </NavigationContainer>
           </SafeAreaView>
         </LiveProvider>
