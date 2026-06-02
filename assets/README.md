@@ -287,6 +287,7 @@ Listado paginado.
 | `fecha_desde` | `YYYY-MM-DD` o `DD-MM-YYYY` | — | `Fecha >= valor`. |
 | `fecha_hasta` | `YYYY-MM-DD` o `DD-MM-YYYY` | — | `Fecha <= valor`. |
 | `id_categorias` | CSV de ints | — | Ej. `1,5,9`. Cualquier categoría que matchee. |
+| `sort` | `fecha_asc` \| `fecha_desc` | `fecha_desc` | Orden por `Fecha`. Usar `fecha_asc` para listar próximos primero; default sirve para listar pasados. |
 | `limit` | int (1–200) | `50` | Tamaño de página. |
 | `offset` | int (≥0) | `0` | Offset para paginar. |
 
@@ -620,6 +621,9 @@ curl "https://caballoscriollos.com/api/noticias?destacado=1&fecha_desde=2026-05-
 # Catálogo + resultados de un evento
 curl "https://caballoscriollos.com/api/eventos/2057/catalogo"
 curl "https://caballoscriollos.com/api/eventos/2057/resultados"
+
+# Próximos eventos ordenados por fecha ascendente
+curl "https://caballoscriollos.com/api/eventos?fecha_desde=2026-06-02&sort=fecha_asc"
 
 # ¿Qué hay en vivo ahora?
 curl "https://caballoscriollos.com/api/vivos?estado=en_vivo"

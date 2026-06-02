@@ -17,7 +17,7 @@ export default function HomeScreen({ t, navigation }) {
   const load = React.useCallback(async () => {
     setError(null);
     try {
-      const r = await fetchEventos({ fecha_desde: todayISO(), limit: 10 });
+      const r = await fetchEventos({ fecha_desde: todayISO(), sort: 'fecha_asc', limit: 10 });
       const mapped = (r.data || [])
         .map(mapEvent)
         .filter((e) => !e.suspendido);
