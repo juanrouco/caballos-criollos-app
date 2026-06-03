@@ -91,6 +91,11 @@ function EventosStack() {
         component={HorseT}
         options={{ presentation: 'modal' }}
       />
+      <EventosStackN.Screen
+        name="NewsDetail"
+        component={NewsT}
+        getId={({ params }) => String(params?.id ?? '')}
+      />
     </EventosStackN.Navigator>
   );
 }

@@ -1,8 +1,22 @@
 import { apiGet } from './client';
 
-export const fetchNoticias          = (params) => apiGet('/noticias', params);
-export const fetchNoticia           = (id)     => apiGet(`/noticias/${encodeURIComponent(id)}`);
-export const fetchNoticiaCategorias = ()       => apiGet('/noticias/categorias');
+export const fetchNoticias = (params) => apiGet('/noticias', params);
+export const fetchNoticia  = (id)     => apiGet(`/noticias/${encodeURIComponent(id)}`);
+
+// Memo a nivel módulo: la categoría es estable durante la sesión (el
+// backend cachea 1h) y la consumen varias pantallas (Home para mapear
+// disciplinas, Events para resolver "Remates"). Si falla, descartamos
+// el promise para que un nuevo intento vuelva a pegarle.
+let _categoriasPromise = null;
+let _categoriasCache   = null;
+export function fetchNoticiaCategorias() {
+  if (_categoriasCache)   return Promise.resolve(_categoriasCache);
+  if (_categoriasPromise) return _categoriasPromise;
+  _categoriasPromise = apiGet('/noticias/categorias')
+    .then((r) => { _categoriasCache = r; return r; })
+    .catch((e) => { _categoriasPromise = null; throw e; });
+  return _categoriasPromise;
+}
 
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
