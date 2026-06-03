@@ -207,7 +207,7 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
       "titulo": "La pasión de los Rodeos llegó a la manga internacional",
       "copete": "",
       "fecha": "2026-05-05",
-      "categoria_id": 7,
+      "categoria": { "id": 7, "nombre": "Eventos" },
       "destacado": false,
       "fijo": true,
       "video": "",

@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
-import { Icon, Crest, Card, Medal, Divider, SectionLabel, F } from '../components';
+import { Icon, Crest, Card, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
-import { DISCIPLINES, RESULTS, NEWS } from '../data';
-import { fetchEventos, mapEvent, todayISO } from '../api';
+import { DISCIPLINES } from '../data';
+import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, todayISO } from '../api';
 import { useLive } from '../LiveContext';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
@@ -14,6 +14,8 @@ export default function HomeScreen({ t, navigation }) {
   const { live } = useLive();
   const [events, setEvents] = React.useState(null); // null = loading, [] = vacío, [...] = ok
   const [error, setError] = React.useState(null);
+  const [news, setNews] = React.useState(null);
+  const [newsError, setNewsError] = React.useState(null);
 
   // Navega al detalle de un evento abriéndolo en el stack de EventosTab.
   // En vez de `navigate('EventosTab', { screen, params })` — que no fuerza
@@ -58,6 +60,18 @@ export default function HomeScreen({ t, navigation }) {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  // Noticias: fetch independiente del de eventos para que un fallo no
+  // arrastre al otro. El listado del backend ya viene ordenado por
+  // Fijo DESC, Fecha DESC.
+  const loadNews = React.useCallback(() => {
+    setNewsError(null);
+    fetchNoticias({ limit: 3 })
+      .then((r) => setNews((r.data || []).map(mapNoticia)))
+      .catch((e) => { setNews([]); setNewsError(e.message || 'No se pudieron cargar las noticias.'); });
+  }, []);
+
+  React.useEffect(() => { loadNews(); }, [loadNews]);
 
   // Buscar el evento del vivo dentro del listado (puede no estar si su fecha
   // ya pasó pero la transmisión sigue en aire — fallback a los datos del vivo).
@@ -175,45 +189,60 @@ export default function HomeScreen({ t, navigation }) {
         ))}
       </ScrollView>
 
-      {/* Últimos resultados */}
-      <SectionLabel t={t}>Últimos resultados</SectionLabel>
-      <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-        <Card t={t}>
-          {RESULTS.map((r, i) => (
-            <View key={r.id}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
-                <Medal size={26} t={t} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase' }}>{r.cat}</Text>
-                  <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text, marginTop: 2 }}>{r.winner}</Text>
-                  <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3 }}>{r.event} · {r.criador}</Text>
-                </View>
-                <Text style={{ fontSize: 11, color: t.textDim, fontFamily: F.mono }}>{r.date}</Text>
-              </View>
-              {i < RESULTS.length - 1 && <Divider t={t} style={{ marginLeft: 16 }} />}
-            </View>
-          ))}
-        </Card>
-      </View>
-
       {/* Noticias */}
-      <SectionLabel t={t}>Noticias</SectionLabel>
-      <View style={{ paddingHorizontal: 20, gap: 10 }}>
-        {NEWS.map((n) => (
-          <Card key={n.id} t={t}>
-            <View style={{ flexDirection: 'row', gap: 12, padding: 12 }}>
-              <Image source={NEWS_PHOTO} style={{ width: 72, height: 72, borderRadius: 8 }} resizeMode="cover" />
-              <View style={{ flex: 1, justifyContent: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <Text style={{ fontSize: 10, color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase' }}>{n.tag}</Text>
-                  <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.mono }}>{n.date}</Text>
-                </View>
-                <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{n.title}</Text>
-              </View>
-            </View>
-          </Card>
-        ))}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 }}>
+        <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase' }}>Noticias</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('NewsList')}>
+          <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: t.accent, letterSpacing: 1.2, textTransform: 'uppercase' }}>Ver todo</Text>
+        </TouchableOpacity>
       </View>
+      {news === null ? (
+        <View style={{ paddingHorizontal: 20, paddingVertical: 24 }}>
+          <ActivityIndicator color={t.accent} />
+        </View>
+      ) : newsError ? (
+        <View style={{ paddingHorizontal: 20 }}>
+          <TouchableOpacity onPress={loadNews}>
+            <Card t={t}>
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12.5, color: t.textMute, textAlign: 'center', marginBottom: 6 }}>No se pudieron cargar las noticias.</Text>
+                <Text style={{ fontSize: 12, color: t.accent, fontFamily: F.bodyBold }}>Reintentar</Text>
+              </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
+      ) : news.length === 0 ? (
+        <View style={{ paddingHorizontal: 20 }}>
+          <Card t={t}>
+            <Text style={{ padding: 20, fontSize: 12.5, color: t.textMute, textAlign: 'center' }}>No hay noticias.</Text>
+          </Card>
+        </View>
+      ) : (
+        <View style={{ paddingHorizontal: 20, gap: 10 }}>
+          {news.map((n) => (
+            <TouchableOpacity key={n.id} onPress={() => navigation.navigate('NewsDetail', { id: n.id, tag: n.tag })}>
+              <Card t={t}>
+                <View style={{ flexDirection: 'row', gap: 12, padding: 12 }}>
+                  <Image source={n.thumb ? { uri: n.thumb } : NEWS_PHOTO} style={{ width: 72, height: 72, borderRadius: 8 }} resizeMode="cover" />
+                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                    {(!!n.tag || !!n.date) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        {!!n.tag && (
+                          <Text style={{ fontSize: 10, color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase' }} numberOfLines={1}>{n.tag}</Text>
+                        )}
+                        {!!n.date && (
+                          <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.mono }}>{n.date}</Text>
+                        )}
+                      </View>
+                    )}
+                    <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }} numberOfLines={2}>{n.title}</Text>
+                  </View>
+                </View>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }

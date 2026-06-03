@@ -17,6 +17,8 @@ import PedigreeScreen from './src/screens/PedigreeScreen';
 import HorseDetailScreen from './src/screens/HorseDetailScreen';
 import RankingsScreen from './src/screens/RankingsScreen';
 import RankingCatScreen from './src/screens/RankingCatScreen';
+import NewsDetailScreen from './src/screens/NewsDetailScreen';
+import NewsScreen from './src/screens/NewsScreen';
 
 // ── Theme context ────────────────────────────────────────────────
 const PALETTE = 'tabaco';
@@ -39,6 +41,8 @@ const PedigreeT   = withT(PedigreeScreen);
 const HorseT      = withT(HorseDetailScreen);
 const RankingsT   = withT(RankingsScreen);
 const RankingCatT = withT(RankingCatScreen);
+const NewsT       = withT(NewsDetailScreen);
+const NewsListT   = withT(NewsScreen);
 
 // ── Navigators ───────────────────────────────────────────────────
 // Cada tab tiene su propio stack — así el footer (CustomTabBar) queda
@@ -62,6 +66,12 @@ function InicioStack() {
   return (
     <InicioStackN.Navigator screenOptions={stackOpts(t)}>
       <InicioStackN.Screen name="Home" component={HomeT} />
+      <InicioStackN.Screen name="NewsList" component={NewsListT} />
+      <InicioStackN.Screen
+        name="NewsDetail"
+        component={NewsT}
+        getId={({ params }) => String(params?.id ?? '')}
+      />
     </InicioStackN.Navigator>
   );
 }
