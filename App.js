@@ -112,7 +112,9 @@ function CustomTabBar({ state, navigation }) {
   const tabs = [
     { name: 'InicioTab', icon: 'home', label: 'Inicio' },
     { name: 'EventosTab', icon: 'calendar', label: 'Eventos' },
-    { center: true },
+    // El botón EN VIVO sólo existe cuando hay una transmisión activa. Si no,
+    // la pill se reparte entre las 4 tabs normales con `space-around`.
+    ...(hasLive ? [{ center: true }] : []),
     { name: 'PedigreeTab', icon: 'tree', label: 'Pedigree' },
     { name: 'RankingsTab', icon: 'rank', label: 'Rankings' },
   ];
