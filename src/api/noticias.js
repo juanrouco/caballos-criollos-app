@@ -1,7 +1,8 @@
 import { apiGet } from './client';
 
-export const fetchNoticias = (params) => apiGet('/noticias', params);
-export const fetchNoticia  = (id)     => apiGet(`/noticias/${encodeURIComponent(id)}`);
+export const fetchNoticias          = (params) => apiGet('/noticias', params);
+export const fetchNoticia           = (id)     => apiGet(`/noticias/${encodeURIComponent(id)}`);
+export const fetchNoticiaCategorias = ()       => apiGet('/noticias/categorias');
 
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 

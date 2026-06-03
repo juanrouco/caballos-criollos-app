@@ -4,7 +4,7 @@ import { CommonActions } from '@react-navigation/native';
 import { Icon, Crest, Card, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES } from '../data';
-import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, todayISO } from '../api';
+import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO } from '../api';
 import { useLive } from '../LiveContext';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
@@ -72,6 +72,31 @@ export default function HomeScreen({ t, navigation }) {
   }, []);
 
   React.useEffect(() => { loadNews(); }, [loadNews]);
+
+  // Categorías de noticias: se cachean en memoria para mapear cada tile
+  // de DISCIPLINES al filtro de /noticias. Si falla, los tiles quedan sin
+  // link (silencioso) — no es bloqueante para el resto de la home.
+  const [newsCategorias, setNewsCategorias] = React.useState([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetchNoticiaCategorias()
+      .then((r) => { if (!cancelled) setNewsCategorias(r.data || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Match contra el nombre que devuelve /noticias/categorias. Primero
+  // exacto (case-insensitive); si no, prefijo — el backend a veces
+  // tiene sufijos extra ("Paleteada Campera" ↔ "Paleteada",
+  // "Copa Incentivo de Oro" ↔ "Copa Incentivo"). Para casos más raros
+  // conviene anotar el id explícito en DISCIPLINES y saltearse esto.
+  const findCategoriaForDiscipline = React.useCallback((d) => {
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    const candidates = [norm(d.name), norm(d.short)].filter(Boolean);
+    const exact = newsCategorias.find((c) => candidates.includes(norm(c.nombre)));
+    if (exact) return exact;
+    return newsCategorias.find((c) => candidates.some((cand) => norm(c.nombre).startsWith(cand))) || null;
+  }, [newsCategorias]);
 
   // Buscar el evento del vivo dentro del listado (puede no estar si su fecha
   // ya pasó pero la transmisión sigue en aire — fallback a los datos del vivo).
@@ -176,17 +201,25 @@ export default function HomeScreen({ t, navigation }) {
       {/* Disciplinas */}
       <SectionLabel t={t}>Disciplinas</SectionLabel>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10, paddingBottom: 28 }}>
-        {DISCIPLINES.map((d) => (
-          <View key={d.id} style={{ width: 108, borderRadius: 14, backgroundColor: d.color, overflow: 'hidden' }}>
-            <View style={{ height: 78, alignItems: 'center', justifyContent: 'center' }}>
-              <Image source={DISCIPLINE_ICONS[d.id]} style={{ width: 52, height: 52, tintColor: '#fff' }} resizeMode="contain" />
-            </View>
-            <View style={{ padding: 11, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' }}>
-              <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: '#fff', textAlign: 'center' }}>{d.short}</Text>
-              <Text style={{ fontFamily: F.mono, fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>{d.count}</Text>
-            </View>
-          </View>
-        ))}
+        {DISCIPLINES.map((d) => {
+          const cat = findCategoriaForDiscipline(d);
+          return (
+            <TouchableOpacity
+              key={d.id}
+              disabled={!cat}
+              activeOpacity={cat ? 0.7 : 1}
+              onPress={() => cat && navigation.navigate('NewsList', { categoria: cat.id, categoriaNombre: cat.nombre })}
+              style={{ width: 108, borderRadius: 14, backgroundColor: d.color, overflow: 'hidden' }}
+            >
+              <View style={{ height: 78, alignItems: 'center', justifyContent: 'center' }}>
+                <Image source={DISCIPLINE_ICONS[d.id]} style={{ width: 52, height: 52, tintColor: '#fff' }} resizeMode="contain" />
+              </View>
+              <View style={{ padding: 11, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' }}>
+                <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: '#fff', textAlign: 'center' }}>{d.short}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Noticias */}

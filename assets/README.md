@@ -223,6 +223,24 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
 
 `imagen` puede ser `null` si la noticia no tiene imagen asociada. Orden: `Fijo DESC, Fecha DESC, IdNoticia DESC`.
 
+#### `GET /noticias/categorias`
+
+Listado plano de categorías de noticias activas. Útil para poblar el filtro de categoría del cliente sin tener que paginar (son pocas decenas como máximo). **Cache**: `Cache-Control: public, max-age=3600` (1 h).
+
+**Response**
+
+```json
+{
+  "data": [
+    { "id": 10, "nombre": "Institucional" },
+    { "id": 11, "nombre": "Reglamentos" },
+    { "id": 13, "nombre": "Remates" }
+  ]
+}
+```
+
+Orden: `Orden ASC, Nombre ASC` (el campo `Orden` lo configura el admin; si está vacío se ordena alfabéticamente).
+
 #### `GET /noticias/{id}`
 
 Detalle de una noticia. **Cache**: `Cache-Control: public, max-age=300`.

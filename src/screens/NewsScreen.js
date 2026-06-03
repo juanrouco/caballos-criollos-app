@@ -6,7 +6,11 @@ import { fetchNoticias, mapNoticia } from '../api';
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
 const PAGE_SIZE = 10;
 
-export default function NewsScreen({ t, navigation }) {
+export default function NewsScreen({ t, navigation, route }) {
+  // Filtros opcionales pasados por route.params (ej. desde los tiles de
+  // Disciplinas en Home). Si cambian, fetchPage se rearma y re-fetcha.
+  const categoriaId     = route?.params?.categoria;
+  const categoriaNombre = route?.params?.categoriaNombre;
   // items: null = loading inicial, [] = vacío / error inicial, [...] = ok.
   const [items, setItems]               = React.useState(null);
   const [error, setError]               = React.useState(null);
@@ -24,7 +28,7 @@ export default function NewsScreen({ t, navigation }) {
     } else {
       setLoadingMore(true); setError(null);
     }
-    fetchNoticias({ limit: PAGE_SIZE, offset })
+    fetchNoticias({ limit: PAGE_SIZE, offset, categoria: categoriaId })
       .then((r) => {
         if (myId !== reqIdRef.current) return;
         const page = (r.data || []).map(mapNoticia);
@@ -40,7 +44,7 @@ export default function NewsScreen({ t, navigation }) {
         setLoadingMore(false);
         if (reset) setItems([]);
       });
-  }, []);
+  }, [categoriaId]);
 
   React.useEffect(() => { fetchPage(true); }, [fetchPage]);
 
@@ -103,7 +107,12 @@ export default function NewsScreen({ t, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
-        <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }}>Noticias</Text>
+        <View style={{ flex: 1 }}>
+          {!!categoriaNombre && (
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 2 }} numberOfLines={1}>Noticias</Text>
+          )}
+          <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }} numberOfLines={1}>{categoriaNombre || 'Noticias'}</Text>
+        </View>
       </View>
 
       {items === null ? (
