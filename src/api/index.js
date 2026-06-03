@@ -9,6 +9,6 @@ export {
 } from './eventos';
 export { fetchVivos } from './vivos';
 export {
-  fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
+  fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
 } from './animales';
 export { todayISO } from './utils';

@@ -1,7 +1,8 @@
 import { apiGet } from './client';
 
-export const fetchAnimal         = (id) => apiGet(`/animales/${encodeURIComponent(id)}`);
-export const fetchAnimalPedigree = (id) => apiGet(`/animales/${encodeURIComponent(id)}/pedigree`);
+export const fetchAnimales       = (params) => apiGet('/animales', params);
+export const fetchAnimal         = (id)     => apiGet(`/animales/${encodeURIComponent(id)}`);
+export const fetchAnimalPedigree = (id)     => apiGet(`/animales/${encodeURIComponent(id)}/pedigree`);
 
 const SEX_LABEL = { M: 'Macho', H: 'Hembra', C: 'Castrado' };
 

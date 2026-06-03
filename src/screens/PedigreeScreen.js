@@ -1,38 +1,68 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Icon, Crest, Card, Divider, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
-import { HORSES } from '../data';
+import { fetchAnimales } from '../api';
+
+const SEX_LABEL  = { M: 'Macho', H: 'Hembra', C: 'Castrado' };
+const SEX_TO_API = { Macho: 'M', Hembra: 'H' };
+// /animales soporta hasta 200; 50 es el default del backend. Si la página se
+// llena, mostramos el aviso "refiná la búsqueda" en vez de paginar.
+const LIMIT = 50;
 
 const FIELDS = [
-  { id: 'nombre', label: 'Nombre', placeholder: 'Nombre del animal', type: 'text' },
-  { id: 'sba', label: 'S.B.A.', placeholder: 'Número de S.B.A.', type: 'number' },
-  { id: 'rp', label: 'R.P.', placeholder: 'Número de R.P.', type: 'number' },
-  { id: 'sexo', label: 'Sexo', placeholder: 'Macho / Hembra', type: 'select', opts: ['Macho', 'Hembra'] },
+  { id: 'nombre',  label: 'Nombre',  placeholder: 'Nombre del animal', type: 'text' },
+  { id: 'sba',     label: 'S.B.A.',  placeholder: 'Número de S.B.A.',  type: 'number' },
+  { id: 'rp',      label: 'R.P.',    placeholder: 'Número de R.P.',    type: 'number' },
+  { id: 'sexo',    label: 'Sexo',    placeholder: 'Macho / Hembra',    type: 'select', opts: ['Macho', 'Hembra'] },
   { id: 'criador', label: 'Criador', placeholder: 'Número de criador', type: 'number' },
 ];
 
 export default function PedigreeScreen({ t, navigation }) {
-  const [values, setValues] = React.useState({});
-  const [submitted, setSubmitted] = React.useState(false);
-  const setField = (id, v) => { setValues((s) => ({ ...s, [id]: v })); setSubmitted(false); };
+  const [values, setValues]   = React.useState({});
+  const [results, setResults] = React.useState(null); // null = aún no se buscó
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]     = React.useState(null);
+  // Guard contra resoluciones viejas (si el usuario edita o re-busca antes
+  // de que termine el fetch anterior).
+  const reqIdRef = React.useRef(0);
+
+  const setField = (id, v) => {
+    reqIdRef.current++;
+    setValues((s) => ({ ...s, [id]: v }));
+    setResults(null); setError(null); setLoading(false);
+  };
   const activeCount = FIELDS.filter((f) => values[f.id] && String(values[f.id]).trim()).length;
 
-  const filtered = !submitted ? null : HORSES.filter((h) => {
-    for (const f of FIELDS) {
-      const v = (values[f.id] || '').trim();
-      if (!v) continue;
-      const n = v.toLowerCase();
-      let m = false;
-      if (f.id === 'nombre') m = (h.name || '').toLowerCase().includes(n);
-      else if (f.id === 'sba') m = (h.sba || '').includes(n);
-      else if (f.id === 'rp') m = (h.rp || '').includes(n);
-      else if (f.id === 'sexo') m = (h.sex || '').toLowerCase() === n;
-      else if (f.id === 'criador') m = (h.criadorNum || '').includes(n);
-      if (!m) return false;
-    }
-    return true;
-  });
+  const onSearch = () => {
+    if (activeCount === 0 || loading) return;
+    const params = {
+      nombre:         values.nombre?.trim()  || undefined,
+      sba:            values.sba?.trim()     || undefined,
+      rp:             values.rp?.trim()      || undefined,
+      sexo:           SEX_TO_API[values.sexo] || undefined,
+      numero_criador: values.criador?.trim() || undefined,
+      limit: LIMIT,
+    };
+    const myId = ++reqIdRef.current;
+    setLoading(true); setError(null); setResults(null);
+    fetchAnimales(params)
+      .then((res) => {
+        if (myId !== reqIdRef.current) return;
+        setResults(res.data || []);
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (myId !== reqIdRef.current) return;
+        setError(e.message || 'No se pudo realizar la búsqueda.');
+        setLoading(false);
+      });
+  };
+
+  const onClear = () => {
+    reqIdRef.current++;
+    setValues({}); setResults(null); setError(null); setLoading(false);
+  };
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -47,19 +77,23 @@ export default function PedigreeScreen({ t, navigation }) {
           <FieldRow key={f.id} f={f} value={values[f.id] || ''} onChange={(v) => setField(f.id, v)} t={t} />
         ))}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-          <TouchableOpacity disabled={activeCount === 0} onPress={() => activeCount > 0 && setSubmitted(true)} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: activeCount > 0 ? t.accent : t.surface2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: activeCount > 0 ? 1 : 0.6 }}>
-            <Icon name="search" size={16} color={activeCount > 0 ? t.bg : t.textDim} />
-            <Text style={{ color: activeCount > 0 ? t.bg : t.textDim, fontFamily: F.bodyBold, fontSize: 14 }}>Buscar{activeCount > 0 ? ` · ${activeCount} campo${activeCount > 1 ? 's' : ''}` : ''}</Text>
+          <TouchableOpacity disabled={activeCount === 0 || loading} onPress={onSearch} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: activeCount > 0 ? t.accent : t.surface2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: activeCount > 0 && !loading ? 1 : 0.6 }}>
+            {loading
+              ? <ActivityIndicator color={t.bg} size="small" />
+              : <Icon name="search" size={16} color={activeCount > 0 ? t.bg : t.textDim} />}
+            <Text style={{ color: activeCount > 0 ? t.bg : t.textDim, fontFamily: F.bodyBold, fontSize: 14 }}>
+              {loading ? 'Buscando…' : `Buscar${activeCount > 0 ? ` · ${activeCount} campo${activeCount > 1 ? 's' : ''}` : ''}`}
+            </Text>
           </TouchableOpacity>
-          {activeCount > 0 && (
-            <TouchableOpacity onPress={() => { setValues({}); setSubmitted(false); }} style={{ paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border }}>
+          {activeCount > 0 && !loading && (
+            <TouchableOpacity onPress={onClear} style={{ paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border }}>
               <Text style={{ color: t.textMute, fontFamily: F.bodyMed, fontSize: 13 }}>Limpiar</Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {filtered === null && (
+      {results === null && !error && !loading && (
         <View style={{ paddingHorizontal: 32, paddingTop: 32, alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: withAlpha(t.accent, 0.1), alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <Icon name="search" size={22} color={t.accent} stroke={1.6} />
@@ -69,34 +103,61 @@ export default function PedigreeScreen({ t, navigation }) {
         </View>
       )}
 
-      {filtered !== null && (
+      {error && (
+        <View style={{ paddingHorizontal: 20, marginTop: 18 }}>
+          <Card t={t}>
+            <View style={{ padding: 18, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center', marginBottom: 12 }}>{error}</Text>
+              <TouchableOpacity onPress={onSearch} style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: t.accent }}>
+                <Text style={{ color: t.bg, fontFamily: F.bodyBold, fontSize: 13 }}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </View>
+      )}
+
+      {results !== null && !error && (
         <View style={{ marginTop: 18 }}>
-          <SectionLabel t={t}>{filtered.length} {filtered.length === 1 ? 'resultado' : 'resultados'}</SectionLabel>
+          <SectionLabel t={t}>{results.length} {results.length === 1 ? 'resultado' : 'resultados'}{results.length === LIMIT ? '+' : ''}</SectionLabel>
           <View style={{ paddingHorizontal: 20 }}>
-            {filtered.length === 0 ? (
+            {results.length === 0 ? (
               <Card t={t}><Text style={{ padding: 24, textAlign: 'center', fontSize: 13, color: t.textMute }}>No se encontraron caballos que coincidan con todos los filtros.</Text></Card>
             ) : (
-              <Card t={t}>
-                {filtered.map((h, i) => (
-                  <View key={h.id}>
-                    <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: h.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
-                      <Crest size={36} color={t.accent} bg={withAlpha(t.accent, 0.07)} ring={withAlpha(t.accent, 0.2)} horse />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text }}>{h.name}</Text>
-                        <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4 }}>{h.sex} · {h.pelaje} · {h.criadero}</Text>
-                        <Text style={{ fontSize: 10.5, color: t.textDim, marginTop: 3, fontFamily: F.mono }}>R.P. {h.rp || '—'} · S.B.A. {h.sba || '—'}</Text>
-                      </View>
-                      <Icon name="arrowUR" size={16} color={t.textDim} />
-                    </TouchableOpacity>
-                    {i < filtered.length - 1 && <Divider t={t} style={{ marginLeft: 66 }} />}
-                  </View>
-                ))}
-              </Card>
+              <>
+                <Card t={t}>
+                  {results.map((h, i) => (
+                    <ResultRow key={h.id} h={h} t={t} navigation={navigation} showDivider={i < results.length - 1} />
+                  ))}
+                </Card>
+                {results.length === LIMIT && (
+                  <Text style={{ fontSize: 11, color: t.textMute, marginTop: 10, textAlign: 'center' }}>
+                    Mostrando los primeros {LIMIT}. Refiná la búsqueda para acotar.
+                  </Text>
+                )}
+              </>
             )}
           </View>
         </View>
       )}
     </ScrollView>
+  );
+}
+
+function ResultRow({ h, t, navigation, showDivider }) {
+  const sub = [SEX_LABEL[h.sexo], h.propietario?.nombre].filter(Boolean).join(' · ');
+  return (
+    <View>
+      <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: h.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
+        <Crest size={36} color={t.accent} bg={withAlpha(t.accent, 0.07)} ring={withAlpha(t.accent, 0.2)} horse />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={1}>{h.nombre}</Text>
+          {!!sub && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4 }} numberOfLines={1}>{sub}</Text>}
+          <Text style={{ fontSize: 10.5, color: t.textDim, marginTop: 3, fontFamily: F.mono }}>R.P. {h.rp || '—'} · S.B.A. {h.sba || '—'}</Text>
+        </View>
+        <Icon name="arrowUR" size={16} color={t.textDim} />
+      </TouchableOpacity>
+      {showDivider && <Divider t={t} style={{ marginLeft: 66 }} />}
+    </View>
   );
 }
 
