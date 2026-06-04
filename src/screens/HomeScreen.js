@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
+import * as SplashScreen from 'expo-splash-screen';
 import { Icon, Crest, Card, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES } from '../data';
@@ -72,6 +73,19 @@ export default function HomeScreen({ t, navigation }) {
   }, []);
 
   React.useEffect(() => { loadNews(); }, [loadNews]);
+
+  // Splash screen: se mantiene visible (App.js llama a preventAutoHideAsync
+  // al arranque) hasta que tanto eventos como noticias settlearon — pase lo
+  // que pase: ok, lista vacía o error. Las categorías de noticias no entran
+  // acá porque sólo afectan los tiles de Disciplinas (no bloquean la home).
+  const splashHiddenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (splashHiddenRef.current) return;
+    if (events !== null && news !== null) {
+      splashHiddenRef.current = true;
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [events, news]);
 
   // Categorías de noticias: se cachean en memoria para mapear cada tile
   // de DISCIPLINES al filtro de /noticias. Si falla, los tiles quedan sin

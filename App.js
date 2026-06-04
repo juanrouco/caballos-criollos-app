@@ -6,6 +6,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
 import { InterTight_600SemiBold, InterTight_700Bold } from '@expo-google-fonts/inter-tight';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Mantener el splash a la vista hasta que HomeScreen termine de pedir
+// eventos + noticias (ver hideAsync en src/screens/HomeScreen.js).
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
 import { Icon } from './src/components';

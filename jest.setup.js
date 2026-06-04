@@ -55,6 +55,12 @@ jest.mock('react-native-youtube-iframe', () => {
   };
 });
 
+// expo-splash-screen: no-ops en test.
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(() => Promise.resolve()),
+  hideAsync: jest.fn(() => Promise.resolve()),
+}));
+
 // expo-font / google fonts: no necesitamos cargar nada en test.
 jest.mock('@expo-google-fonts/roboto', () => ({
   useFonts: () => [true],
