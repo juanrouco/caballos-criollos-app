@@ -16,7 +16,17 @@ npm run ios            # expo start --ios
 npm run web            # expo start --web
 ```
 
-No test runner, linter, formatter, or typecheck is configured. The project is plain JavaScript (no TypeScript).
+Tests con `jest-expo` + `@testing-library/react-native`:
+
+```bash
+npm test               # corre toda la suite
+npm run test:watch     # watch mode
+npx jest __tests__/api # corre sólo un subpath
+```
+
+Config en `jest.config.js`, mocks de RN nativos (svg / webview / youtube-iframe) en `jest.setup.js`, tests bajo `__tests__/` (api, LiveContext, screens). El runner sigue tirando warnings de `act()` desde RN Animated — son ruido y no rompen tests.
+
+No hay linter, formatter ni typecheck configurado. El proyecto es JS plano (no TypeScript).
 
 ## Architecture
 
