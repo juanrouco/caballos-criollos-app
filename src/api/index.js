@@ -2,7 +2,8 @@
 // sin que importen un archivo específico por endpoint. Cada nuevo endpoint
 // va en su propio archivo y se re-exporta acá.
 
-export { API_BASE, apiGet } from './client';
+export { API_BASE, apiGet, apiPost } from './client';
+export { registerPushToken } from './push';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   mapEvent, isEmptyCatalog, isEmptyResults,

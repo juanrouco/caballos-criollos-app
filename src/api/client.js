@@ -32,3 +32,17 @@ export async function apiGet(path, params) {
   }
   return res.json();
 }
+
+export async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.message || ''; } catch {}
+    throw new Error(`${path} → HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
+  }
+  return res.json().catch(() => ({}));
+}

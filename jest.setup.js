@@ -61,6 +61,37 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// expo-notifications: stub mínimo. Cada test puede override con
+// jest.spyOn si necesita controlar el resultado.
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'undetermined' })),
+  getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: '' })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
+// expo-application: stub para resolveDeviceId (los IDs nativos no
+// existen en jest, así que devolvemos null por default).
+jest.mock('expo-application', () => ({
+  getIosIdForVendorAsync: jest.fn(() => Promise.resolve(null)),
+  getAndroidId: jest.fn(() => null),
+}));
+
+// expo-device: por default simulamos device físico para que los tests
+// del hook entren al flow de registro.
+jest.mock('expo-device', () => ({ isDevice: true }));
+
+// expo-constants: projectId no seteado por default y executionEnvironment
+// = 'bare' (cualquier valor distinto de 'storeClient' deja el flow
+// completo de registro activo en los tests).
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    executionEnvironment: 'bare',
+    expoConfig: { extra: { eas: { projectId: null } } },
+  },
+}));
+
 // expo-font / google fonts: no necesitamos cargar nada en test.
 jest.mock('@expo-google-fonts/roboto', () => ({
   useFonts: () => [true],

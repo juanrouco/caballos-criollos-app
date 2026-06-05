@@ -13,7 +13,7 @@ En desarrollo local con Docker: `http://localhost:8090/api`.
 ## Convenciones generales
 
 - **Formato**: JSON con `Content-Type: application/json; charset=utf-8`. Strings UTF-8.
-- **Métodos**: solo `GET`. La API es de lectura.
+- **Métodos**: mayormente `GET` (lectura). Algunos endpoints específicos aceptan `POST` para escritura puntual (ej. registro de push tokens) — ver cada endpoint.
 - **CORS**: `Access-Control-Allow-Origin: *`. Métodos: `GET, POST, PUT, PATCH, DELETE, OPTIONS`. Preflight (`OPTIONS`) devuelve `204`.
 - **Autenticación**: ninguna por ahora. Los endpoints son públicos.
 - **Fechas**: siempre `YYYY-MM-DD` (sin hora). En filtros también se acepta `DD-MM-YYYY` solo en `/eventos` (legado).
@@ -194,6 +194,7 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
 | `fijo` | `1` \| `0` | — | Filtra noticias fijas. |
 | `fecha_desde` | `YYYY-MM-DD` | — | `Fecha >= valor`. Si el formato es inválido, se ignora. |
 | `fecha_hasta` | `YYYY-MM-DD` | — | `Fecha <= valor`. Si el formato es inválido, se ignora. |
+| `sort` | `fecha_asc` \| `fecha_desc` | `fecha_desc` | Orden. Default: fijo arriba, fecha DESC. Con `fecha_asc`: fijo arriba, fecha ASC, desempate por categoría y título (replica el orden del listado público legacy). |
 | `limit` | int (1–100) | `20` | Tamaño de página. |
 | `offset` | int (≥0) | `0` | Offset para paginar. |
 
@@ -612,6 +613,59 @@ mysql -uUSER -p caballos_web < docker/db/migrations/2026-06-02_evento_vivos.sql
 
 ---
 
+### Push notifications
+
+Endpoint para que la app mobile registre su push token. Único endpoint de escritura por ahora.
+
+#### `POST /push/register`
+
+Registra (o re-registra) un push token. Idempotente: re-enviar el mismo `token` actualiza `plataforma`/`device_id` sin crear duplicado, gracias a un `UNIQUE INDEX` en la columna `Token`.
+
+**Request body** (`application/json` o `application/x-www-form-urlencoded`)
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `token` | string (1–500) | sí | Token del dispositivo (APNs / FCM / Web Push). |
+| `plataforma` | `ios` \| `android` \| `web` | sí | Whitelist estricta — otros valores devuelven 400. |
+| `device_id` | string (1–256) | no | Identificador opcional del dispositivo. Útil para asociar el token con el device y, a futuro, invalidar tokens viejos del mismo dispositivo. |
+
+**Response 200**
+
+```json
+{
+  "ok": true,
+  "id": 123,
+  "created": true
+}
+```
+
+- `id`: PK de la fila en `tblPushTokens`.
+- `created`: `true` si era un token nuevo; `false` si ya existía (actualizado).
+
+**Errores**
+
+- `400` — `token` faltante / demasiado largo, `plataforma` inválida, body no-JSON con `Content-Type: application/json`.
+- `405` — método ≠ POST.
+
+**Ejemplos**
+
+```bash
+# JSON (típico desde React Native / fetch)
+curl -X POST -H 'Content-Type: application/json' \
+     -d '{"token":"abc123","plataforma":"ios","device_id":"iphone-juan"}' \
+     https://caballoscriollos.com/api/push/register
+
+# Form-urlencoded (fallback)
+curl -X POST -d 'token=xyz&plataforma=android' \
+     https://caballoscriollos.com/api/push/register
+```
+
+**Migración requerida**
+
+La tabla `tblPushTokens` (DB `caballos_bd`) se crea con `docker/db/migrations/2026-06-05_push_tokens.sql`. Aplicar a mano en producción antes de desplegar.
+
+---
+
 ## Cache
 
 Resumen de los `Cache-Control` que envía la API:
@@ -621,6 +675,7 @@ Resumen de los `Cache-Control` que envía la API:
 | `/animales/{id}/pedigree` | `3600` (1 h) |
 | `/noticias` | `300` (5 min) |
 | `/noticias/{id}` | `300` (5 min) |
+| `/noticias/categorias` | `3600` (1 h) |
 | `/vivos`, `/vivos/{id}`, `/eventos/{id}/vivos` | `60` (1 min — `estado` cambia) |
 | resto | sin header (no cacheable por default) |
 
@@ -648,4 +703,9 @@ curl "https://caballoscriollos.com/api/vivos?estado=en_vivo"
 
 # Vivos de un evento puntual
 curl "https://caballoscriollos.com/api/eventos/2057/vivos"
+
+# Registrar push token de la app
+curl -X POST -H 'Content-Type: application/json' \
+     -d '{"token":"abc123","plataforma":"ios","device_id":"iphone-juan"}' \
+     "https://caballoscriollos.com/api/push/register"
 ```

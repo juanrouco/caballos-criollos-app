@@ -15,6 +15,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
 import { Icon } from './src/components';
 import { LiveProvider, useLive } from './src/LiveContext';
+import { navigationRef } from './src/navigation';
+import { usePushNotifications } from './src/usePushNotifications';
 import HomeScreen from './src/screens/HomeScreen';
 import EventsScreen from './src/screens/EventsScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
@@ -245,6 +247,7 @@ export default function App() {
     Roboto_400Regular, Roboto_500Medium, Roboto_700Bold,
     InterTight_600SemiBold, InterTight_700Bold,
   });
+  usePushNotifications();
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
   const navTheme = MODE === 'dark'
@@ -257,7 +260,7 @@ export default function App() {
         <LiveProvider>
           <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
           <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-            <NavigationContainer theme={navTheme}>
+            <NavigationContainer ref={navigationRef} theme={navTheme}>
               <Tabs />
             </NavigationContainer>
           </SafeAreaView>
