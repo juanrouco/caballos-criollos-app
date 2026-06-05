@@ -100,6 +100,50 @@ describe('EventDetailScreen', () => {
     await waitFor(() => expect(getByText('Sin catálogo')).toBeTruthy());
   });
 
+  test('vivo con link_pagina (sin link_youtube) muestra botón que abre en el browser', async () => {
+    const { Linking } = require('react-native');
+    const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    fetchEvento.mockResolvedValueOnce(evento({
+      id: 99,
+      vivo_actual: {
+        id: 1, titulo: 'Aparte vacuno',
+        link_pagina: 'https://transmision.example.com/expo',
+        link_youtube: '',
+        estado: 'en_vivo',
+      },
+    }));
+    fetchEventoCatalogo.mockResolvedValueOnce({});
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, queryByLabelText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 99 })} />,
+    );
+    const btn = await findByText('Ver transmisión en vivo');
+    // No debe renderearse el player de YouTube en este caso.
+    expect(queryByLabelText('YoutubePlayer')).toBeNull();
+    fireEvent.press(btn);
+    expect(openSpy).toHaveBeenCalledWith('https://transmision.example.com/expo');
+    openSpy.mockRestore();
+  });
+
+  test('vivo con link_youtube rendera el player y NO el botón de página', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({
+      id: 100,
+      vivo_actual: {
+        id: 1, titulo: 'X',
+        link_youtube: 'https://youtube.com/watch?v=abc123',
+        link_pagina: 'https://example.com/page',
+        estado: 'en_vivo',
+      },
+    }));
+    fetchEventoCatalogo.mockResolvedValueOnce({});
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByLabelText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 100 })} />,
+    );
+    expect(await findByLabelText('YoutubePlayer')).toBeTruthy();
+    expect(queryByText('Ver transmisión en vivo')).toBeNull();
+  });
+
   test('catálogo con animales renderea acordeón + nombre de la categoría', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 5 }));
     fetchEventoCatalogo.mockResolvedValueOnce({

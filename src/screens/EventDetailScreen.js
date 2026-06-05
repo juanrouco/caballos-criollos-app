@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions, Linking } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
@@ -171,8 +171,11 @@ export default function EventDetailScreen({ t, navigation, route }) {
           {[mapped.dateFull, mapped.location].filter(Boolean).join(' · ')}
         </Text>
 
-        {/* Vivo inline (si hay) */}
+        {/* Vivo inline (si hay): preferimos embed de YouTube si la vivo
+            trae link_youtube parseable; si no y hay link_pagina, mostramos
+            un botón que abre la página en el browser del device. */}
         {vivo && videoId && <LiveVideo t={t} videoId={videoId} />}
+        {vivo && !videoId && vivo.link_pagina && <LivePageLink t={t} vivo={vivo} />}
 
         {/* Tabs */}
         <View style={{ flexDirection: 'row', gap: 24, marginTop: 28, borderBottomWidth: 1, borderBottomColor: t.border }}>
@@ -195,6 +198,28 @@ export default function EventDetailScreen({ t, navigation, route }) {
 }
 
 // ── Live video ───────────────────────────────────────────────────
+
+function LivePageLink({ t, vivo }) {
+  const open = () => Linking.openURL(vivo.link_pagina).catch(() => {});
+  const host = (() => {
+    try { return new URL(vivo.link_pagina).host; } catch { return vivo.link_pagina; }
+  })();
+  return (
+    <TouchableOpacity
+      onPress={open}
+      style={{ marginTop: 18, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(t.live, 0.4), backgroundColor: withAlpha(t.live, 0.08), flexDirection: 'row', alignItems: 'center', gap: 12 }}
+    >
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: t.live, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="tv" size={18} color="#fff" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>Ver transmisión en vivo</Text>
+        <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{host}</Text>
+      </View>
+      <Icon name="arrowUR" size={16} color={t.textMute} />
+    </TouchableOpacity>
+  );
+}
 
 function LiveVideo({ t, videoId }) {
   // Ancho real menos el padding horizontal del contenedor (20 cada lado).
