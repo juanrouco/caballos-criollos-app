@@ -39,7 +39,11 @@ export default function EventDetailScreen({ t, navigation, route }) {
   const [catalogo, setCatalogo] = React.useState(initial.catalogo || null);
   const [resultados, setResultados] = React.useState(initial.resultados || null);
   const [error, setError] = React.useState(null);
-  const [selectedTab, setSelectedTab] = React.useState('info');
+  const [selectedTab, setSelectedTab] = React.useState(null);
+  // Cuando el usuario tappea una tab, marcamos el ref para que el auto-pick
+  // no le pise la selección si todavía no terminaron de cargar catálogo /
+  // resultados.
+  const userPickedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (id == null) { setError('Falta el id del evento.'); return; }
@@ -80,18 +84,31 @@ export default function EventDetailScreen({ t, navigation, route }) {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Tabs: las que están vacías van al final. Mientras el fetch está in-flight
-  // (state === null) NO se considera vacía, así no bailan las tabs al cargar.
+  // Tabs: orden base catálogo → resultados → info; las vacías se mueven al
+  // final. Mientras el fetch está in-flight (state === null) NO se considera
+  // vacía, así no bailan las tabs al cargar.
   const tabs = React.useMemo(() => {
     const def = [
-      { id: 'info',       label: 'Info',       empty: false                                              },
       { id: 'catalogo',   label: 'Catálogo',   empty: catalogo   !== null && isEmptyCatalog(catalogo)   },
       { id: 'resultados', label: 'Resultados', empty: resultados !== null && isEmptyResults(resultados) },
+      { id: 'info',       label: 'Info',       empty: false                                              },
     ];
     return [...def].sort((a, b) => Number(a.empty) - Number(b.empty));
   }, [catalogo, resultados]);
 
-  const activeTab = selectedTab;
+  // Auto-pick: cuando catálogo y resultados settlearon, default a la tab
+  // izquierda no vacía (catálogo > resultados > info). Si el usuario ya
+  // tappeó una tab antes, respetamos su elección.
+  React.useEffect(() => {
+    if (userPickedRef.current) return;
+    if (catalogo === null || resultados === null) return;
+    if (!isEmptyCatalog(catalogo))        setSelectedTab('catalogo');
+    else if (!isEmptyResults(resultados)) setSelectedTab('resultados');
+    else                                  setSelectedTab('info');
+  }, [catalogo, resultados]);
+
+  const activeTab = selectedTab || 'info';
+  const onTabPress = (id) => { userPickedRef.current = true; setSelectedTab(id); };
 
   // Back contextual:
   //   - desde la home (from: 'home') → volver a la home
@@ -182,7 +199,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
           {tabs.map((tb) => {
             const on = activeTab === tb.id;
             return (
-              <TouchableOpacity key={tb.id} onPress={() => setSelectedTab(tb.id)} style={{ paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
+              <TouchableOpacity key={tb.id} onPress={() => onTabPress(tb.id)} style={{ paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
                 <Text style={{ color: on ? t.text : t.textMute, fontFamily: F.bodyBold, fontSize: 14 }}>{tb.label}</Text>
               </TouchableOpacity>
             );

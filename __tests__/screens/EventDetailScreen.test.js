@@ -144,6 +144,54 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Ver transmisión en vivo')).toBeNull();
   });
 
+  test('auto-pick: con catálogo cargado se abre directo en Catálogo', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 200 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 1, nombre: 'X',
+        categorias: [{ id: 2, nombre: 'Cat X', animales: [{ id: 'pdre:1', nombre: 'A' }] }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 200 })} />,
+    );
+    // Sin tappear, ya tiene que mostrar el contenido del catálogo.
+    expect(await findByText('Cat X')).toBeTruthy();
+  });
+
+  test('auto-pick: catálogo vacío + resultados con datos abre en Resultados', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 201 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 5, nombre: 'CategMorfo',
+          premios: [{ animal: { id: 'pdre:1', nombre: 'Ganador' }, premio: { nombre: '1er' } }],
+        }],
+      },
+    });
+    const { findByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 201 })} />,
+    );
+    // Sin tappear, ya está en Resultados (se ve el accordeón).
+    expect(await findByText(/CategMorfo/)).toBeTruthy();
+  });
+
+  test('auto-pick: ni catálogo ni resultados → arranca en Info', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 202 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getAllByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 202 })} />,
+    );
+    // En Info aparece la fila "Fecha" del cuadrito.
+    expect(await findByText('Fecha')).toBeTruthy();
+    // Y los empty states de Catálogo / Resultados no están visibles (estarían si tappearas).
+    expect(getAllByText('Catálogo').length).toBe(1);
+  });
+
   test('catálogo con animales renderea acordeón + nombre de la categoría', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 5 }));
     fetchEventoCatalogo.mockResolvedValueOnce({
