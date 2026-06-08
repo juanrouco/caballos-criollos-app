@@ -12,6 +12,7 @@ export { fetchVivos } from './vivos';
 export {
   fetchNoticias, fetchNoticia, fetchNoticiaCategorias, mapNoticia,
 } from './noticias';
+export { fetchNotificaciones, mapNotificacion, isUnreadSince } from './notificaciones';
 export {
   fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
 } from './animales';

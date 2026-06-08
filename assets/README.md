@@ -613,6 +613,80 @@ mysql -uUSER -p caballos_web < docker/db/migrations/2026-06-02_evento_vivos.sql
 
 ---
 
+### Notificaciones
+
+Notificaciones que alimentan la **campanita** de la app: un log centralizado de los avisos que se quieren mostrar al usuario (y que eventualmente se envían por push). Hoy son **broadcast** (todas las notifs van a todos los dispositivos); cuando se sume login a la app, la misma tabla soporta notifs per-user vía el campo `IdUsuario`.
+
+**Modelo cliente (recomendado)**
+
+1. La app guarda en `AsyncStorage` un único valor: `lastSeenAt` (timestamp).
+2. Al cargar la home: `GET /api/notificaciones?since={lastSeenAt}` — el badge de la campanita es `meta.total`.
+3. Al abrir la campanita: `GET /api/notificaciones?limit=20`, mostrar lista. Al cerrar (o al primer scroll): setear `lastSeenAt = now` localmente.
+4. Al tocar una notif: navegar usando `target.tipo + target.id` (deeplink interno) o `target.url` (link externo). Si `target` es `null`, no hace nada al tocarla.
+
+#### `GET /notificaciones`
+
+Listado paginado, orden `Fecha DESC, IdNotificacion DESC`. **Cache**: `Cache-Control: public, max-age=30` (corto para no atrasar el badge).
+
+**Query params**
+
+| Param | Tipo | Default | Descripción |
+|---|---|---|---|
+| `since` | `YYYY-MM-DD HH:MM:SS` o ISO 8601 | — | Solo notifs con `Fecha > valor`. Útil para "traeme lo nuevo desde mi último check" (poll del badge). Strings sin TZ se interpretan como Argentina. |
+| `tipo` | `generico` \| `vivo` \| `evento` \| `noticia` | — | Filtra por tipo. |
+| `limit` | int (1–200) | `50` | Tamaño de página. |
+| `offset` | int (≥0) | `0` | Offset para paginar. |
+
+**Response**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "titulo": "Empezó la transmisión",
+      "cuerpo": "Aparte vacuno está al aire ahora",
+      "tipo": "vivo",
+      "target": {
+        "tipo": "vivo",
+        "id": "2",
+        "url": null
+      },
+      "imagen_url": null,
+      "fecha": "2026-06-08 13:11:58"
+    }
+  ],
+  "meta": { "count": 1, "limit": 50, "offset": 0, "total": 1 }
+}
+```
+
+- `target` puede ser `null` (notif sin deeplink) o un objeto con uno de los dos modos:
+  - `{ tipo, id, url:null }` — deeplink interno a un recurso de la app (vivo/evento/noticia + id).
+  - `{ tipo:null, id:null, url }` — link externo (browser).
+- `fecha` se devuelve en horario Argentina sin offset (consistente con el resto de la API).
+
+#### `GET /notificaciones/{id}`
+
+Detalle de una notificación. Mismo shape que un item del listing. `404` si no existe / está eliminada.
+
+#### ABM (admin)
+
+La carga, edición y baja se hace desde el admin web (`src/web/admin/notificaciones.php`, en el menú **Notificaciones**). Soft delete: el botón eliminar deja la fila con `IdEstado = 0` para mantener el log.
+
+#### Migración requerida
+
+`docker/db/migrations/2026-06-08_notificaciones.sql` crea la tabla `tblNotificaciones` en `caballos_web`. Aplicar a mano en producción:
+
+```bash
+mysql -uUSER -p caballos_web < docker/db/migrations/2026-06-08_notificaciones.sql
+```
+
+#### Pendiente
+
+- Envío real a FCM/APNs cuando se cree una notif desde el admin. Hoy queda solo el log; el push real se implementa en una segunda iteración cuando estén las credenciales.
+
+---
+
 ### Push notifications
 
 Endpoint para que la app mobile registre su push token. Único endpoint de escritura por ahora.
@@ -677,6 +751,8 @@ Resumen de los `Cache-Control` que envía la API:
 | `/noticias/{id}` | `300` (5 min) |
 | `/noticias/categorias` | `3600` (1 h) |
 | `/vivos`, `/vivos/{id}`, `/eventos/{id}/vivos` | `60` (1 min — `estado` cambia) |
+| `/notificaciones` | `30` (badge cambia rápido) |
+| `/notificaciones/{id}` | `300` (5 min) |
 | resto | sin header (no cacheable por default) |
 
 ## Ejemplos rápidos (cURL)
@@ -708,4 +784,7 @@ curl "https://caballoscriollos.com/api/eventos/2057/vivos"
 curl -X POST -H 'Content-Type: application/json' \
      -d '{"token":"abc123","plataforma":"ios","device_id":"iphone-juan"}' \
      "https://caballoscriollos.com/api/push/register"
+
+# Notificaciones nuevas desde el último check (para el badge de la campanita)
+curl "https://caballoscriollos.com/api/notificaciones?since=2026-06-08%2010:00:00"
 ```

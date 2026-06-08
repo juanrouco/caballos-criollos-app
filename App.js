@@ -15,6 +15,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
 import { Icon } from './src/components';
 import { LiveProvider, useLive } from './src/LiveContext';
+import { NotificationsProvider } from './src/NotificationsContext';
 import { navigationRef } from './src/navigation';
 import { usePushNotifications } from './src/usePushNotifications';
 import HomeScreen from './src/screens/HomeScreen';
@@ -26,6 +27,7 @@ import RankingsScreen from './src/screens/RankingsScreen';
 import RankingCatScreen from './src/screens/RankingCatScreen';
 import NewsDetailScreen from './src/screens/NewsDetailScreen';
 import NewsScreen from './src/screens/NewsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 // ── Theme context ────────────────────────────────────────────────
 const PALETTE = 'tabaco';
@@ -50,6 +52,7 @@ const RankingsT   = withT(RankingsScreen);
 const RankingCatT = withT(RankingCatScreen);
 const NewsT       = withT(NewsDetailScreen);
 const NewsListT   = withT(NewsScreen);
+const NotifT      = withT(NotificationsScreen);
 
 // ── Navigators ───────────────────────────────────────────────────
 // Cada tab tiene su propio stack — así el footer (CustomTabBar) queda
@@ -79,6 +82,7 @@ function InicioStack() {
         component={NewsT}
         getId={({ params }) => String(params?.id ?? '')}
       />
+      <InicioStackN.Screen name="Notifications" component={NotifT} />
     </InicioStackN.Navigator>
   );
 }
@@ -258,12 +262,14 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeCtx.Provider value={t}>
         <LiveProvider>
-          <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
-          <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-            <NavigationContainer ref={navigationRef} theme={navTheme}>
-              <Tabs />
-            </NavigationContainer>
-          </SafeAreaView>
+          <NotificationsProvider>
+            <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
+            <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+              <NavigationContainer ref={navigationRef} theme={navTheme}>
+                <Tabs />
+              </NavigationContainer>
+            </SafeAreaView>
+          </NotificationsProvider>
         </LiveProvider>
       </ThemeCtx.Provider>
     </SafeAreaProvider>

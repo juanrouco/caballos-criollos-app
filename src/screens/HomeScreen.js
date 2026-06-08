@@ -7,12 +7,14 @@ import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES } from '../data';
 import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO } from '../api';
 import { useLive } from '../LiveContext';
+import { useNotifications } from '../NotificationsContext';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
 
 export default function HomeScreen({ t, navigation }) {
   const { live } = useLive();
+  const { unreadCount } = useNotifications();
   const [events, setEvents] = React.useState(null); // null = loading, [] = vacío, [...] = ok
   const [error, setError] = React.useState(null);
   const [news, setNews] = React.useState(null);
@@ -128,8 +130,26 @@ export default function HomeScreen({ t, navigation }) {
             <Text style={{ fontFamily: F.body, fontSize: 10, color: t.textMute, letterSpacing: 2, marginTop: 4 }}>ASOC. CRIADORES · ACCC</Text>
           </View>
         </View>
-        <TouchableOpacity style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Notifications')}
+          style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}
+        >
           <Icon name="bell" size={18} color={t.textMute} />
+          {unreadCount > 0 && (
+            <View
+              accessibilityLabel={`${unreadCount} notificaciones sin leer`}
+              style={{
+                position: 'absolute', top: -4, right: -4,
+                minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9,
+                backgroundColor: t.live, borderWidth: 2, borderColor: t.bg,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold, lineHeight: 12 }}>
+                {unreadCount > 9 ? '9+' : String(unreadCount)}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 

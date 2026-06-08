@@ -68,6 +68,7 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'undetermined' })),
   getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: '' })),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 // expo-application: stub para resolveDeviceId (los IDs nativos no
@@ -91,6 +92,13 @@ jest.mock('expo-constants', () => ({
     expoConfig: { extra: { eas: { projectId: null } } },
   },
 }));
+
+// AsyncStorage: el mock oficial expone una in-memory store que reinicia
+// solo entre tests si llamás AsyncStorage.clear(). Suficiente para el
+// NotificationsContext (lee/escribe la key `notifs:lastSeenAt`).
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 
 // expo-font / google fonts: no necesitamos cargar nada en test.
 jest.mock('@expo-google-fonts/roboto', () => ({
