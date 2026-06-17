@@ -164,8 +164,8 @@ function EventsList({ t, navigation, filter }) {
                 )}
                 {e.disciplines.length > 0 && (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
-                    {e.disciplines.map((d) => (
-                      <View key={d} style={{ backgroundColor: t.surface2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    {e.disciplines.map((d, i) => (
+                      <View key={`${d}-${i}`} style={{ backgroundColor: t.surface2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
                         <Text style={{ fontSize: 10.5, color: t.textMute }}>{d}</Text>
                       </View>
                     ))}

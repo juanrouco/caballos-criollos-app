@@ -416,7 +416,7 @@ Si el evento no tiene inscripciones, devuelve el shape vacío con arrays vacíos
 
 #### `GET /eventos/{id}/resultados`
 
-Premios cargados para el evento, agrupados por disciplina (morfología, tipo y aptitud) y dentro de cada una por nivel de premio.
+Premios y puntajes cargados para el evento, agrupados por disciplina (morfología, tipo y aptitud, rodeos) y dentro de cada una por nivel de premio o por prueba/categoría.
 
 **Response**
 
@@ -446,6 +446,9 @@ Premios cargados para el evento, agrupados por disciplina (morfología, tipo y a
       { "sexo": "H", "resultados": [ /* ... */ ] }
     ],
     "categorias": [ /* idem morfología */ ]
+  },
+  "rodeos": {
+    "pruebas": [ /* ver shape más abajo */ ]
   }
 }
 ```
@@ -497,6 +500,75 @@ Mapeo de `premio.tipo_id`:
 Dentro de cada grupo, los entries vienen ordenados por puntaje descendente. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`, después cualquier otro.
 
 Si el evento no tiene resultados, devuelve el shape vacío con los arrays vacíos en cada disciplina.
+
+**Rodeos**
+
+La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su `clasificacion` (`Clasificatoria` / `Final` / `TercioFinal` / `CopaEspecial`) y un array de `yuntas`. Cada yunta (par de animales) consolida los dos rows de `tblInscripcionResultadosRodeos` que la componen (dedupe por `IdEquipo`; fallback al par `(IdAnimal, YuntaIdAnimal)` cuando el equipo no está cargado).
+
+```json
+"rodeos": {
+  "pruebas": [
+    {
+      "prueba":    { "id": 2, "nombre": "Rodeos" },
+      "categoria": { "id": 312, "nombre": "Categ. 19 - Final Adulta" },
+      "clasificacion": "Final",
+      "cantidad_clasificatoria": 6,
+      "yuntas": [
+        {
+          "puesto":      { "general": 1, "handicap": 1, "c": 2 },
+          "puesto_dia2": { "general": 1, "handicap": 1, "c": 2 },
+          "totales": {
+            "dia1": 88, "dia2": 86,
+            "total_handicap_1": 78, "total_handicap_2": 76,
+            "total_c_1": 78, "total_c_2": 76,
+            "desempate_dia1": 8, "desempate_dia2": 7
+          },
+          "handicaps": {
+            "h1_dia1": 5, "h2_dia1": 5,
+            "h1_dia2": 5, "h2_dia2": 5,
+            "morfologia_1": 0.0, "morfologia_2": 0.0
+          },
+          "vacas": {
+            "dia1":   [10, 9, 8, 7, 6, 10, 9, 8, 7, 6, 4, 4],
+            "dia2":   [10, 9, 8, 7, 6, 10, 9, 8, 7, 6, 4, 0],
+            "extras": { "vaca25": 8, "vaca26": 7, "vaca27": 0 }
+          },
+          "animales": [
+            {
+              "id": "pdre:12345", "box": "A-15", "nombre": "...",
+              "sba": "...", "rp": "...", "sexo": "M",
+              "fecha_nacimiento": "2018-08-10", "pelaje": "...", "cabania": "...",
+              "jinete": { "id": 123, "nombre": "Juan", "apellido": "Pérez" },
+              "id_evento_inscripcion": 2785
+            },
+            { "id": "exis:9999", "...": "..." }
+          ],
+          "equipo":  {
+            "id": 42,
+            "animales": [
+              {
+                "id": "pdre:12345", "box": "A-15", "nombre": "...",
+                "sba": "...", "rp": "...", "sexo": "M",
+                "jinete": { "id": 123, "nombre": "Juan", "apellido": "Pérez" }
+              }
+            ]
+          },
+          "equipo2": { "id": 51, "animales": [ /* mismo shape que equipo.animales */ ] }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Reglas**:
+
+- Una **yunta** = par de animales que corrieron juntos. La tabla guarda un row por animal con los mismos puntajes copiados; el endpoint consolida en una sola yunta. `animales` siempre trae los dos (en el orden estable del par; un solo animal si la yunta quedó coja por carga incompleta).
+- **Vacas**: array de 12 ints por día (`dia1` = Vaca1..Vaca12, `dia2` = Vaca13..Vaca24). Los desempates van en `extras` (`vaca25` = primer desempate, `vaca26` y `vaca27` = adicionales).
+- **CopaEspecial**: solo un día, sin handicap ni Total C. En esas yuntas, los campos `dia2`, `total_handicap_*`, `total_c_*`, `desempate_dia2`, `vacas.dia2`, `vacas.extras.vaca26`, `vacas.extras.vaca27`, `puesto_dia2` y `puesto.handicap` / `puesto.c` salen en `null`. La key `handicaps` también queda `null`. El cliente discrimina por `clasificacion === "CopaEspecial"`.
+- **Equipo** vs **Equipo2**: `equipo` es el equipo del jinete principal (`IdJinete`), `equipo2` el del jinete secundario (`IdJinete2`). Cualquiera puede ser `null` si la inscripción no tiene equipo cargado.
+- **Orden** de las yuntas dentro de la categoría: por `puesto.general` ASC (los `null` al final), desempate por total descendente (`dia1 + dia2`). Para CopaEspecial, sin puesto, sale por `dia1` descendente.
+- Solo se incluyen pruebas con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 2`). Pruebas dadas de alta sin yuntas no aparecen.
 
 ---
 
@@ -664,6 +736,16 @@ Listado paginado, orden `Fecha DESC, IdNotificacion DESC`. **Cache**: `Cache-Con
   - `{ tipo, id, url:null }` — deeplink interno a un recurso de la app (vivo/evento/noticia + id).
   - `{ tipo:null, id:null, url }` — link externo (browser).
 - `fecha` se devuelve en horario Argentina sin offset (consistente con el resto de la API).
+
+**Caso especial `target.tipo = "vivo"`**
+
+El operador del admin elige un vivo puntual del listado (`tblEventoVivos`), pero el cliente normalmente quiere abrir la pantalla del **evento** padre (donde se ve el vivo y el resto del catálogo). Por eso:
+
+- `target.tipo` queda en `"vivo"` para que la app pueda mostrar un ícono o copy distinto al `"evento"` genérico si quiere ("ESTÁ EN VIVO" vs "Evento próximo").
+- `target.id` se devuelve **resuelto al `IdEvento` del evento padre**, no al `IdEventoVivo`. La app navega a `/eventos/{target.id}` sin tener que hacer otro lookup.
+- Si el vivo fue eliminado entre el momento del envío y el de consumo de la notif, el endpoint deja `target.id` como el id original del vivo (fallback). La app puede usar eso para detectar "vivo borrado" o simplemente no navegar.
+
+Para los otros tipos (`"evento"`, `"noticia"`), `target.id` es el id directo del recurso.
 
 #### `GET /notificaciones/{id}`
 

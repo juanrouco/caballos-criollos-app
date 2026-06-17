@@ -38,6 +38,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
   const [event, setEvent] = React.useState(initial.event || null);
   const [catalogo, setCatalogo] = React.useState(initial.catalogo || null);
   const [resultados, setResultados] = React.useState(initial.resultados || null);
+  const [refreshingResultados, setRefreshingResultados] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [selectedTab, setSelectedTab] = React.useState(null);
   // Cuando el usuario tappea una tab, marcamos el ref para que el auto-pick
@@ -110,6 +111,18 @@ export default function EventDetailScreen({ t, navigation, route }) {
   const activeTab = selectedTab || 'info';
   const onTabPress = (id) => { userPickedRef.current = true; setSelectedTab(id); };
 
+  // Refresca sólo /resultados (no toca evento ni catálogo). Mantiene los
+  // resultados anteriores visibles mientras el fetch está in-flight — la UX
+  // de loading vive en el botón, no reemplaza todo el contenido.
+  const refreshResultados = React.useCallback(() => {
+    if (id == null || refreshingResultados) return;
+    setRefreshingResultados(true);
+    fetchEventoResultados(id)
+      .then((r) => { setResultados(r); cachePut(id, { resultados: r }); })
+      .catch(() => { /* silenciamos: el usuario sigue viendo lo que tenía */ })
+      .finally(() => setRefreshingResultados(false));
+  }, [id, refreshingResultados]);
+
   // Back contextual:
   //   - desde la home (from: 'home') → volver a la home
   //   - desde la lista de eventos (default) → goBack al EventsList del stack
@@ -172,8 +185,8 @@ export default function EventDetailScreen({ t, navigation, route }) {
               <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold }}>● EN VIVO</Text>
             </View>
           )}
-          {mapped.disciplines.slice(0, MAX_DISCIPLINE_CHIPS).map((d) => (
-            <View key={d} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: withAlpha(t.bg, 0.85), borderWidth: 1, borderColor: withAlpha(t.accent, 0.4) }}>
+          {mapped.disciplines.slice(0, MAX_DISCIPLINE_CHIPS).map((d, i) => (
+            <View key={`${d}-${i}`} style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, backgroundColor: withAlpha(t.bg, 0.85), borderWidth: 1, borderColor: withAlpha(t.accent, 0.4) }}>
               <Text style={{ color: t.accent, fontSize: 10, fontFamily: F.bodyBold }}>{d}</Text>
             </View>
           ))}
@@ -207,7 +220,15 @@ export default function EventDetailScreen({ t, navigation, route }) {
         </View>
 
         {activeTab === 'catalogo'   && <CatalogoTab   t={t} catalogo={catalogo}     navigation={navigation} />}
-        {activeTab === 'resultados' && <ResultsTab    t={t} resultados={resultados} navigation={navigation} />}
+        {activeTab === 'resultados' && (
+          <ResultsTab
+            t={t}
+            resultados={resultados}
+            navigation={navigation}
+            onRefresh={refreshResultados}
+            refreshing={refreshingResultados}
+          />
+        )}
         {activeTab === 'info'       && <InfoTab       t={t} event={event} mapped={mapped} />}
       </View>
     </ScrollView>
@@ -340,76 +361,187 @@ function AnimalRow({ t, a, navigation }) {
 
 const SEX_LABEL = { M: 'Machos', H: 'Hembras', C: 'Castrados' };
 
-function ResultsTab({ t, resultados, navigation }) {
+function ResultsTab({ t, resultados, navigation, onRefresh, refreshing }) {
   if (resultados === null) return <TabLoading t={t} />;
   if (isEmptyResults(resultados)) {
+    return (
+      <View style={{ marginTop: 18 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <RefreshButton t={t} onPress={onRefresh} loading={refreshing} />
+        </View>
+        <EmptyTab t={t} title="Sin resultados" text="Este evento todavía no tiene resultados cargados." />
+      </View>
+    );
+  }
+  return (
+    <ResultsContent
+      t={t}
+      resultados={resultados}
+      navigation={navigation}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+    />
+  );
+}
+
+function RefreshButton({ t, onPress, loading }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={loading}
+      accessibilityLabel="Refrescar resultados"
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: t.border, opacity: loading ? 0.6 : 1 }}
+    >
+      {loading
+        ? <ActivityIndicator size="small" color={t.textMute} />
+        : <Icon name="refresh" size={13} color={t.textMute} />}
+      <Text style={{ color: t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>Refrescar</Text>
+    </TouchableOpacity>
+  );
+}
+
+// Separamos el contenido del tab del wrapper de loading/empty para no llamar
+// hooks condicionalmente cuando los resultados todavía no llegaron.
+function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
+  const sections = React.useMemo(() => {
+    const all = [
+      { key: 'morfologia',    label: 'Morfología',     kind: 'std',    data: resultados.morfologia },
+      { key: 'tipo_aptitud',  label: 'Tipo y Aptitud', kind: 'std',    data: resultados.tipo_aptitud },
+      { key: 'rodeos',        label: 'Rodeos',         kind: 'rodeos', data: resultados.rodeos },
+    ];
+    return all.filter((s) => s.data && !isSectionEmpty(s));
+  }, [resultados]);
+
+  // Auto-pick la primera sección no vacía. Si cambian los resultados (cache)
+  // y la sub-tab activa desapareció, caemos a la primera disponible.
+  const [active, setActive] = React.useState(null);
+  React.useEffect(() => {
+    if (active && sections.some((s) => s.key === active)) return;
+    setActive(sections[0]?.key || null);
+  }, [sections, active]);
+
+  if (sections.length === 0) {
     return <EmptyTab t={t} title="Sin resultados" text="Este evento todavía no tiene resultados cargados." />;
   }
-  const blocks = [
-    { key: 'morfologia',    label: 'Morfología',    data: resultados.morfologia    },
-    { key: 'tipo_aptitud',  label: 'Tipo y Aptitud', data: resultados.tipo_aptitud },
-  ].filter((b) => b.data);
+  const current = sections.find((s) => s.key === active) || sections[0];
 
   return (
-    <View style={{ marginTop: 18, gap: 22 }}>
-      {blocks.map((b) => (
-        <ResultsBlock key={b.key} t={t} label={b.label} data={b.data} navigation={navigation} />
-      ))}
+    <View style={{ marginTop: 18 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+          {sections.length > 1 && sections.map((s) => {
+            const on = current.key === s.key;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                onPress={() => setActive(s.key)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
+              >
+                <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{s.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <RefreshButton t={t} onPress={onRefresh} loading={refreshing} />
+      </View>
+      {current.kind === 'std'
+        ? <StandardSection t={t} data={current.data} navigation={navigation} />
+        : <RodeosSection
+            t={t}
+            pruebas={(current.data.pruebas || []).filter((p) => (p.yuntas || []).length > 0)}
+            navigation={navigation}
+          />
+      }
     </View>
   );
 }
 
-function ResultsBlock({ t, label, data, navigation }) {
-  const gran = data.gran_campeonato || [];
-  const camp = data.campeonato || [];
-  const cats = data.categorias || [];
-  const granHas = gran.some((g) => (g.resultados || []).length > 0);
-  const campHas = camp.some((g) => (g.resultados || []).length > 0);
-  const catsHas = cats.some((c) => (c.premios || []).length > 0);
-  if (!granHas && !campHas && !catsHas) return null;
+function isSectionEmpty(s) {
+  if (s.kind === 'rodeos') {
+    return !(s.data.pruebas || []).some((p) => (p.yuntas || []).length > 0);
+  }
+  const g = s.data;
+  if (!g) return true;
+  const gc = g.gran_campeonato || [];
+  const cp = g.campeonato || [];
+  const cats = g.categorias || [];
+  if (gc.some((x) => (x.resultados || []).length > 0)) return false;
+  if (cp.some((x) => (x.resultados || []).length > 0)) return false;
+  if (cats.some((x) => (x.premios || []).length > 0)) return false;
+  return true;
+}
 
+function StandardSection({ t, data, navigation }) {
+  const gran = (data.gran_campeonato || []).filter((g) => (g.resultados || []).length > 0);
+  const camp = (data.campeonato || []).filter((g) => (g.resultados || []).length > 0);
+  const cats = (data.categorias || []).filter((c) => (c.premios || []).length > 0);
+
+  return (
+    <View style={{ gap: 18 }}>
+      {gran.length > 0 && (
+        <ResultGroup t={t} label="Gran Campeonato">
+          {gran.map((g) => (
+            <ResultCard
+              key={`gran-${g.sexo}`}
+              t={t}
+              title={SEX_LABEL[g.sexo] || g.sexo}
+              entries={g.resultados}
+              navigation={navigation}
+              featured
+            />
+          ))}
+        </ResultGroup>
+      )}
+      {camp.length > 0 && (
+        <ResultGroup t={t} label="Campeonato">
+          {camp.map((g) => (
+            <ResultCard
+              key={`camp-${g.sexo}`}
+              t={t}
+              title={SEX_LABEL[g.sexo] || g.sexo}
+              entries={g.resultados}
+              navigation={navigation}
+            />
+          ))}
+        </ResultGroup>
+      )}
+      {cats.length > 0 && (
+        <ResultGroup t={t} label="Categorías">
+          {cats.map((c) => (
+            <ResultCard
+              key={`cat-${c.id}`}
+              t={t}
+              title={c.nombre}
+              entries={c.premios}
+              navigation={navigation}
+            />
+          ))}
+        </ResultGroup>
+      )}
+    </View>
+  );
+}
+
+function ResultGroup({ t, label, children }) {
   return (
     <View>
       <SectionTitle t={t}>{label}</SectionTitle>
-      <View style={{ gap: 10 }}>
-        {granHas && gran.map((g) => (g.resultados?.length > 0) && (
-          <ResultAccordion
-            key={`gran-${g.sexo}`}
-            t={t}
-            title={`Gran Campeonato · ${SEX_LABEL[g.sexo] || g.sexo}`}
-            entries={g.resultados}
-            navigation={navigation}
-            featured
-          />
-        ))}
-        {campHas && camp.map((g) => (g.resultados?.length > 0) && (
-          <ResultAccordion
-            key={`camp-${g.sexo}`}
-            t={t}
-            title={`Campeonato · ${SEX_LABEL[g.sexo] || g.sexo}`}
-            entries={g.resultados}
-            navigation={navigation}
-          />
-        ))}
-        {catsHas && cats.map((c) => (c.premios?.length > 0) && (
-          <ResultAccordion
-            key={`cat-${c.id}`}
-            t={t}
-            title={c.nombre}
-            entries={c.premios}
-            navigation={navigation}
-          />
-        ))}
-      </View>
+      <View style={{ gap: 10 }}>{children}</View>
     </View>
   );
 }
 
-function ResultAccordion({ t, title, entries, featured, navigation }) {
-  const [open, setOpen] = React.useState(false);
+// Card con 1° puesto siempre visible inline. Tap en "Ver N más" expande el
+// resto. Reemplaza al acordeón cerrado por default — el headline (ganador)
+// se ve sin interacción.
+function ResultCard({ t, title, entries, featured, navigation }) {
+  const [expanded, setExpanded] = React.useState(false);
+  if (entries.length === 0) return null;
+  const visible = expanded ? entries : entries.slice(0, 1);
+  const remaining = entries.length - 1;
   return (
-    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: open ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
-      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13 }}>
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: featured ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: featured ? withAlpha(t.accent, 0.07) : 'transparent' }}>
         {featured && (
           <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
@@ -419,13 +551,17 @@ function ResultAccordion({ t, title, entries, featured, navigation }) {
           <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
           <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{entries.length} {entries.length === 1 ? 'puesto' : 'puestos'}</Text>
         </View>
-        <Icon name="arrow" size={15} color={t.textMute} />
-      </TouchableOpacity>
-      {open && (
-        <View style={{ borderTopWidth: 1, borderTopColor: t.border, padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
-          {entries.map((e, i) => <ResultEntry key={`${e.animal?.id || 'x'}-${i}`} t={t} entry={e} rank={i + 1} navigation={navigation} />)}
-        </View>
-      )}
+      </View>
+      <View style={{ padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
+        {visible.map((e, i) => <ResultEntry key={`${e.animal?.id || 'x'}-${i}`} t={t} entry={e} rank={i + 1} navigation={navigation} />)}
+        {remaining > 0 && (
+          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ paddingVertical: 8, alignItems: 'center' }}>
+            <Text style={{ color: t.accent, fontFamily: F.bodyBold, fontSize: 12 }}>
+              {expanded ? 'Ocultar' : `Ver ${remaining} ${remaining === 1 ? 'puesto más' : 'puestos más'}`}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -462,6 +598,138 @@ function ResultEntry({ t, entry, rank, navigation }) {
         )}
       </TouchableOpacity>
     </Card>
+  );
+}
+
+// ── Rodeos ───────────────────────────────────────────────────────
+
+function RodeosSection({ t, pruebas, navigation }) {
+  return (
+    <View style={{ gap: 10 }}>
+      {pruebas.map((p, i) => {
+        // En CopaEspecial el nombre de la categoría suele ser redundante
+        // (es siempre la misma copa), así que mostramos sólo la clasificación.
+        const isCopa = p.clasificacion === 'CopaEspecial';
+        const catName = p.categoria?.nombre || p.prueba?.nombre || 'Rodeo';
+        const title = isCopa
+          ? 'Copa Especial'
+          : (p.clasificacion ? `${catName} · ${p.clasificacion}` : catName);
+        const featured = p.clasificacion === 'Final' || isCopa;
+        return (
+          <RodeoCard
+            key={`${p.prueba?.id ?? 'p'}-${p.categoria?.id ?? 'c'}-${i}`}
+            t={t}
+            title={title}
+            prueba={p}
+            featured={featured}
+            navigation={navigation}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function RodeoCard({ t, title, prueba, featured, navigation }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const yuntas = prueba.yuntas || [];
+  if (yuntas.length === 0) return null;
+  const visible = expanded ? yuntas : yuntas.slice(0, 1);
+  const remaining = yuntas.length - 1;
+  return (
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: featured ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: featured ? withAlpha(t.accent, 0.07) : 'transparent' }}>
+        {featured && (
+          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{yuntas.length} {yuntas.length === 1 ? 'yunta' : 'yuntas'}</Text>
+        </View>
+      </View>
+      <View style={{ padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
+        {visible.map((y, i) => (
+          <RodeoYunta
+            key={`y-${i}`}
+            t={t}
+            yunta={y}
+            fallbackRank={i + 1}
+            clasificacion={prueba.clasificacion}
+            navigation={navigation}
+          />
+        ))}
+        {remaining > 0 && (
+          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ paddingVertical: 8, alignItems: 'center' }}>
+            <Text style={{ color: t.accent, fontFamily: F.bodyBold, fontSize: 12 }}>
+              {expanded ? 'Ocultar' : `Ver ${remaining} ${remaining === 1 ? 'yunta más' : 'yuntas más'}`}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
+  const isCopa = clasificacion === 'CopaEspecial';
+  // Para CopaEspecial no hay puesto.general (la API ordena por dia1 desc),
+  // así que usamos el índice del array como rank visual.
+  const rank = yunta.puesto?.general ?? fallbackRank;
+  const isFirst = rank === 1;
+  const animales = yunta.animales || [];
+  const totDia1 = yunta.totales?.dia1;
+  const totDia2 = yunta.totales?.dia2;
+  const total = isCopa
+    ? totDia1
+    : (totDia1 != null && totDia2 != null ? totDia1 + totDia2 : null);
+  return (
+    <Card t={t} style={{ borderColor: isFirst ? withAlpha(t.accent, 0.5) : t.border }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: isFirst ? withAlpha(t.accent, 0.1) : 'transparent' }}>
+        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: isFirst ? t.accent : t.textMute, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: F.display, fontSize: 13, color: t.bg }}>{rank}°</Text>
+        </View>
+        <Text style={{ flex: 1, fontSize: 11, fontFamily: F.bodyBold, color: isFirst ? t.accent : t.text, letterSpacing: 1.2, textTransform: 'uppercase' }} numberOfLines={1}>Yunta</Text>
+        {total != null && (
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{total} pts</Text>
+        )}
+      </View>
+      <View>
+        {animales.map((a, i) => (
+          <View key={`${a.id ?? 'a'}-${i}`}>
+            <RodeoAnimalRow t={t} a={a} navigation={navigation} />
+            {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+          </View>
+        ))}
+      </View>
+      {!isCopa && totDia1 != null && totDia2 != null && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 1</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{totDia1}</Text>
+          <View style={{ width: 1, height: 12, backgroundColor: t.border }} />
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 2</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{totDia2}</Text>
+        </View>
+      )}
+    </Card>
+  );
+}
+
+function RodeoAnimalRow({ t, a, navigation }) {
+  const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
+  return (
+    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+      {a.box != null && (
+        <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box}</Text>
+      )}
+      {a.box != null && <View style={{ width: 1, height: 28, backgroundColor: t.border }} />}
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
+        {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
+      </View>
+      <Icon name="arrow" size={15} color={t.textDim} />
+    </TouchableOpacity>
   );
 }
 

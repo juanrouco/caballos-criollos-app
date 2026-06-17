@@ -192,6 +192,163 @@ describe('EventDetailScreen', () => {
     expect(getAllByText('Catálogo').length).toBe(1);
   });
 
+  test('resultados con rodeos: la 1° yunta es visible inline sin tap', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 300 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 312, nombre: 'Categ. 19 - Final Adulta' },
+          clasificacion: 'Final',
+          yuntas: [{
+            puesto: { general: 1 },
+            totales: { dia1: 88, dia2: 86 },
+            animales: [
+              { id: 'pdre:1', nombre: 'Animal Uno', jinete: { nombre: 'Juan', apellido: 'Pérez' } },
+              { id: 'pdre:2', nombre: 'Animal Dos', jinete: { nombre: 'Ana', apellido: 'García' } },
+            ],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 300 })} />,
+    );
+    // Auto-pick a Resultados → única sub-tab (Rodeos) → card visible.
+    expect(await findByText('Categ. 19 - Final Adulta · Final')).toBeTruthy();
+    // 1° yunta inline (sin tap).
+    expect(getByText('Animal Uno')).toBeTruthy();
+    expect(getByText('Animal Dos')).toBeTruthy();
+    expect(getByText('174 pts')).toBeTruthy();
+    expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
+  });
+
+  test('rodeo CopaEspecial: usa dia1 como total y no muestra fila Día 1 / Día 2', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 301 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 50, nombre: 'Copa Solanet' },
+          clasificacion: 'CopaEspecial',
+          yuntas: [{
+            puesto: { general: null },
+            totales: { dia1: 92, dia2: null },
+            animales: [{ id: 'pdre:1', nombre: 'Ganador Copa', jinete: { nombre: 'Luis', apellido: 'M.' } }],
+          }],
+        }],
+      },
+    });
+    const { findByText, queryByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 301 })} />,
+    );
+    // Título "Copa Especial" sin el nombre de categoría + yunta inline.
+    expect(await findByText('Copa Especial')).toBeTruthy();
+    expect(queryByText('Copa Solanet')).toBeNull();
+    expect(getByText('Ganador Copa')).toBeTruthy();
+    expect(getByText('92 pts')).toBeTruthy();
+    expect(queryByText('Día 1')).toBeNull();
+    expect(queryByText('Día 2')).toBeNull();
+  });
+
+  test('"Ver N más" expande el resto de los puestos y luego permite ocultar', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 310 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. A',
+          premios: [
+            { animal: { id: 'pdre:1', nombre: 'Primero' }, premio: { nombre: '1°' } },
+            { animal: { id: 'pdre:2', nombre: 'Segundo' }, premio: { nombre: '2°' } },
+            { animal: { id: 'pdre:3', nombre: 'Tercero' }, premio: { nombre: '3°' } },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 310 })} />,
+    );
+    expect(await findByText('Primero')).toBeTruthy();
+    // 2°/3° escondidos hasta tap.
+    expect(queryByText('Segundo')).toBeNull();
+    expect(queryByText('Tercero')).toBeNull();
+    const expandBtn = getByText('Ver 2 puestos más');
+    fireEvent.press(expandBtn);
+    await waitFor(() => expect(getByText('Segundo')).toBeTruthy());
+    expect(getByText('Tercero')).toBeTruthy();
+    // Ahora el botón vuelve a "Ocultar".
+    fireEvent.press(getByText('Ocultar'));
+    await waitFor(() => expect(queryByText('Segundo')).toBeNull());
+  });
+
+  test('botón Refrescar re-pide /resultados y actualiza el contenido', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 320 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. única',
+          premios: [{ animal: { id: 'pdre:1', nombre: 'Ganador Viejo' }, premio: { nombre: '1°' } }],
+        }],
+      },
+    });
+    // Segunda respuesta — la que vuelve al apretar el botón.
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. única',
+          premios: [{ animal: { id: 'pdre:2', nombre: 'Ganador Nuevo' }, premio: { nombre: '1°' } }],
+        }],
+      },
+    });
+    const { findByText, getByText, getByLabelText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 320 })} />,
+    );
+    expect(await findByText('Ganador Viejo')).toBeTruthy();
+    expect(fetchEventoResultados).toHaveBeenCalledTimes(1);
+    fireEvent.press(getByLabelText('Refrescar resultados'));
+    expect(fetchEventoResultados).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getByText('Ganador Nuevo')).toBeTruthy());
+    expect(queryByText('Ganador Viejo')).toBeNull();
+  });
+
+  test('sub-tabs: cambiar de Morfología a Rodeos cambia el contenido', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 311 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'CatMorfo',
+          premios: [{ animal: { id: 'pdre:1', nombre: 'GanadorMorfo' }, premio: { nombre: '1°' } }],
+        }],
+      },
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 8, nombre: 'CatRodeo' },
+          clasificacion: 'Final',
+          yuntas: [{
+            puesto: { general: 1 },
+            totales: { dia1: 50, dia2: 40 },
+            animales: [{ id: 'pdre:9', nombre: 'GanadorRodeo' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, queryByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 311 })} />,
+    );
+    // Auto-pick: arranca en Morfología → ganador morfo visible, rodeo escondido.
+    expect(await findByText('GanadorMorfo')).toBeTruthy();
+    expect(queryByText('GanadorRodeo')).toBeNull();
+    fireEvent.press(getByText('Rodeos'));
+    await waitFor(() => expect(getByText('GanadorRodeo')).toBeTruthy());
+    expect(queryByText('GanadorMorfo')).toBeNull();
+  });
+
   test('catálogo con animales renderea acordeón + nombre de la categoría', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 5 }));
     fetchEventoCatalogo.mockResolvedValueOnce({

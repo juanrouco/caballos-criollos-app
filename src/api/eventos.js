@@ -16,7 +16,8 @@ export function isEmptyCatalog(c) {
 }
 
 // Resultados "vacíos" = ninguno de los grupos (morfología / tipo y aptitud,
-// y dentro: gran_campeonato / campeonato / categorias) trae entries.
+// y dentro: gran_campeonato / campeonato / categorias) trae entries, y rodeos
+// no tiene ninguna prueba con yuntas.
 export function isEmptyResults(r) {
   if (!r) return true;
   const groups = [r.morfologia, r.tipo_aptitud].filter(Boolean);
@@ -28,6 +29,8 @@ export function isEmptyResults(r) {
     if (cp.some((x) => (x.resultados || []).length > 0)) return false;
     if (cats.some((x) => (x.premios || []).length > 0)) return false;
   }
+  const pruebas = r.rodeos?.pruebas || [];
+  if (pruebas.some((p) => (p.yuntas || []).length > 0)) return false;
   return true;
 }
 

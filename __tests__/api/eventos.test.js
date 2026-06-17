@@ -106,4 +106,15 @@ describe('isEmptyResults', () => {
       tipo_aptitud: { categorias: [{ premios: [{ animal: { id: 'x' } }] }] },
     })).toBe(false);
   });
+
+  test('rodeos sin pruebas o con pruebas sin yuntas cuenta como vacío', () => {
+    expect(isEmptyResults({ rodeos: { pruebas: [] } })).toBe(true);
+    expect(isEmptyResults({ rodeos: { pruebas: [{ yuntas: [] }] } })).toBe(true);
+  });
+
+  test('una yunta en cualquier prueba de rodeo alcanza para no estar vacío', () => {
+    expect(isEmptyResults({
+      rodeos: { pruebas: [{ clasificacion: 'Final', yuntas: [{ puesto: { general: 1 }, animales: [] }] }] },
+    })).toBe(false);
+  });
 });
