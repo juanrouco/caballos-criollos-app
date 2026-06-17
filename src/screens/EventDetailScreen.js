@@ -284,9 +284,33 @@ function CatalogoTab({ t, catalogo, navigation }) {
     return <EmptyTab t={t} title="Sin catálogo" text="Este evento todavía no tiene catálogo cargado." />;
   }
   const pf = catalogo.pruebas_funcionales || [];
-  const mo = catalogo.morfologicas || [];
+  // morfologicas[] viene mezclado: cada cat trae tipo_aptitud: true|false.
+  // Separamos para mostrar Morfología y Tipo y Aptitud como secciones aparte.
+  const allMo  = catalogo.morfologicas || [];
+  const morfo  = allMo.filter((c) => !c.tipo_aptitud);
+  const tipoAp = allMo.filter((c) =>  c.tipo_aptitud);
   return (
     <View style={{ marginTop: 18, gap: 22 }}>
+      {morfo.length > 0 && (
+        <View>
+          <SectionTitle t={t}>Morfología</SectionTitle>
+          <View style={{ gap: 8 }}>
+            {morfo.map((cat) => (
+              <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
+            ))}
+          </View>
+        </View>
+      )}
+      {tipoAp.length > 0 && (
+        <View>
+          <SectionTitle t={t}>Tipo y Aptitud</SectionTitle>
+          <View style={{ gap: 8 }}>
+            {tipoAp.map((cat) => (
+              <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
+            ))}
+          </View>
+        </View>
+      )}
       {pf.length > 0 && (
         <View>
           <SectionTitle t={t}>Pruebas funcionales</SectionTitle>
@@ -302,58 +326,118 @@ function CatalogoTab({ t, catalogo, navigation }) {
           </View>
         </View>
       )}
-      {mo.length > 0 && (
-        <View>
-          <SectionTitle t={t}>Morfología</SectionTitle>
-          <View style={{ gap: 8 }}>
-            {mo.map((cat) => (
-              <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
-            ))}
-          </View>
-        </View>
-      )}
     </View>
   );
 }
 
 function CategoryAccordion({ t, cat, navigation }) {
   const [open, setOpen] = React.useState(false);
+  // Rodeo cats traen yuntas[] (par de animales con jinete c/u) en vez de
+  // animales[]. El resto usa animales[].
+  const yuntas = cat.yuntas;
+  const isRodeo = Array.isArray(yuntas);
   const animales = cat.animales || [];
+  const count = isRodeo ? yuntas.length : animales.length;
+  const countLabel = isRodeo
+    ? `${count} ${count === 1 ? 'yunta' : 'yuntas'}`
+    : `${count} ${count === 1 ? 'animal' : 'animales'}`;
+  // CopaEspecial reemplaza el nombre de la categoría — siempre se trata de
+  // la misma copa, el nombre de la categ. aporta poco.
+  const title = cat.clasificacion === 'CopaEspecial' ? 'Copa Especial' : cat.nombre;
   return (
     <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: open ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
       <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }}>{cat.nombre}</Text>
-          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{animales.length} {animales.length === 1 ? 'animal' : 'animales'}</Text>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }}>{title}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{countLabel}</Text>
         </View>
         <Icon name="arrow" size={15} color={t.textMute} />
       </TouchableOpacity>
-      {open && animales.length > 0 && (
+      {open && count > 0 && (
         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
-          {animales.map((a, i) => (
-            <View key={`${a.id}-${i}`}>
-              <AnimalRow t={t} a={a} navigation={navigation} />
-              {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
-            </View>
-          ))}
+          {isRodeo
+            ? yuntas.map((y, i) => (
+                <View key={`y-${y.orden ?? i}-${i}`}>
+                  <CatalogYuntaGroup t={t} yunta={y} order={i + 1} navigation={navigation} />
+                  {i < yuntas.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
+                </View>
+              ))
+            : animales.map((a, i) => (
+                <View key={`${a.id}-${i}`}>
+                  <AnimalRow t={t} a={a} navigation={navigation} />
+                  {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+                </View>
+              ))
+          }
         </View>
       )}
     </View>
   );
 }
 
-function AnimalRow({ t, a, navigation }) {
-  const meta = [a.sexo, a.fecha_nacimiento, (a.pelaje || '').trim()].filter(Boolean).join(' · ');
+// Una yunta en el catálogo: header chico con "Yunta N" + las dos filas de
+// animales con todos sus datos (box, nombre, sexo/nac/pelaje, R.P./S.B.A.,
+// jinete). Es la versión del catálogo — la de resultados (RodeoAnimalRow)
+// es minimal porque ahí el detalle del animal no es el foco.
+function CatalogYuntaGroup({ t, yunta, order, navigation }) {
+  const animales = yunta.animales || [];
   return (
-    <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+    <View style={{ backgroundColor: withAlpha(t.surface2, 0.4) }}>
+      <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>
+          Yunta {yunta.orden ?? order}
+        </Text>
+      </View>
+      {animales.map((a, i) => (
+        <View key={`${a.id ?? 'a'}-${i}`}>
+          <CatalogYuntaAnimalRow t={t} a={a} navigation={navigation} />
+          {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function CatalogYuntaAnimalRow({ t, a, navigation }) {
+  const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
+  return (
+    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
-      <View style={{ width: 1, height: 28, backgroundColor: t.border }} />
+      <View style={{ width: 1, height: 36, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre}</Text>
-        {!!meta && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3 }} numberOfLines={1}>{meta}</Text>}
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
+        <AnimalMetaLines t={t} a={a} />
+        {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
       </View>
       <Icon name="arrow" size={15} color={t.textDim} />
     </TouchableOpacity>
+  );
+}
+
+function AnimalRow({ t, a, navigation }) {
+  return (
+    <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+      <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
+      <View style={{ width: 1, height: 36, backgroundColor: t.border }} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre}</Text>
+        <AnimalMetaLines t={t} a={a} />
+      </View>
+      <Icon name="arrow" size={15} color={t.textDim} />
+    </TouchableOpacity>
+  );
+}
+
+// Líneas de meta-info del animal para el catálogo: primero la identificación
+// registral (S.B.A. · R.P.) y después la meta general (sexo · nac · pelaje).
+function AnimalMetaLines({ t, a }) {
+  const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
+  const meta = [a.sexo, a.fecha_nacimiento && `Nac. ${a.fecha_nacimiento}`, (a.pelaje || '').trim()].filter(Boolean).join(' · ');
+  return (
+    <>
+      {!!reg  && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
+      {!!meta && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{meta}</Text>}
+    </>
   );
 }
 

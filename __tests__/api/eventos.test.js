@@ -76,6 +76,13 @@ describe('isEmptyCatalog', () => {
       morfologicas: [{ animales: [{ id: 'exis:1' }] }],
     })).toBe(false);
   });
+
+  test('una yunta en una categoría de rodeo alcanza para no estar vacío', () => {
+    expect(isEmptyCatalog({
+      pruebas_funcionales: [{ categorias: [{ animales: [], yuntas: [{ orden: 1, animales: [] }] }] }],
+      morfologicas: [],
+    })).toBe(false);
+  });
 });
 
 describe('isEmptyResults', () => {

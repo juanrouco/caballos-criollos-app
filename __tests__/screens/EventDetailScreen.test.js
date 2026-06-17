@@ -349,6 +349,149 @@ describe('EventDetailScreen', () => {
     expect(queryByText('GanadorMorfo')).toBeNull();
   });
 
+  test('catálogo: ordena Morfología → Tipo y Aptitud → Pruebas funcionales y separa por tipo_aptitud', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 6 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 2, nombre: 'Rodeos',
+        categorias: [{ id: 1, nombre: 'CatFuncional', animales: [{ id: 'pdre:a', nombre: 'F' }] }],
+      }],
+      morfologicas: [
+        { id: 10, nombre: 'CatMorfo',  tipo_aptitud: false, animales: [{ id: 'pdre:b', nombre: 'M' }] },
+        { id: 11, nombre: 'CatTipoAp', tipo_aptitud: true,  animales: [{ id: 'pdre:c', nombre: 'T' }] },
+      ],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, getAllByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 6 })} />,
+    );
+    await findByText('CatMorfo');
+    expect(getByText('CatTipoAp')).toBeTruthy();
+    expect(getByText('CatFuncional')).toBeTruthy();
+    // Orden de section titles: Morfología → Tipo y Aptitud → Pruebas funcionales.
+    const titles = getAllByText(/^(Morfología|Tipo y Aptitud|Pruebas funcionales)$/);
+    expect(titles.map((n) => n.props.children)).toEqual([
+      'Morfología', 'Tipo y Aptitud', 'Pruebas funcionales',
+    ]);
+  });
+
+  test('catálogo morfo: muestra sexo, nac, pelaje, R.P. y S.B.A. del animal', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 30 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [],
+      morfologicas: [{
+        id: 1, nombre: 'CatMorfo', tipo_aptitud: false,
+        animales: [{
+          id: 'pdre:1', box: 'A-1', nombre: 'CaballoMorfo',
+          sexo: 'M', fecha_nacimiento: '2018-08-10', pelaje: 'Tordillo',
+          rp: '12345', sba: '67890',
+        }],
+      }],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 30 })} />,
+    );
+    fireEvent.press(await findByText('CatMorfo'));
+    await waitFor(() => expect(getByText('CaballoMorfo')).toBeTruthy());
+    expect(getByText('M · Nac. 2018-08-10 · Tordillo')).toBeTruthy();
+    expect(getByText('S.B.A. 67890 · R.P. 12345')).toBeTruthy();
+  });
+
+  test('catálogo de rodeo: lista las yuntas con sus animales y jinetes', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 7 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 2, nombre: 'Rodeos',
+        categorias: [{
+          id: 312, nombre: 'Categ. 19 - Final Adulta',
+          yuntas: [{
+            orden: 1,
+            animales: [
+              { id: 'pdre:1', box: 'A-15', nombre: 'Animal Uno', jinete: { nombre: 'Juan',  apellido: 'Pérez' } },
+              { id: 'pdre:2', box: 'A-22', nombre: 'Animal Dos', jinete: { nombre: 'Ana',   apellido: 'García' } },
+            ],
+          }, {
+            orden: 2,
+            animales: [
+              { id: 'pdre:3', box: 'B-3',  nombre: 'Animal Tres', jinete: { nombre: 'Luis', apellido: 'M.' } },
+              { id: 'pdre:4', box: 'B-4',  nombre: 'Animal Cuatro' },
+            ],
+          }],
+        }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7 })} />,
+    );
+    // Auto-pick selecciona Catálogo. Header muestra "N yuntas" en lugar de animales.
+    const accordion = await findByText('Categ. 19 - Final Adulta');
+    expect(getByText('2 yuntas')).toBeTruthy();
+    // Yuntas no se ven hasta abrir el acordeón.
+    expect(queryByText('Animal Uno')).toBeNull();
+    fireEvent.press(accordion);
+    await waitFor(() => expect(getByText('Animal Uno')).toBeTruthy());
+    expect(getByText('Yunta 1')).toBeTruthy();
+    expect(getByText('Yunta 2')).toBeTruthy();
+    expect(getByText('Animal Dos')).toBeTruthy();
+    expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
+    expect(getByText('Jinete: Ana García')).toBeTruthy();
+    expect(getByText('Animal Cuatro')).toBeTruthy();
+  });
+
+  test('catálogo rodeo: cada animal de la yunta muestra sexo, nac, pelaje, R.P., S.B.A. y jinete', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 31 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 2, nombre: 'Rodeos',
+        categorias: [{
+          id: 312, nombre: 'Categ. 19 - Final Adulta',
+          yuntas: [{
+            orden: 1,
+            animales: [{
+              id: 'pdre:1', box: 'A-15', nombre: 'AnimalRod',
+              sexo: 'M', fecha_nacimiento: '2018-08-10', pelaje: 'Tordillo',
+              rp: '111', sba: '222',
+              jinete: { nombre: 'Juan', apellido: 'Pérez' },
+            }],
+          }],
+        }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 31 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 19 - Final Adulta'));
+    await waitFor(() => expect(getByText('AnimalRod')).toBeTruthy());
+    expect(getByText('M · Nac. 2018-08-10 · Tordillo')).toBeTruthy();
+    expect(getByText('S.B.A. 222 · R.P. 111')).toBeTruthy();
+    expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
+  });
+
+  test('catálogo: categoría con clasificacion CopaEspecial muestra "Copa Especial" en vez del nombre', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 8 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 2, nombre: 'Rodeos',
+        categorias: [{
+          id: 50, nombre: 'Categ. Solanet 2026', clasificacion: 'CopaEspecial',
+          yuntas: [{ orden: 1, animales: [{ id: 'pdre:1', nombre: 'Ganador' }] }],
+        }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 8 })} />,
+    );
+    expect(await findByText('Copa Especial')).toBeTruthy();
+    expect(queryByText('Categ. Solanet 2026')).toBeNull();
+  });
+
   test('catálogo con animales renderea acordeón + nombre de la categoría', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 5 }));
     fetchEventoCatalogo.mockResolvedValueOnce({

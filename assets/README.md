@@ -372,6 +372,8 @@ Catálogo de animales inscriptos para el evento. Recibe el `IdEvento` del lado w
         {
           "id": 95,
           "nombre": "Categ. 17 - Caballo Menor - Montado",
+          "clasificacion": "Clasificatoria",
+          "cantidad_clasificatoria": 12,
           "animales": [
             {
               "orden": 1,
@@ -411,6 +413,69 @@ Catálogo de animales inscriptos para el evento. Recibe el `IdEvento` del lado w
 - Un mismo animal puede aparecer múltiples veces si está inscripto en varias pruebas / categorías; `id_evento_inscripcion` indica de qué evento de inscripción viene cada entrada.
 - `orden` solo se setea en pruebas funcionales (`Posicion`); en morfología es siempre `null`.
 - `domador` y `equipo` están como stub (`null`) — pendiente de implementar el link.
+- `clasificacion` y `cantidad_clasificatoria` (a nivel de categoría) salen de `tblEventosFuncionalesPruebasEventos`. `clasificacion` es el tipo de ronda — valores típicos: `Clasificatoria`, `Final`, `TercioFinal`, `CopaEspecial`. `cantidad_clasificatoria` es la cantidad de yuntas / animales que pasan a la siguiente ronda. Ambos pueden ser `null` si la prueba no tiene el row en `efpe` cargado (raro).
+
+**Orden de pruebas funcionales** (replica `_adminexpo_/catalogo_pdf/catalogo_html_mini.php`):
+
+| Posición | `IdEventosFuncionalesPrueba` | Nombre |
+|---|---|---|
+| 1 | 1  | Aparte Vacuno (Felipe Z. Ballester) |
+| 2 | 4  | RJ Dowdall |
+| 3 | 2  | Rodeos |
+| 4 | 3  | Corral de Aparte |
+| 5 | 6  | Aparte Campero |
+| 6 | 11 | Aparte Campero (variante) |
+| 7 | 5  | Freno de Oro |
+| 8 | 8  | Enduro |
+| 9 | 7  | Marcha |
+
+Pruebas con `IdEventosFuncionalesPrueba` no listado (pruebas nuevas que se agreguen) caen al final, ordenadas por id ascendente. Dentro de cada prueba, las categorías van por `IdEventosFuncionalesPruebasCategoria` ascendente.
+
+**Orden de animales dentro de cada prueba**:
+
+| Prueba | Orden |
+|---|---|
+| Rodeos (2) | `iapf.Posicion` ASC — el orden real de salida de la yunta (el que setea `SetRodeosPosiciones`). Como los dos animales de una yunta comparten la misma `Posicion`, cada par queda consecutivo de forma natural. Si por carga incompleta una yunta tiene los animales con posiciones distintas, el handler los junta usando `iapf.YuntaIdAnimal`. |
+| Resto | `iapf.Posicion` ASC |
+
+**Shape especial de rodeos**
+
+La categoría de rodeo no usa `animales[]` como las demás — usa `yuntas[]`, donde cada yunta lista a los dos animales (con su jinete cada uno) que corrieron juntos:
+
+```json
+{
+  "id": 2,
+  "nombre": "Rodeos",
+  "categorias": [
+    {
+      "id": 312,
+      "nombre": "Categ. 19 - Final Adulta",
+      "clasificacion": "Final",
+      "cantidad_clasificatoria": 6,
+      "yuntas": [
+        {
+          "orden": 1,
+          "animales": [
+            {
+              "id": "pdre:12345", "box": "A-15", "nombre": "...",
+              "sba": "...", "rp": "...", "sexo": "M",
+              "fecha_nacimiento": "2018-08-10", "pelaje": "...", "cabania": "...",
+              "propietario": { "numero": "...", "nombre": "..." },
+              "jinete": { "id": 123, "nombre": "Juan", "apellido": "Pérez" },
+              "id_evento_inscripcion": 2785
+            },
+            { "id": "exis:9999", "box": "A-22", "...": "..." }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `orden` de la yunta = `iapf.Posicion` del primer animal del par.
+- `animales[]` siempre trae 2 (los dos miembros de la yunta), salvo que haya quedado coja por carga incompleta — en ese caso, un solo animal.
+- `jinete` viene de `iapf.IdJinete` (jinete que asignó el expositor para la prueba), no del jinete de morfología / tipo y aptitud.
 
 Si el evento no tiene inscripciones, devuelve el shape vacío con arrays vacíos.
 

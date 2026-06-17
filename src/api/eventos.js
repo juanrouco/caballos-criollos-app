@@ -5,12 +5,15 @@ export const fetchEvento            = (id)     => apiGet(`/eventos/${encodeURICo
 export const fetchEventoCatalogo    = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/catalogo`);
 export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/resultados`);
 
-// Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales.
+// Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales
+// (o yuntas, para rodeos que usan ese shape en vez de animales[]).
 export function isEmptyCatalog(c) {
   if (!c) return true;
   const pf = c.pruebas_funcionales || [];
   const mo = c.morfologicas || [];
-  const pfHas = pf.some((p) => (p.categorias || []).some((cat) => (cat.animales || []).length > 0));
+  const pfHas = pf.some((p) => (p.categorias || []).some(
+    (cat) => (cat.animales || []).length > 0 || (cat.yuntas || []).length > 0
+  ));
   const moHas = mo.some((cat) => (cat.animales || []).length > 0);
   return !(pfHas || moHas);
 }
