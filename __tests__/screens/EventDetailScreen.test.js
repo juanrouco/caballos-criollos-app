@@ -59,6 +59,25 @@ describe('EventDetailScreen', () => {
     expect(await findByText('10 de Abril, 2026')).toBeTruthy();
   });
 
+  test('Info: fecha_hasta e inscripciones se rendean como DD/MM/YYYY', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({
+      id: 50,
+      fecha: '2026-04-10',
+      fecha_hasta: '2026-04-15',
+      fecha_inscripcion_desde: '2026-03-01',
+      fecha_inscripcion_hasta: '2026-04-05',
+    }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 50 })} />,
+    );
+    await findByText('Fecha');
+    expect(getByText('15/04/2026')).toBeTruthy();
+    expect(getByText('01/03/2026')).toBeTruthy();
+    expect(getByText('05/04/2026')).toBeTruthy();
+  });
+
   test('cap a 3 chips + chip "+N" cuando hay más categorías', async () => {
     fetchEvento.mockResolvedValueOnce(evento({
       categorias: [
@@ -253,6 +272,64 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Día 2')).toBeNull();
   });
 
+  test('morfología: Campeonato + Premios + Menciones van en un solo bloque sin sub-header', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 312 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Categ. 17',
+          premios: [
+            { animal: { id: 'pdre:c', nombre: 'CampeonMacho' },  premio: { nombre: 'Campeón Macho',    tipo_id: 2, tipo_nombre: 'Campeonato' } },
+            { animal: { id: 'pdre:r', nombre: 'Reservado' },     premio: { nombre: 'Reservado Campeón', tipo_id: 2, tipo_nombre: 'Campeonato' } },
+            { animal: { id: 'pdre:1', nombre: 'PrimerPremio' },  premio: { nombre: '1er Premio',       tipo_id: 3, tipo_nombre: 'Premios' } },
+            { animal: { id: 'pdre:m', nombre: 'Mencionado' },    premio: { nombre: 'Mención',          tipo_id: 4, tipo_nombre: 'Menciones' } },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 312 })} />,
+    );
+    expect(await findByText('CampeonMacho')).toBeTruthy();
+    expect(queryByText('PrimerPremio')).toBeNull();
+    fireEvent.press(getByText('Ver 3 puestos más'));
+    await waitFor(() => expect(getByText('PrimerPremio')).toBeTruthy());
+    expect(getByText('Reservado')).toBeTruthy();
+    expect(getByText('Mencionado')).toBeTruthy();
+    // No tiene que aparecer ningún sub-header para Campeonato / Premios / Menciones.
+    expect(queryByText('Campeonato')).toBeNull();
+    expect(queryByText('Premios')).toBeNull();
+    expect(queryByText('Menciones')).toBeNull();
+  });
+
+  test('morfología: "Sin Premio" sí sale en un sub-grupo aparte con su sub-header', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 313 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Categ. 18',
+          premios: [
+            { animal: { id: 'pdre:c', nombre: 'CampeonHembra' }, premio: { nombre: 'Campeón Hembra', tipo_id: 2, tipo_nombre: 'Campeonato' } },
+            { animal: { id: 'pdre:s1', nombre: 'SinPremio1' },   premio: { nombre: 'Sin Premio',      tipo_id: 5, tipo_nombre: 'Sin Premio' } },
+            { animal: { id: 'pdre:s2', nombre: 'SinPremio2' },   premio: { nombre: 'Sin Premio',      tipo_id: 5, tipo_nombre: 'Sin Premio' } },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText, getAllByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 313 })} />,
+    );
+    expect(await findByText('CampeonHembra')).toBeTruthy();
+    expect(queryByText('Sin Premio')).toBeNull();
+    fireEvent.press(getByText('Ver 2 puestos más'));
+    await waitFor(() => expect(getByText('SinPremio1')).toBeTruthy());
+    expect(getByText('SinPremio2')).toBeTruthy();
+    // "Sin Premio" aparece como sub-header + como premio.nombre de cada entry → 3 nodos.
+    expect(getAllByText('Sin Premio').length).toBe(3);
+  });
+
   test('"Ver N más" expande el resto de los puestos y luego permite ocultar', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 310 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
@@ -349,7 +426,7 @@ describe('EventDetailScreen', () => {
     expect(queryByText('GanadorMorfo')).toBeNull();
   });
 
-  test('catálogo: ordena Morfología → Tipo y Aptitud → Pruebas funcionales y separa por tipo_aptitud', async () => {
+  test('catálogo: sub-tabs Morfología → Tipo y Aptitud → <funcionales>, auto-pick a la primera con datos', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 6 }));
     fetchEventoCatalogo.mockResolvedValueOnce({
       pruebas_funcionales: [{
@@ -362,17 +439,26 @@ describe('EventDetailScreen', () => {
       ],
     });
     fetchEventoResultados.mockResolvedValueOnce({});
-    const { findByText, getByText, getAllByText } = render(
+    const { findByText, getByText, getAllByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 6 })} />,
     );
+    // Auto-pick va a Morfología → solo se ve su categoría.
     await findByText('CatMorfo');
-    expect(getByText('CatTipoAp')).toBeTruthy();
-    expect(getByText('CatFuncional')).toBeTruthy();
-    // Orden de section titles: Morfología → Tipo y Aptitud → Pruebas funcionales.
-    const titles = getAllByText(/^(Morfología|Tipo y Aptitud|Pruebas funcionales)$/);
-    expect(titles.map((n) => n.props.children)).toEqual([
-      'Morfología', 'Tipo y Aptitud', 'Pruebas funcionales',
+    expect(queryByText('CatTipoAp')).toBeNull();
+    expect(queryByText('CatFuncional')).toBeNull();
+    // Las 3 sub-tabs (chips) existen en el orden esperado.
+    const subtabs = getAllByText(/^(Morfología|Tipo y Aptitud|Rodeos)$/);
+    expect(subtabs.map((n) => n.props.children)).toEqual([
+      'Morfología', 'Tipo y Aptitud', 'Rodeos',
     ]);
+    // Tap a Tipo y Aptitud cambia el contenido visible.
+    fireEvent.press(getByText('Tipo y Aptitud'));
+    await waitFor(() => expect(getByText('CatTipoAp')).toBeTruthy());
+    expect(queryByText('CatMorfo')).toBeNull();
+    expect(queryByText('CatFuncional')).toBeNull();
+    // Tap a Rodeos.
+    fireEvent.press(getByText('Rodeos'));
+    await waitFor(() => expect(getByText('CatFuncional')).toBeTruthy());
   });
 
   test('catálogo morfo: muestra sexo, nac, pelaje, R.P. y S.B.A. del animal', async () => {
@@ -394,7 +480,7 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('CatMorfo'));
     await waitFor(() => expect(getByText('CaballoMorfo')).toBeTruthy());
-    expect(getByText('M · Nac. 2018-08-10 · Tordillo')).toBeTruthy();
+    expect(getByText('M · Nac. 10/08/2018 · Tordillo')).toBeTruthy();
     expect(getByText('S.B.A. 67890 · R.P. 12345')).toBeTruthy();
   });
 
@@ -467,7 +553,7 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('Categ. 19 - Final Adulta'));
     await waitFor(() => expect(getByText('AnimalRod')).toBeTruthy());
-    expect(getByText('M · Nac. 2018-08-10 · Tordillo')).toBeTruthy();
+    expect(getByText('M · Nac. 10/08/2018 · Tordillo')).toBeTruthy();
     expect(getByText('S.B.A. 222 · R.P. 111')).toBeTruthy();
     expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
   });

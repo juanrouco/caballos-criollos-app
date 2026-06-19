@@ -4,6 +4,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
+import { formatDate } from '../format';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   isEmptyCatalog, isEmptyResults, mapEvent,
@@ -283,49 +284,63 @@ function CatalogoTab({ t, catalogo, navigation }) {
   if (isEmptyCatalog(catalogo)) {
     return <EmptyTab t={t} title="Sin catálogo" text="Este evento todavía no tiene catálogo cargado." />;
   }
-  const pf = catalogo.pruebas_funcionales || [];
-  // morfologicas[] viene mezclado: cada cat trae tipo_aptitud: true|false.
-  // Separamos para mostrar Morfología y Tipo y Aptitud como secciones aparte.
-  const allMo  = catalogo.morfologicas || [];
-  const morfo  = allMo.filter((c) => !c.tipo_aptitud);
-  const tipoAp = allMo.filter((c) =>  c.tipo_aptitud);
+  return <CatalogoContent t={t} catalogo={catalogo} navigation={navigation} />;
+}
+
+// Misma mecánica que ResultsContent: separamos el contenido del wrapper
+// loading/empty para no llamar hooks condicionalmente.
+function CatalogoContent({ t, catalogo, navigation }) {
+  const sections = React.useMemo(() => {
+    const allMo  = catalogo.morfologicas || [];
+    const morfo  = allMo.filter((c) => !c.tipo_aptitud);
+    const tipoAp = allMo.filter((c) =>  c.tipo_aptitud);
+    const pf     = catalogo.pruebas_funcionales || [];
+    const list = [];
+    if (morfo.length)  list.push({ key: 'morfo',  label: 'Morfología',     cats: morfo });
+    if (tipoAp.length) list.push({ key: 'tipoap', label: 'Tipo y Aptitud', cats: tipoAp });
+    pf.forEach((p, idx) => {
+      const cats = (p.categorias || []).filter((c) => (c.animales || []).length > 0 || (c.yuntas || []).length > 0);
+      if (cats.length > 0) list.push({ key: `pf-${p.id ?? idx}`, label: p.nombre, cats });
+    });
+    return list;
+  }, [catalogo]);
+
+  // Auto-pick la primera sub-tab no vacía. Si cambian los datos (cache) y la
+  // sub-tab activa desapareció, caemos a la primera disponible.
+  const [active, setActive] = React.useState(null);
+  React.useEffect(() => {
+    if (active && sections.some((s) => s.key === active)) return;
+    setActive(sections[0]?.key || null);
+  }, [sections, active]);
+
+  if (sections.length === 0) {
+    return <EmptyTab t={t} title="Sin catálogo" text="Este evento todavía no tiene catálogo cargado." />;
+  }
+  const current = sections.find((s) => s.key === active) || sections[0];
+
   return (
-    <View style={{ marginTop: 18, gap: 22 }}>
-      {morfo.length > 0 && (
-        <View>
-          <SectionTitle t={t}>Morfología</SectionTitle>
-          <View style={{ gap: 8 }}>
-            {morfo.map((cat) => (
-              <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
-            ))}
-          </View>
+    <View style={{ marginTop: 18 }}>
+      {sections.length > 1 && (
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          {sections.map((s) => {
+            const on = current.key === s.key;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                onPress={() => setActive(s.key)}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
+              >
+                <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{s.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
-      {tipoAp.length > 0 && (
-        <View>
-          <SectionTitle t={t}>Tipo y Aptitud</SectionTitle>
-          <View style={{ gap: 8 }}>
-            {tipoAp.map((cat) => (
-              <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
-            ))}
-          </View>
-        </View>
-      )}
-      {pf.length > 0 && (
-        <View>
-          <SectionTitle t={t}>Pruebas funcionales</SectionTitle>
-          <View style={{ gap: 8 }}>
-            {pf.map((prueba) => (
-              <View key={prueba.id} style={{ gap: 8 }}>
-                <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{prueba.nombre}</Text>
-                {(prueba.categorias || []).map((cat) => (
-                  <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
-                ))}
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
+      <View style={{ gap: 8 }}>
+        {current.cats.map((cat) => (
+          <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -432,7 +447,7 @@ function AnimalRow({ t, a, navigation }) {
 // registral (S.B.A. · R.P.) y después la meta general (sexo · nac · pelaje).
 function AnimalMetaLines({ t, a }) {
   const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
-  const meta = [a.sexo, a.fecha_nacimiento && `Nac. ${a.fecha_nacimiento}`, (a.pelaje || '').trim()].filter(Boolean).join(' · ');
+  const meta = [a.sexo, a.fecha_nacimiento && `Nac. ${formatDate(a.fecha_nacimiento)}`, (a.pelaje || '').trim()].filter(Boolean).join(' · ');
   return (
     <>
       {!!reg  && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
@@ -615,13 +630,30 @@ function ResultGroup({ t, label, children }) {
   );
 }
 
-// Card con 1° puesto siempre visible inline. Tap en "Ver N más" expande el
-// resto. Reemplaza al acordeón cerrado por default — el headline (ganador)
-// se ve sin interacción.
+// Dos buckets: "todos los puestos" (Campeonato + Premios + Menciones) en un
+// solo bloque sin sub-header, y "Sin Premio" aparte con sub-header. Sin Premio
+// es cualitativamente distinto (inscriptos que no premiaron), por eso se separa.
+function groupEntriesByTipo(entries) {
+  const main = [];
+  const sinPremio = [];
+  for (const e of entries) {
+    if (e.premio?.tipo_nombre === 'Sin Premio') sinPremio.push(e);
+    else main.push(e);
+  }
+  const out = [];
+  if (main.length)      out.push({ tipo: null,         entries: main });
+  if (sinPremio.length) out.push({ tipo: 'Sin Premio', entries: sinPremio });
+  return out;
+}
+
+// Card con la 1° entry de la categoría siempre visible inline. Tap en
+// "Ver N más" expande el resto agrupado por tipo (Campeonato / Premios /
+// Menciones / Sin Premio) — replica el nuevo shape de morfología, donde el
+// campeón sale dentro de premios[] junto con los puestos.
 function ResultCard({ t, title, entries, featured, navigation }) {
   const [expanded, setExpanded] = React.useState(false);
   if (entries.length === 0) return null;
-  const visible = expanded ? entries : entries.slice(0, 1);
+  const groups = groupEntriesByTipo(entries);
   const remaining = entries.length - 1;
   return (
     <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: featured ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
@@ -637,7 +669,25 @@ function ResultCard({ t, title, entries, featured, navigation }) {
         </View>
       </View>
       <View style={{ padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
-        {visible.map((e, i) => <ResultEntry key={`${e.animal?.id || 'x'}-${i}`} t={t} entry={e} rank={i + 1} navigation={navigation} />)}
+        {groups.map((g, gi) => {
+          // Colapsado: solo la 1° entry del 1° grupo. Expandido: todo.
+          const visibleEntries = expanded ? g.entries : (gi === 0 ? g.entries.slice(0, 1) : []);
+          if (visibleEntries.length === 0) return null;
+          return (
+            <View key={g.tipo || 'main'} style={{ gap: 8 }}>
+              {/* Sub-header solo para grupos con tipo definido (hoy: Sin Premio).
+                  El bloque principal va sin header — todos los puestos juntos. */}
+              {expanded && g.tipo && (
+                <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: gi > 0 ? 4 : 0 }}>
+                  {g.tipo}
+                </Text>
+              )}
+              {visibleEntries.map((e, i) => (
+                <ResultEntry key={`${e.animal?.id || 'x'}-${gi}-${i}`} t={t} entry={e} rank={i + 1} navigation={navigation} />
+              ))}
+            </View>
+          );
+        })}
         {remaining > 0 && (
           <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ paddingVertical: 8, alignItems: 'center' }}>
             <Text style={{ color: t.accent, fontFamily: F.bodyBold, fontSize: 12 }}>
@@ -672,7 +722,7 @@ function ResultEntry({ t, entry, rank, navigation }) {
         )}
         <Text style={{ fontFamily: F.display, fontSize: 17, color: t.text }} numberOfLines={2}>{a.nombre || '—'}</Text>
         <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 4, fontFamily: F.mono }} numberOfLines={1}>
-          {[a.rp != null && `R.P. ${a.rp}`, a.sba != null && `S.B.A. ${a.sba}`, a.fecha_nacimiento && `Nac. ${a.fecha_nacimiento}`].filter(Boolean).join(' · ')}
+          {[a.rp != null && `R.P. ${a.rp}`, a.sba != null && `S.B.A. ${a.sba}`, a.fecha_nacimiento && `Nac. ${formatDate(a.fecha_nacimiento)}`].filter(Boolean).join(' · ')}
         </Text>
         {a.propietario?.nombre && (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: t.border }}>
@@ -821,16 +871,16 @@ function RodeoAnimalRow({ t, a, navigation }) {
 
 function InfoTab({ t, event, mapped }) {
   const rows = [
-    ['Fecha', mapped.dateFull || event.fecha],
-    event.fecha_hasta && event.fecha_hasta !== event.fecha ? ['Hasta', event.fecha_hasta] : null,
+    ['Fecha', mapped.dateFull || formatDate(event.fecha)],
+    event.fecha_hasta && event.fecha_hasta !== event.fecha ? ['Hasta', formatDate(event.fecha_hasta)] : null,
     mapped.location ? ['Lugar', mapped.location] : null,
     event.direccion ? ['Dirección', event.direccion] : null,
     event.region?.nombre ? ['Región', event.region.nombre] : null,
     mapped.disciplines.length > 0 ? ['Categorías', mapped.disciplines.join(', ')] : null,
     event.web ? ['Web', event.web] : null,
     event.email ? ['Email', event.email] : null,
-    event.fecha_inscripcion_desde ? ['Inscripción desde', event.fecha_inscripcion_desde] : null,
-    event.fecha_inscripcion_hasta ? ['Inscripción hasta', event.fecha_inscripcion_hasta] : null,
+    event.fecha_inscripcion_desde ? ['Inscripción desde', formatDate(event.fecha_inscripcion_desde)] : null,
+    event.fecha_inscripcion_hasta ? ['Inscripción hasta', formatDate(event.fecha_inscripcion_hasta)] : null,
   ].filter(Boolean);
 
   return (

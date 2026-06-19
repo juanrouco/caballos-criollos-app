@@ -494,15 +494,12 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
       { "sexo": "H", "resultados": [ /* ... */ ] },
       { "sexo": "C", "resultados": [ /* ... */ ] }
     ],
-    "campeonato": [
-      { "sexo": "M", "resultados": [ /* ... */ ] }
-    ],
     "categorias": [
       {
         "id": 95,
         "nombre": "Categ. 17 - Caballo Menor - Montado",
         "tipo_aptitud": false,
-        "premios": [ /* entries */ ]
+        "premios": [ /* entries — Campeón / 1er Premio / Mención / etc. */ ]
       }
     ]
   },
@@ -554,13 +551,17 @@ Cada **entry** tiene este shape:
 
 Mapeo de `premio.tipo_id`:
 
-| `tipo_id` | `tipo_nombre` | Va a |
-|---|---|---|
-| 1 | Gran Campeonato | `gran_campeonato` (solo morfología) |
-| 2 | Campeonato | `campeonato` |
-| 3 | Premios | `categorias[].premios` |
-| 4 | Menciones | `categorias[].premios` |
-| 5 | Sin Premio | `categorias[].premios` |
+| `tipo_id` | `tipo_nombre` | Va a (morfología) | Va a (tipo y aptitud) |
+|---|---|---|---|
+| 1 | Gran Campeonato | `gran_campeonato` | — |
+| 2 | Campeonato | `categorias[].premios` | `campeonato` |
+| 3 | Premios | `categorias[].premios` | `categorias[].premios` |
+| 4 | Menciones | `categorias[].premios` | `categorias[].premios` |
+| 5 | Sin Premio | `categorias[].premios` | `categorias[].premios` |
+
+**Importante (morfología)**: el "campeonato" (Campeón / Reservado Campeón) es en realidad un sub-resultado de la categoría a la que pertenece el animal, así que sale dentro de `categorias[].premios[]`, no como key aparte. Además, si un animal tiene varios premios en la misma categoría (ej. Campeón + 1er Premio), solo se devuelve el de mayor jerarquía (menor `tipo_id` gana: Campeón > 1er Premio > Mención > Sin Premio). El `tipo_id` / `tipo_nombre` del entry indica cuál de los premios ganó. `gran_campeonato` queda aparte porque es un premio cross-categorías (campeón entre todas las categorías de un sexo).
+
+En tipo y aptitud el campeonato sigue como key separada — ahí la lógica es distinta (la columna `Campeonato` de `tblInscripcionResultadosTipoAptitud` marca rows que son específicamente de campeonato cross-categoría).
 
 Dentro de cada grupo, los entries vienen ordenados por puntaje descendente. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`, después cualquier otro.
 

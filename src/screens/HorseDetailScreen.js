@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Icon, Crest, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
+import { formatDate } from '../format';
 import { fetchAnimalPedigree, mapAnimalPedigree } from '../api';
 
 // Cache por id de animal — mismo patrón que EventDetailScreen: evita re-fetch
@@ -114,7 +115,7 @@ export default function HorseDetailScreen({ t, navigation, route }) {
   const idLine = [horse.rp ? `R.P. ${horse.rp}` : '', horse.sba ? `S.B.A. ${horse.sba}` : '']
     .filter(Boolean).join(' · ');
   const metaFields = [
-    ['Nacimiento', horse.born],
+    ['Nacimiento', formatDate(horse.born)],
     ['Sexo',       horse.sex],
     ['Pelaje',     horse.pelaje],
   ].filter(([, v]) => v);
