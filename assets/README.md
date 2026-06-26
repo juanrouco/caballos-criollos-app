@@ -213,8 +213,9 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
       "fijo": true,
       "video": "",
       "imagen": {
-        "big":   "https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026051904563230832.png",
-        "thumb": "https://caballoscriollos.com/web/_recursos/noticias/imagenes/thumb/2026051904563230832.png"
+        "big":        "https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026051904563230832.png",
+        "thumb":      "https://caballoscriollos.com/web/_recursos/noticias/imagenes/thumb/2026051904563230832.png",
+        "optimizada": "https://caballoscriollos.com/api/img/noticias/2026051904563230832.png"
       }
     }
   ],
@@ -222,7 +223,7 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
 }
 ```
 
-`imagen` puede ser `null` si la noticia no tiene imagen asociada. Orden: `Fijo DESC, Fecha DESC, IdNoticia DESC`.
+`imagen` puede ser `null` si la noticia no tiene imagen asociada. `big`/`thumb` apuntan al original tal cual se subió; `optimizada` pasa por `/api/img` (resize + recompresión WebP/JPEG + cache) y es la que conviene consumir desde la app — ver [Imágenes optimizadas](#imágenes-optimizadas). Orden: `Fijo DESC, Fecha DESC, IdNoticia DESC`.
 
 #### `GET /noticias/categorias`
 
@@ -266,8 +267,9 @@ Detalle de una noticia. **Cache**: `Cache-Control: public, max-age=300`.
       "epigrafe": "FICCC: servicios para expositores",
       "orden": 0,
       "urls": {
-        "big":   "https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/foo.jpg",
-        "thumb": "https://caballoscriollos.com/web/_recursos/noticias/imagenes/thumb/foo.jpg"
+        "big":        "https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/foo.jpg",
+        "thumb":      "https://caballoscriollos.com/web/_recursos/noticias/imagenes/thumb/foo.jpg",
+        "optimizada": "https://caballoscriollos.com/api/img/noticias/foo.jpg"
       }
     }
   ],
@@ -330,7 +332,8 @@ Listado paginado.
       "web":   "https://...",
       "email": "info@...",
       "video": "",
-      "imagen": "",
+      "imagen": "foto_evento.jpg",
+      "imagen_optimizada": "https://caballoscriollos.com/api/img/eventos/foto_evento.jpg",
       "observaciones":          "...",
       "descripcion_tarifas":    "...",
       "informacion_adicional":  "...",
@@ -346,6 +349,8 @@ Listado paginado.
   "meta": { "count": 50, "limit": 50, "offset": 0 }
 }
 ```
+
+`imagen` es el nombre de archivo crudo (puede venir vacío). `imagen_optimizada` es la URL ya armada al endpoint `/api/img` (resize + recompresión + cache) — `null` si no hay imagen. Ver [Imágenes optimizadas](#imágenes-optimizadas).
 
 `observaciones`, `descripcion_tarifas` e `informacion_adicional` vienen como HTML. Las `<img src="data:image/...;base64,...">` embebidas por el editor WYSIWYG del admin viejo se quitan automáticamente (ahorra decenas de KB por respuesta).
 
@@ -595,9 +600,11 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
             "morfologia_1": 0.0, "morfologia_2": 0.0
           },
           "vacas": {
-            "dia1":   [10, 9, 8, 7, 6, 10, 9, 8, 7, 6, 4, 4],
-            "dia2":   [10, 9, 8, 7, 6, 10, 9, 8, 7, 6, 4, 0],
-            "extras": { "vaca25": 8, "vaca26": 7, "vaca27": 0 }
+            "dia1":        [10, 9, 8, 7, 6, 10, 9, 8, 7, 6, 4, 4],
+            "dia2":        [10, 9, 8, 7, null, null, null, null, null, null, null, null],
+            "ultima_dia1": 12,
+            "ultima_dia2": 4,
+            "extras":      { "vaca25": 8, "vaca26": null, "vaca27": null }
           },
           "animales": [
             {
@@ -630,11 +637,63 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 **Reglas**:
 
 - Una **yunta** = par de animales que corrieron juntos. La tabla guarda un row por animal con los mismos puntajes copiados; el endpoint consolida en una sola yunta. `animales` siempre trae los dos (en el orden estable del par; un solo animal si la yunta quedó coja por carga incompleta).
-- **Vacas**: array de 12 ints por día (`dia1` = Vaca1..Vaca12, `dia2` = Vaca13..Vaca24). Los desempates van en `extras` (`vaca25` = primer desempate, `vaca26` y `vaca27` = adicionales).
+- **Vacas**: array de 12 `(int|null)` por día (`dia1` = Vaca1..Vaca12, `dia2` = Vaca13..Vaca24). `null` significa "vaca todavía no procesada"; `0` es una vaca corrida con cero puntos. Los desempates van en `extras` (`vaca25` = primer desempate, `vaca26` y `vaca27` = adicionales) y también pueden ser `null`.
+- **`ultima_dia1` / `ultima_dia2`**: número de la última vaca **del día** (1..12) con dato no-null. Por ej. `ultima_dia2 = 4` significa que el día 2 se procesaron hasta la Vaca16 (la 4ta del día). `null` si todavía no se cargó ninguna en ese día. No incluye los desempates (vaca25/26/27).
 - **CopaEspecial**: solo un día, sin handicap ni Total C. En esas yuntas, los campos `dia2`, `total_handicap_*`, `total_c_*`, `desempate_dia2`, `vacas.dia2`, `vacas.extras.vaca26`, `vacas.extras.vaca27`, `puesto_dia2` y `puesto.handicap` / `puesto.c` salen en `null`. La key `handicaps` también queda `null`. El cliente discrimina por `clasificacion === "CopaEspecial"`.
 - **Equipo** vs **Equipo2**: `equipo` es el equipo del jinete principal (`IdJinete`), `equipo2` el del jinete secundario (`IdJinete2`). Cualquiera puede ser `null` si la inscripción no tiene equipo cargado.
 - **Orden** de las yuntas dentro de la categoría: por `puesto.general` ASC (los `null` al final), desempate por total descendente (`dia1 + dia2`). Para CopaEspecial, sin puesto, sale por `dia1` descendente.
 - Solo se incluyen pruebas con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 2`). Pruebas dadas de alta sin yuntas no aparecen.
+
+---
+
+### Imágenes optimizadas
+
+Sirve versiones **redimensionadas y recomprimidas** de las imágenes que ya viven en disco bajo `_recursos/`. Pensado para que la app baje imágenes livianas en vez del original pesado que se subió por el admin. La reducción típica es del **85–97%** (un PNG de ~1 MB queda en ~40–130 KB según ancho y formato).
+
+#### `GET /img/{coleccion}/{archivo}`
+
+- `coleccion`: `noticias` | `eventos` (whitelist — cualquier otra devuelve `404`).
+- `archivo`: el nombre de archivo tal como aparece en los campos de imagen de la API (ej. `2026062403064981243.png`). El endpoint resuelve internamente la carpeta `big/` de esa colección. Se valida el nombre (sin path traversal, solo extensiones de imagen).
+
+**Query params**
+
+| Param | Tipo | Default | Descripción |
+|---|---|---|---|
+| `w` | int (64–2560) | `1280` | Ancho máximo en px. **Nunca agranda** (si el original es más chico, se respeta su ancho). El alto se calcula manteniendo proporción. |
+| `q` | int (40–92) | `82` (jpg) / `80` (webp) | Calidad de compresión. |
+| `fmt` | `auto` \| `jpg` \| `webp` | `auto` | Formato de salida. `auto` negocia: devuelve **WebP** si el cliente lo acepta (header `Accept: image/webp` o `?fmt=webp`) y el server tiene soporte GD-WebP; si no, **JPEG**. |
+
+**Response**: la imagen **binaria** (`Content-Type: image/webp` o `image/jpeg`), no JSON.
+
+**Headers**
+
+- `Cache-Control: public, max-age=31536000, immutable` + `ETag` + `Last-Modified` — cacheable agresivamente. Soporta `304 Not Modified` (vía `If-None-Match` / `If-Modified-Since`).
+- `Vary: Accept` — la salida depende de si el cliente acepta WebP.
+
+**Comportamiento**
+
+- El resultado se cachea en disco en `_recursos/_cache/img/<2 chars>/<hash>.<ext>` (sharded por los 2 primeros caracteres del hash), con clave por `archivo + mtime + params`. Reprocesa solo si cambió el original o algún parámetro.
+- **Degrada con elegancia**: sin GD, imagen > 40 MP, o formato no decodificable → sirve el original sin transcodificar. Si `_recursos/` no es escribible por el usuario web, sirve igual pero sin persistir el cache (re-procesa en cada request).
+
+**De dónde sale el `archivo`**
+
+Las respuestas de noticias y eventos ya incluyen la URL armada a este endpoint:
+
+- Noticias: `imagen.optimizada` (listing) y `imagenes[].urls.optimizada` (detalle).
+- Eventos: `imagen_optimizada`.
+
+**Ejemplos**
+
+```bash
+# Optimizada con defaults (máx 1280px, WebP si el cliente lo acepta)
+curl "https://caballoscriollos.com/api/img/noticias/2026062403064981243.png"
+
+# Thumbnail chico para un listado
+curl "https://caballoscriollos.com/api/img/noticias/2026062403064981243.png?w=400&q=70"
+
+# Forzar JPEG (cliente sin soporte WebP)
+curl "https://caballoscriollos.com/api/img/eventos/foto_evento.jpg?fmt=jpg"
+```
 
 ---
 
@@ -764,13 +823,15 @@ Notificaciones que alimentan la **campanita** de la app: un log centralizado de 
 
 #### `GET /notificaciones`
 
-Listado paginado, orden `Fecha DESC, IdNotificacion DESC`. **Cache**: `Cache-Control: public, max-age=30` (corto para no atrasar el badge).
+Listado paginado, orden por **momento de envío** descendente (`FechaEnvio DESC, IdNotificacion DESC`). **Cache**: `Cache-Control: public, max-age=30` (corto para no atrasar el badge).
+
+**Solo se devuelven notificaciones efectivamente enviadas** (`EstadoEnvio = enviado`). Las que están programadas para el futuro o todavía pendientes de envío **no aparecen** hasta que el push sale; las anuladas y las que fallaron tampoco. En consecuencia, el campo `fecha` de cada notif es el **instante del envío real** (no el de creación ni el de programación), y tanto el orden como el filtro `since` se basan en ese instante.
 
 **Query params**
 
 | Param | Tipo | Default | Descripción |
 |---|---|---|---|
-| `since` | `YYYY-MM-DD HH:MM:SS` o ISO 8601 | — | Solo notifs con `Fecha > valor`. Útil para "traeme lo nuevo desde mi último check" (poll del badge). Strings sin TZ se interpretan como Argentina. |
+| `since` | `YYYY-MM-DD HH:MM:SS` o ISO 8601 | — | Solo notifs **enviadas** después de `valor` (compara contra el momento de envío). Útil para "traeme lo nuevo desde mi último check" (poll del badge). Strings sin TZ se interpretan como Argentina. |
 | `tipo` | `generico` \| `vivo` \| `evento` \| `noticia` | — | Filtra por tipo. |
 | `limit` | int (1–200) | `50` | Tamaño de página. |
 | `offset` | int (≥0) | `0` | Offset para paginar. |
@@ -801,7 +862,7 @@ Listado paginado, orden `Fecha DESC, IdNotificacion DESC`. **Cache**: `Cache-Con
 - `target` puede ser `null` (notif sin deeplink) o un objeto con uno de los dos modos:
   - `{ tipo, id, url:null }` — deeplink interno a un recurso de la app (vivo/evento/noticia + id).
   - `{ tipo:null, id:null, url }` — link externo (browser).
-- `fecha` se devuelve en horario Argentina sin offset (consistente con el resto de la API).
+- `fecha` se devuelve en horario Argentina sin offset (consistente con el resto de la API) y corresponde al **momento del envío real** del push.
 
 **Caso especial `target.tipo = "vivo"`**
 
@@ -829,9 +890,11 @@ La carga, edición y baja se hace desde el admin web (`src/web/admin/notificacio
 mysql -uUSER -p caballos_web < docker/db/migrations/2026-06-08_notificaciones.sql
 ```
 
-#### Pendiente
+#### Envío y programación (push real)
 
-- Envío real a FCM/APNs cuando se cree una notif desde el admin. Hoy queda solo el log; el push real se implementa en una segunda iteración cuando estén las credenciales.
+El admin permite **enviar al instante** o **programar** una notif para una fecha/hora (Argentina, granularidad minuto). El push real lo despacha un **cron** que recorre las pendientes vencidas y las manda vía Expo (ver `docs/push-notifications-api.md` para el contrato de envío). Como solo se exponen las ya enviadas (ver arriba), para el cliente esto es transparente: una notif programada simplemente aparece en la campanita en el momento en que efectivamente sale.
+
+Detalle del log de envíos (estado por notif, resultado por token, receipts de entrega) es interno del backend y no se expone en este endpoint.
 
 ---
 
@@ -901,6 +964,7 @@ Resumen de los `Cache-Control` que envía la API:
 | `/vivos`, `/vivos/{id}`, `/eventos/{id}/vivos` | `60` (1 min — `estado` cambia) |
 | `/notificaciones` | `30` (badge cambia rápido) |
 | `/notificaciones/{id}` | `300` (5 min) |
+| `/img/{coleccion}/{archivo}` | `31536000` (1 año, `immutable` + `ETag` + `304`) |
 | resto | sin header (no cacheable por default) |
 
 ## Ejemplos rápidos (cURL)
@@ -935,4 +999,8 @@ curl -X POST -H 'Content-Type: application/json' \
 
 # Notificaciones nuevas desde el último check (para el badge de la campanita)
 curl "https://caballoscriollos.com/api/notificaciones?since=2026-06-08%2010:00:00"
+
+# Imagen optimizada de una noticia (máx 800px, WebP si el cliente lo acepta)
+curl -H 'Accept: image/webp' \
+     "https://caballoscriollos.com/api/img/noticias/2026062403064981243.png?w=800"
 ```
