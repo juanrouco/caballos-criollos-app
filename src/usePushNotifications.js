@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
@@ -39,7 +39,9 @@ Notifications.setNotificationHandler({
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
-    shouldSetBadge: true,
+    // No seteamos el badge del ícono con la app en foreground: el usuario ya
+    // la está usando. El badge sólo importa con la app cerrada (lo trae el push).
+    shouldSetBadge: false,
   }),
 });
 
@@ -131,5 +133,16 @@ export function usePushNotifications() {
     // Taps con la app viva (foreground/background).
     const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
     return () => { mounted = false; sub.remove(); };
+  }, []);
+
+  // (3) Badge del ícono de la app. El push trae badge:1 para marcar el ícono
+  // mientras la app está cerrada; lo reseteamos a 0 al abrir y cada vez que
+  // la app vuelve a foreground, así no queda el indicador después de leerla.
+  React.useEffect(() => {
+    Notifications.setBadgeCountAsync(0).catch(() => {});
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') Notifications.setBadgeCountAsync(0).catch(() => {});
+    });
+    return () => sub.remove();
   }, []);
 }

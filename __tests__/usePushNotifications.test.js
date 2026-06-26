@@ -31,6 +31,7 @@ beforeEach(() => {
   Notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: jest.fn() });
   Notifications.getLastNotificationResponseAsync.mockReset();
   Notifications.getLastNotificationResponseAsync.mockResolvedValue(null);
+  Notifications.setBadgeCountAsync.mockClear();
   Application.getIosIdForVendorAsync.mockReset();
   Application.getIosIdForVendorAsync.mockResolvedValue('IFV-1234');
   Application.getAndroidId.mockReset();
@@ -145,6 +146,13 @@ describe('usePushNotifications', () => {
     });
     // Parseado y unwrappeado.
     expect(navigateOnNotificationTap).toHaveBeenCalledWith({ kind: 'vivo', evento_id: 42 });
+  });
+
+  test('al montar resetea el badge del ícono de la app a 0', async () => {
+    Notifications.requestPermissionsAsync.mockResolvedValue({ status: 'denied' });
+    render(<Probe />);
+    await act(async () => { await flushPromises(); });
+    expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(0);
   });
 
   test('cold start: navega usando getLastNotificationResponseAsync (notif que abrió la app)', async () => {
