@@ -71,6 +71,84 @@ moverlo a un contexto con persistencia / toggle de usuario.)
 - **Video en vivo**: iframe de YouTube → `react-native-webview`.
 - **Fuentes**: Inter Tight + Roboto vía `@expo-google-fonts`.
 
+## Build y publicación iOS (EAS + TestFlight)
+
+El build de release no se hace localmente: lo hace **EAS Build** (Expo Application
+Services) en la nube, que además **administra los certificados y provisioning
+profiles automáticamente** — no hace falta crearlos a mano en el portal de Apple.
+
+### Pre-requisitos (una sola vez, en el portal de Apple)
+
+- Membresía del **Apple Developer Program** ($99/año).
+- **App ID** registrado en *Certificates, Identifiers & Profiles* → Identifiers,
+  tipo **App IDs → App**, Bundle ID **Explicit** = `com.caballoscriollos.app`
+  (debe coincidir carácter por carácter con `app.json`). Capability **Push
+  Notifications** sólo si se usan push reales; **Broadcast** queda sin marcar.
+- App creada en **App Store Connect** (el **SKU** es un identificador interno y
+  privado; se usa `com.caballoscriollos.app` por consistencia).
+- En la pregunta *"uses standard/exempt encryption?"* la respuesta es **Yes**: la
+  app sólo usa HTTPS/TLS (encriptación estándar exenta). Declarado en `app.json`
+  vía `ios.infoPlist.ITSAppUsesNonExemptEncryption: false` para no volver a
+  preguntarlo en cada submit.
+
+### Comandos
+
+```bash
+# 1. Instalar eas-cli (una vez)
+npm install -g eas-cli
+
+# 2. Login con la cuenta de Expo
+eas login
+
+# 3. Generar eas.json con los perfiles de build (una vez)
+eas build:configure
+
+# 4. Build de iOS en la nube — la primera vez pide login de Apple y
+#    crea el Distribution Certificate + Provisioning Profile solo
+#    (respondé "Yes" cuando ofrece manejar los credentials)
+eas build --platform ios --profile production
+
+# 5. Subir el build a App Store Connect (≠ enviar a revisión de App Store)
+eas submit --platform ios
+```
+
+### TestFlight
+
+`eas submit` **sube** el build a App Store Connect; **no** lo publica en la App
+Store ni requiere la revisión completa. Después del submit:
+
+1. El build queda **Processing** en la pestaña *TestFlight* (~10–30 min).
+2. **Internal Testing** (hasta 100 del equipo): disponible **al instante**, sin
+   revisión — ideal para probar uno mismo y con la ACCC.
+3. **External Testing** (hasta 10.000): requiere un **Beta App Review** de Apple
+   (más liviano que el de App Store, ~1 día).
+4. Los testers instalan la app **TestFlight** y aceptan la invitación.
+
+Flujo resumido: **`eas build` → `eas submit` → aparece en TestFlight → testers → prueban.**
+
+### Push notifications: Expo vs APNs/FCM directo
+
+El push **solo se puede probar en una build standalone** (TestFlight / dev build)
+sobre un **device físico** — Expo Go (SDK 53+) y el simulador iOS no entregan push
+remoto. La implementación vive en `src/usePushNotifications.js`.
+
+Hoy la app usa **Expo push tokens** (`getExpoPushTokenAsync` → `ExponentPushToken[...]`),
+así que el envío va por el **servicio de push de Expo**. Hay dos caminos posibles:
+
+- **Opción A — Expo Push Service (actual).** El backend POSTea a
+  `https://exp.host/--/api/v2/push/send` con el ExpoPushToken y Expo lo reenvía a
+  APNs (iOS) y FCM (Android). Gratis, una sola API para ambas plataformas, funciona
+  en builds de producción. Contra: Expo queda como intermediario.
+- **Opción B — APNs/FCM directo (sin Expo).** Cambiar a `getDevicePushTokenAsync`
+  (token nativo) y que el backend hable directo con APNs y FCM. Control total, sin
+  terceros. Contra: hay que manejar dos servicios, sus credenciales y formatos de
+  token por plataforma; más trabajo de backend.
+
+**Recomendación:** quedarse con la Opción A salvo que haya una razón concreta para
+no usar intermediario. Migrar a B es un cambio acotado: tocar
+`src/usePushNotifications.js` (token nativo) y el backend (enviar a APNs/FCM en vez
+de a Expo).
+
 ## Pendientes / próximos pasos
 
 - Login y funciones autenticadas.

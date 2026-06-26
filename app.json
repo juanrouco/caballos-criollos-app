@@ -11,16 +11,26 @@
       "backgroundColor": "#f7f3ec",
       "resizeMode": "contain"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.accc.caballoscriollos"
+      "bundleIdentifier": "com.caballoscriollos.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.accc.caballoscriollos",
+      "package": "com.caballoscriollos.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f7f3ec"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "274522a3-1a69-4a61-b2fa-fa6ec03c9fa2"
       }
     }
   }
