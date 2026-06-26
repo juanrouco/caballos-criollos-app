@@ -42,10 +42,6 @@ export default function EventDetailScreen({ t, navigation, route }) {
   const [refreshingResultados, setRefreshingResultados] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [selectedTab, setSelectedTab] = React.useState(null);
-  // Cuando el usuario tappea una tab, marcamos el ref para que el auto-pick
-  // no le pise la selección si todavía no terminaron de cargar catálogo /
-  // resultados.
-  const userPickedRef = React.useRef(false);
 
   React.useEffect(() => {
     if (id == null) { setError('Falta el id del evento.'); return; }
@@ -86,31 +82,32 @@ export default function EventDetailScreen({ t, navigation, route }) {
     return () => { cancelled = true; };
   }, [id]);
 
-  // Tabs: orden base catálogo → resultados → info; las vacías se mueven al
-  // final. Mientras el fetch está in-flight (state === null) NO se considera
-  // vacía, así no bailan las tabs al cargar.
+  // Las tabs recién se muestran cuando catálogo Y resultados settlearon. Así
+  // el orden (y la tab por default) se calculan de una sola vez con los datos
+  // ya cargados — sin reflow ni salto de selección a la vista. Si venís del
+  // cache (volver de HorseDetail) ya están ambos, así que no hay spinner.
+  const tabsReady = catalogo !== null && resultados !== null;
+
+  // Orden: catálogo → resultados → info; las vacías van al final.
   const tabs = React.useMemo(() => {
     const def = [
-      { id: 'catalogo',   label: 'Catálogo',   empty: catalogo   !== null && isEmptyCatalog(catalogo)   },
-      { id: 'resultados', label: 'Resultados', empty: resultados !== null && isEmptyResults(resultados) },
-      { id: 'info',       label: 'Info',       empty: false                                              },
+      { id: 'catalogo',   label: 'Catálogo',   empty: isEmptyCatalog(catalogo)   },
+      { id: 'resultados', label: 'Resultados', empty: isEmptyResults(resultados) },
+      { id: 'info',       label: 'Info',       empty: false                      },
     ];
     return [...def].sort((a, b) => Number(a.empty) - Number(b.empty));
   }, [catalogo, resultados]);
 
-  // Auto-pick: cuando catálogo y resultados settlearon, default a la tab
-  // izquierda no vacía (catálogo > resultados > info). Si el usuario ya
-  // tappeó una tab antes, respetamos su elección.
-  React.useEffect(() => {
-    if (userPickedRef.current) return;
-    if (catalogo === null || resultados === null) return;
-    if (!isEmptyCatalog(catalogo))        setSelectedTab('catalogo');
-    else if (!isEmptyResults(resultados)) setSelectedTab('resultados');
-    else                                  setSelectedTab('info');
-  }, [catalogo, resultados]);
-
-  const activeTab = selectedTab || 'info';
-  const onTabPress = (id) => { userPickedRef.current = true; setSelectedTab(id); };
+  // Tab por default derivada de los datos ya settleados (catálogo > resultados
+  // > info), calculada en render para que el primer paint de las tabs ya tenga
+  // la selección correcta. El tap del usuario la pisa vía `selectedTab`.
+  const defaultTab = !isEmptyCatalog(catalogo)
+    ? 'catalogo'
+    : !isEmptyResults(resultados)
+      ? 'resultados'
+      : 'info';
+  const activeTab = selectedTab || defaultTab;
+  const onTabPress = (id) => setSelectedTab(id);
 
   // Refresca sólo /resultados (no toca evento ni catálogo). Mantiene los
   // resultados anteriores visibles mientras el fetch está in-flight — la UX
@@ -208,29 +205,38 @@ export default function EventDetailScreen({ t, navigation, route }) {
         {vivo && videoId && <LiveVideo t={t} videoId={videoId} />}
         {vivo && !videoId && vivo.link_pagina && <LivePageLink t={t} vivo={vivo} />}
 
-        {/* Tabs */}
-        <View style={{ flexDirection: 'row', gap: 24, marginTop: 28, borderBottomWidth: 1, borderBottomColor: t.border }}>
-          {tabs.map((tb) => {
-            const on = activeTab === tb.id;
-            return (
-              <TouchableOpacity key={tb.id} onPress={() => onTabPress(tb.id)} style={{ paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
-                <Text style={{ color: on ? t.text : t.textMute, fontFamily: F.bodyBold, fontSize: 14 }}>{tb.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* Tabs — recién cuando catálogo y resultados settlearon, así el orden
+            y la selección quedan definidos antes del primer paint (sin reflow). */}
+        {!tabsReady ? (
+          <View style={{ paddingVertical: 44, alignItems: 'center' }}>
+            <ActivityIndicator color={t.accent} />
+          </View>
+        ) : (
+          <>
+            <View style={{ flexDirection: 'row', gap: 24, marginTop: 28, borderBottomWidth: 1, borderBottomColor: t.border }}>
+              {tabs.map((tb) => {
+                const on = activeTab === tb.id;
+                return (
+                  <TouchableOpacity key={tb.id} onPress={() => onTabPress(tb.id)} style={{ paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
+                    <Text style={{ color: on ? t.text : t.textMute, fontFamily: F.bodyBold, fontSize: 14 }}>{tb.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-        {activeTab === 'catalogo'   && <CatalogoTab   t={t} catalogo={catalogo}     navigation={navigation} />}
-        {activeTab === 'resultados' && (
-          <ResultsTab
-            t={t}
-            resultados={resultados}
-            navigation={navigation}
-            onRefresh={refreshResultados}
-            refreshing={refreshingResultados}
-          />
+            {activeTab === 'catalogo'   && <CatalogoTab   t={t} catalogo={catalogo}     navigation={navigation} />}
+            {activeTab === 'resultados' && (
+              <ResultsTab
+                t={t}
+                resultados={resultados}
+                navigation={navigation}
+                onRefresh={refreshResultados}
+                refreshing={refreshingResultados}
+              />
+            )}
+            {activeTab === 'info'       && <InfoTab       t={t} event={event} mapped={mapped} />}
+          </>
         )}
-        {activeTab === 'info'       && <InfoTab       t={t} event={event} mapped={mapped} />}
       </View>
     </ScrollView>
   );

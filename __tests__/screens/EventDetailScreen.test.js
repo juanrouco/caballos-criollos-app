@@ -60,6 +60,19 @@ describe('EventDetailScreen', () => {
     expect(await findByText('10 de Abril, 2026')).toBeTruthy();
   });
 
+  test('no muestra las tabs hasta que catálogo y resultados settlean (sin flash de reorden)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 77 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockReturnValueOnce(new Promise(() => {})); // queda in-flight
+    const { findByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 77 })} />,
+    );
+    await findByText('Expo Nacional'); // hero/título ya cargaron
+    // Con resultados todavía cargando, las tabs no aparecen (spinner en su lugar).
+    expect(queryByText('Catálogo')).toBeNull();
+    expect(queryByText('Info')).toBeNull();
+  });
+
   test('Info: fecha_hasta e inscripciones se rendean como DD/MM/YYYY', async () => {
     fetchEvento.mockResolvedValueOnce(evento({
       id: 50,
