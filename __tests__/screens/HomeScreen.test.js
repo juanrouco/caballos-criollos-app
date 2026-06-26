@@ -15,7 +15,6 @@ jest.mock('../../src/api', () => ({
 const {
   fetchEventos, fetchNoticias, fetchNoticiaCategorias, fetchVivos,
 } = require('../../src/api');
-const SplashScreen = require('expo-splash-screen');
 const { LiveProvider } = require('../../src/LiveContext');
 const HomeScreen = require('../../src/screens/HomeScreen').default;
 const { T, navStub } = require('../helpers');
@@ -26,7 +25,6 @@ beforeEach(() => {
   fetchNoticiaCategorias.mockReset();
   fetchVivos.mockReset();
   fetchVivos.mockResolvedValue({ data: [] }); // sin vivo por default
-  SplashScreen.hideAsync.mockClear();
 });
 
 const wrap = (ui) => <LiveProvider>{ui}</LiveProvider>;
@@ -113,23 +111,9 @@ describe('HomeScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('NewsList');
   });
 
-  test('cuando eventos y noticias settlean, llama SplashScreen.hideAsync una vez', async () => {
-    fetchEventos.mockResolvedValueOnce({ data: [] });
-    fetchNoticias.mockResolvedValueOnce({ data: [] });
-    fetchNoticiaCategorias.mockResolvedValueOnce({ data: [] });
-    const { findByText } = render(wrap(<HomeScreen t={T} navigation={navStub()} />));
-    await findByText(/No hay noticias/);
-    await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1));
-  });
-
-  test('si los fetches fallan, igual oculta el splash (no se queda colgado)', async () => {
-    fetchEventos.mockRejectedValueOnce(new Error('net'));
-    fetchNoticias.mockRejectedValueOnce(new Error('net'));
-    fetchNoticiaCategorias.mockResolvedValueOnce({ data: [] });
-    const { findByText } = render(wrap(<HomeScreen t={T} navigation={navStub()} />));
-    await findByText(/No se pudieron cargar los eventos/);
-    await waitFor(() => expect(SplashScreen.hideAsync).toHaveBeenCalledTimes(1));
-  });
+  // El ocultado del splash se movió a App.js (onReady del NavigationContainer)
+  // para que el cold-start por deep-link de push —que no monta Home— también lo
+  // oculte. Ya no es responsabilidad de HomeScreen, así que no se testea acá.
 
   test('tile de Disciplina con match en /noticias/categorias navega a NewsList con la categoria', async () => {
     fetchEventos.mockResolvedValueOnce({ data: [] });

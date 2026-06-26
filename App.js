@@ -8,8 +8,10 @@ import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@
 import { InterTight_600SemiBold, InterTight_700Bold } from '@expo-google-fonts/inter-tight';
 import * as SplashScreen from 'expo-splash-screen';
 
-// Mantener el splash a la vista hasta que HomeScreen termine de pedir
-// eventos + noticias (ver hideAsync en src/screens/HomeScreen.js).
+// Mantener el splash a la vista hasta que la navegación esté lista; se oculta
+// en el onReady del NavigationContainer (abajo). Va ahí y no en una pantalla
+// puntual para que el cold-start por deep-link de push —que entra directo a
+// EventDetail sin montar Home— también lo oculte.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
@@ -265,7 +267,11 @@ export default function App() {
           <NotificationsProvider>
             <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
             <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-              <NavigationContainer ref={navigationRef} theme={navTheme}>
+              <NavigationContainer
+                ref={navigationRef}
+                theme={navTheme}
+                onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
+              >
                 <Tabs />
               </NavigationContainer>
             </SafeAreaView>
