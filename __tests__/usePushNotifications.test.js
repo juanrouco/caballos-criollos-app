@@ -29,6 +29,8 @@ beforeEach(() => {
   Notifications.getExpoPushTokenAsync.mockReset();
   Notifications.addNotificationResponseReceivedListener.mockReset();
   Notifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: jest.fn() });
+  Notifications.getLastNotificationResponseAsync.mockReset();
+  Notifications.getLastNotificationResponseAsync.mockResolvedValue(null);
   Application.getIosIdForVendorAsync.mockReset();
   Application.getIosIdForVendorAsync.mockResolvedValue('IFV-1234');
   Application.getAndroidId.mockReset();
@@ -143,6 +145,35 @@ describe('usePushNotifications', () => {
     });
     // Parseado y unwrappeado.
     expect(navigateOnNotificationTap).toHaveBeenCalledWith({ kind: 'vivo', evento_id: 42 });
+  });
+
+  test('cold start: navega usando getLastNotificationResponseAsync (notif que abrió la app)', async () => {
+    // El listener no dispara en cold start; la response viene por getLast*.
+    Notifications.requestPermissionsAsync.mockResolvedValue({ status: 'denied' });
+    Notifications.getLastNotificationResponseAsync.mockResolvedValue({
+      notification: { request: { identifier: 'abc', content: { data: { kind: 'evento', evento_id: 5 } } } },
+    });
+    render(<Probe />);
+    await act(async () => { await flushPromises(); await flushPromises(); });
+    expect(navigateOnNotificationTap).toHaveBeenCalledWith({ kind: 'evento', evento_id: 5 });
+  });
+
+  test('dedup: si getLast y el listener entregan la misma notif (mismo id), navega una sola vez', async () => {
+    let listener;
+    Notifications.addNotificationResponseReceivedListener.mockImplementation((cb) => {
+      listener = cb;
+      return { remove: jest.fn() };
+    });
+    Notifications.requestPermissionsAsync.mockResolvedValue({ status: 'denied' });
+    const response = {
+      notification: { request: { identifier: 'dup-1', content: { data: { kind: 'vivo', evento_id: 9 } } } },
+    };
+    Notifications.getLastNotificationResponseAsync.mockResolvedValue(response);
+    render(<Probe />);
+    await act(async () => { await flushPromises(); await flushPromises(); });
+    // El listener re-entrega la MISMA notif (mismo identifier).
+    act(() => { listener(response); });
+    expect(navigateOnNotificationTap).toHaveBeenCalledTimes(1);
   });
 
   test('si content.data ya es {data: {...}} (objeto wrappeado), también lo unwrappea', async () => {

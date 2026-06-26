@@ -76,6 +76,15 @@ El simulador iOS no resuelve `localhost` al Mac; siempre usa la IP del Mac en la
 ### Live video
 `EventDetailScreen.js` embeds a YouTube live stream via `react-native-webview` when the event's `status === 'live'`. The embed URL is hardcoded.
 
+### Push notifications & deep-linking
+`src/usePushNotifications.js` maneja permisos, obtiene el Expo Push Token y lo registra en el backend (`POST /push/register`), y rutea el deeplink al tocar una notif vía `navigateOnNotificationTap` (`src/navigation.js`). El contrato con el backend está en `docs/push-notifications-api.md`.
+
+Dos cosas a **no romper**:
+- **Cold start.** Cuando la app está *terminada* y se abre tocando un push, `addNotificationResponseReceivedListener` NO dispara de forma confiable (la app quedaría en el Home). Por eso el hook **también** consulta `getLastNotificationResponseAsync()` al montar para recuperar la notif que lanzó la app, con dedup por `identifier` para no navegar dos veces. El listener solo cubre los taps con la app viva (foreground/background). No quitar el `getLast*`.
+- **Dos shapes de payload.** El `data` del push usa `{ kind, evento_id | id, tag? }` (lo consume `navigateOnNotificationTap`), distinto del `target` (`{ tipo, id, url }`) que devuelve `GET /notificaciones` para la campanita. `NotificationsScreen` mapea `tipo→kind` al rutear desde la lista. Ver `docs/push-notifications-api.md` §2.3.
+
+Push remoto solo funciona en build standalone (TestFlight / dev build) sobre device físico — Expo Go (SDK 53+) y el simulador iOS no lo entregan.
+
 ### Remote images
 Several screens use remote `https://caballoscriollos.com/...` image URLs as placeholders (see `EVENT_PHOTO`, `NEWS_PHOTO`). These are intentionally remote per the original prototype and are flagged for replacement with bundled assets.
 

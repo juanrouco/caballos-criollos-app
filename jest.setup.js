@@ -69,6 +69,7 @@ jest.mock('expo-notifications', () => ({
   getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: '' })),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponseAsync: jest.fn(() => Promise.resolve(null)),
 }));
 
 // expo-application: stub para resolveDeviceId (los IDs nativos no

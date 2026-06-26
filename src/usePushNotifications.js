@@ -84,15 +84,27 @@ export function usePushNotifications() {
     })();
   }, []);
 
-  // (2) Listener de tap. addNotificationResponseReceivedListener atrapa
-  // tanto los taps con la app en foreground como los cold-start desde
-  // una notif (Expo bufferea hasta que te suscribís).
+  // (2) Tap handler — navega al destino (deeplink) de la notif tocada.
+  //
+  // addNotificationResponseReceivedListener cubre los taps con la app VIVA
+  // (foreground/background). Pero en COLD START (app terminada que se abre
+  // tocando la notif) ese listener no dispara de forma confiable y la app queda
+  // en el Home. Para ese caso consultamos al montar getLastNotificationResponseAsync(),
+  // que devuelve la response que lanzó la app (si la hubo). Dedup por id de notif
+  // para no navegar dos veces si ambos caminos entregan la misma.
   React.useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const content = response?.notification?.request?.content || {};
-      if (__DEV__) {
-        console.log('[push] tap recibido. content:', JSON.stringify(content));
-      }
+    let mounted = true;
+    let handledId = null;
+
+    const handleResponse = (response) => {
+      if (!response) return;
+      const req = response.notification?.request;
+      const id = req?.identifier ?? null;
+      if (id !== null && id === handledId) return; // ya navegamos por esta notif
+      handledId = id;
+
+      const content = req?.content || {};
+      if (__DEV__) console.log('[push] tap recibido. content:', JSON.stringify(content));
       // El payload llega con shapes distintos según el origen:
       //   - Push real del API de Expo: content.data ya es {kind, ...} parseado.
       //   - simctl push (raw APNS con el body de Expo): content.data es
@@ -107,7 +119,17 @@ export function usePushNotifications() {
       }
       if (__DEV__) console.log('[push] data extraída:', data);
       navigateOnNotificationTap(data);
-    });
-    return () => sub.remove();
+    };
+
+    // Cold start: la notif que abrió la app desde estado terminado. El listener
+    // de abajo no la entrega confiablemente; esto sí.
+    const lastResp = Notifications.getLastNotificationResponseAsync?.();
+    if (lastResp?.then) {
+      lastResp.then((response) => { if (mounted) handleResponse(response); }).catch(() => {});
+    }
+
+    // Taps con la app viva (foreground/background).
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => { mounted = false; sub.remove(); };
   }, []);
 }
