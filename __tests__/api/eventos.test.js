@@ -47,6 +47,22 @@ describe('mapEvent', () => {
     expect(m.dateFull).toBe('');
     expect(m.dayShort).toBe('');
   });
+
+  test('image toma imagen_optimizada (URL al endpoint /api/img)', () => {
+    const m = mapEvent({
+      id: 1, titulo: 'X', fecha: '2026-03-05',
+      imagen: 'foto_evento.jpg',
+      imagen_optimizada: 'https://caballoscriollos.com/api/img/eventos/foto_evento.jpg',
+    });
+    expect(m.image).toBe('https://caballoscriollos.com/api/img/eventos/foto_evento.jpg');
+  });
+
+  test('image queda null si no hay imagen_optimizada (ignora el filename crudo)', () => {
+    // El campo `imagen` crudo (filename) no se usa: sin optimizada → null → placeholder.
+    expect(mapEvent({ id: 1, titulo: 'X', fecha: '2026-03-05', imagen: 'foto.jpg' }).image).toBeNull();
+    expect(mapEvent({ id: 1, titulo: 'X', fecha: '2026-03-05', imagen_optimizada: null }).image).toBeNull();
+    expect(mapEvent({ id: 1, titulo: 'X', fecha: '2026-03-05' }).image).toBeNull();
+  });
 });
 
 describe('isEmptyCatalog', () => {

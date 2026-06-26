@@ -5,11 +5,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Icon, Crest, Card, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES } from '../data';
-import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO } from '../api';
+import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO, imgUrl } from '../api';
 import { useLive } from '../LiveContext';
 import { useNotifications } from '../NotificationsContext';
 
-const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
+const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
 
 export default function HomeScreen({ t, navigation }) {
@@ -217,7 +217,7 @@ export default function HomeScreen({ t, navigation }) {
           {upcoming.map((e) => (
             <TouchableOpacity key={e.id} onPress={() => openEventDetail(e.id)} style={{ width: 230 }}>
               <Card t={t}>
-                <Image source={EVENT_PHOTO} style={{ width: '100%', height: 110 }} resizeMode="cover" />
+                <Image source={e.image ? { uri: imgUrl(e.image, 700) } : EVENT_PHOTO} style={{ width: '100%', height: 110 }} resizeMode="cover" />
                 <View style={{ padding: 14 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
                     <Text style={{ fontFamily: F.display, fontSize: 22, color: t.accent }}>{e.date.split(' ')[0]}</Text>

@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { Icon, Card, Divider, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
-import { fetchNoticia } from '../api';
+import { fetchNoticia, imgUrl } from '../api';
 
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
 
@@ -70,7 +70,7 @@ export default function NewsDetailScreen({ t, navigation, route }) {
   }
 
   const imagenes   = item.imagenes || [];
-  const heroUrl    = imagenes[0]?.urls?.big || imagenes[0]?.urls?.thumb || null;
+  const heroUrl    = imgUrl(imagenes[0]?.urls?.optimizada, 1080) || imagenes[0]?.urls?.big || imagenes[0]?.urls?.thumb || null;
   const extraImgs  = imagenes.slice(1);
   const archivos   = item.archivos || [];
   const dateFull   = formatFechaLong(item.fecha);
@@ -134,7 +134,7 @@ export default function NewsDetailScreen({ t, navigation, route }) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
             {extraImgs.map((img) => (
               <View key={img.id} style={{ width: 240, borderRadius: 12, overflow: 'hidden', backgroundColor: t.surface, borderWidth: 1, borderColor: t.border }}>
-                <Image source={{ uri: img.urls?.big || img.urls?.thumb }} style={{ width: 240, height: 160 }} resizeMode="cover" />
+                <Image source={{ uri: imgUrl(img.urls?.optimizada, 600) || img.urls?.big || img.urls?.thumb }} style={{ width: 240, height: 160 }} resizeMode="cover" />
                 {!!img.epigrafe && (
                   <Text style={{ padding: 10, fontSize: 11, color: t.textMute }} numberOfLines={2}>{img.epigrafe}</Text>
                 )}

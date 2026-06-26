@@ -7,10 +7,10 @@ import { withAlpha } from '../theme';
 import { formatDate } from '../format';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
-  isEmptyCatalog, isEmptyResults, mapEvent,
+  isEmptyCatalog, isEmptyResults, mapEvent, imgUrl,
 } from '../api';
 
-const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2026033105542099399.jpg' };
+const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
 const MAX_DISCIPLINE_CHIPS = 3;
 
 function youtubeId(url) {
@@ -160,7 +160,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <View style={{ height: 200 }}>
-        <Image source={EVENT_PHOTO} style={{ width: '100%', height: 200 }} resizeMode="cover" />
+        <Image source={mapped.image ? { uri: imgUrl(mapped.image, 1080) } : EVENT_PHOTO} style={{ width: '100%', height: 200 }} resizeMode="cover" />
         {/* Fade hacia el bg al pie de la foto — ayuda a leer los chips y
             evita el corte duro contra el resto de la pantalla. */}
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 }} pointerEvents="none">
@@ -818,6 +818,9 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   const total = isCopa
     ? totDia1
     : (totDia1 != null && totDia2 != null ? totDia1 + totDia2 : null);
+  const ultDia1 = yunta.vacas?.ultima_dia1;
+  const ultDia2 = yunta.vacas?.ultima_dia2;
+  const hasUltima = isCopa ? ultDia1 != null : (ultDia1 != null || ultDia2 != null);
   return (
     <Card t={t} style={{ borderColor: isFirst ? withAlpha(t.accent, 0.5) : t.border }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: isFirst ? withAlpha(t.accent, 0.1) : 'transparent' }}>
@@ -844,6 +847,32 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
           <View style={{ width: 1, height: 12, backgroundColor: t.border }} />
           <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 2</Text>
           <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{totDia2}</Text>
+        </View>
+      )}
+      {hasUltima && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Última vaca</Text>
+          {isCopa ? (
+            <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{ultDia1}</Text>
+          ) : (
+            <>
+              {ultDia1 != null && (
+                <>
+                  <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 1</Text>
+                  <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{ultDia1}</Text>
+                </>
+              )}
+              {ultDia1 != null && ultDia2 != null && (
+                <View style={{ width: 1, height: 12, backgroundColor: t.border }} />
+              )}
+              {ultDia2 != null && (
+                <>
+                  <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 2</Text>
+                  <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{ultDia2}</Text>
+                </>
+              )}
+            </>
+          )}
         </View>
       )}
     </Card>

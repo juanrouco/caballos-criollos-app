@@ -9,6 +9,7 @@ jest.mock('../../src/api', () => ({
   mapNoticia: jest.requireActual('../../src/api/noticias').mapNoticia,
   fetchNoticiaCategorias: jest.fn(),
   todayISO: () => '2026-06-04',
+  imgUrl: jest.requireActual('../../src/api/images').imgUrl,
   fetchVivos: jest.fn(),
 }));
 const {

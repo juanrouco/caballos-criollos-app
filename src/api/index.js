@@ -17,3 +17,4 @@ export {
   fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
 } from './animales';
 export { todayISO } from './utils';
+export { imgUrl } from './images';

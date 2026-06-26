@@ -20,6 +20,18 @@ describe('mapNoticia', () => {
     expect(n.fijo).toBe(false);
   });
 
+  test('prefiere imagen.optimizada (con ?w=240) sobre thumb/big legacy', () => {
+    const n = mapNoticia({
+      id: 1, titulo: 'X', fecha: '2026-01-01',
+      imagen: {
+        big: 'big.jpg',
+        thumb: 'thumb.jpg',
+        optimizada: 'https://caballoscriollos.com/api/img/noticias/foo.png',
+      },
+    });
+    expect(n.thumb).toBe('https://caballoscriollos.com/api/img/noticias/foo.png?w=240');
+  });
+
   test('cae a imagen.big si no hay thumb', () => {
     const n = mapNoticia({ id: 1, titulo: 'X', fecha: '2026-01-01', imagen: { big: 'b.jpg' } });
     expect(n.thumb).toBe('b.jpg');

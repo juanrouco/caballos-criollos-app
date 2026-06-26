@@ -64,6 +64,10 @@ export function mapEvent(e) {
     fecha: e.fecha,
     fecha_hasta: e.fecha_hasta,
     suspendido: !!e.suspendido,
+    // URL base al endpoint /api/img (resize + WebP/JPEG). El campo `imagen`
+    // crudo es sólo el nombre de archivo; usamos siempre la optimizada y le
+    // pedimos el ancho con imgUrl() en cada pantalla. null si no hay imagen.
+    image: e.imagen_optimizada || null,
     raw: e,
   };
 }

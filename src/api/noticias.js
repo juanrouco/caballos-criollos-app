@@ -1,4 +1,5 @@
 import { apiGet } from './client';
+import { imgUrl } from './images';
 
 export const fetchNoticias = (params) => apiGet('/noticias', params);
 export const fetchNoticia  = (id)     => apiGet(`/noticias/${encodeURIComponent(id)}`);
@@ -31,7 +32,9 @@ export function mapNoticia(n) {
     title: n.titulo || '',
     date,
     tag: n.categoria?.nombre || '',
-    thumb: n.imagen?.thumb || n.imagen?.big || null,
+    // Thumb de lista (72pt → ~240px). Preferimos la optimizada del /api/img;
+    // si la API no la trae (versión vieja), caemos al thumb/big legacy.
+    thumb: imgUrl(n.imagen?.optimizada, 240) || n.imagen?.thumb || n.imagen?.big || null,
     destacado: !!n.destacado,
     fijo: !!n.fijo,
   };

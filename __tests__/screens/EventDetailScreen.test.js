@@ -10,6 +10,7 @@ jest.mock('../../src/api', () => {
     isEmptyCatalog:        actual.isEmptyCatalog,
     isEmptyResults:        actual.isEmptyResults,
     mapEvent:              actual.mapEvent,
+    imgUrl:                jest.requireActual('../../src/api/images').imgUrl,
   };
 });
 const {
@@ -268,6 +269,89 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Copa Solanet')).toBeNull();
     expect(getByText('Ganador Copa')).toBeTruthy();
     expect(getByText('92 pts')).toBeTruthy();
+    expect(queryByText('Día 1')).toBeNull();
+    expect(queryByText('Día 2')).toBeNull();
+  });
+
+  test('rodeo: muestra "Última vaca" con día 1 y día 2 cuando hay datos', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 302 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 312, nombre: 'Categ. 19' },
+          clasificacion: 'Final',
+          yuntas: [{
+            puesto: { general: 1 },
+            totales: { dia1: 88, dia2: 86 },
+            vacas: { ultima_dia1: 12, ultima_dia2: 4 },
+            animales: [{ id: 'pdre:1', nombre: 'AnimalU' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 302 })} />,
+    );
+    await findByText('AnimalU');
+    expect(getByText('Última vaca')).toBeTruthy();
+    // Día 1 y Día 2 aparecen 2 veces cada uno (totales + última vaca).
+    expect(getByText('12')).toBeTruthy();
+    expect(getByText('4')).toBeTruthy();
+  });
+
+  test('rodeo: "Última vaca" sólo de día 1 cuando día 2 no arrancó', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 303 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 312, nombre: 'Categ. 19' },
+          clasificacion: 'Final',
+          yuntas: [{
+            puesto: { general: 1 },
+            totales: { dia1: 88, dia2: null },
+            vacas: { ultima_dia1: 7, ultima_dia2: null },
+            animales: [{ id: 'pdre:1', nombre: 'EnCurso' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 303 })} />,
+    );
+    await findByText('EnCurso');
+    expect(getByText('Última vaca')).toBeTruthy();
+    expect(getByText('7')).toBeTruthy();
+  });
+
+  test('rodeo CopaEspecial: muestra "Última vaca" con el número del único día', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 304 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 50, nombre: 'Copa Solanet' },
+          clasificacion: 'CopaEspecial',
+          yuntas: [{
+            puesto: { general: null },
+            totales: { dia1: 92, dia2: null },
+            vacas: { ultima_dia1: 11, ultima_dia2: null },
+            animales: [{ id: 'pdre:1', nombre: 'GanadorCopa' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 304 })} />,
+    );
+    await findByText('GanadorCopa');
+    expect(getByText('Última vaca')).toBeTruthy();
+    expect(getByText('11')).toBeTruthy();
+    // En CopaEspecial no debe aparecer la etiqueta "Día 1" (es implícito).
     expect(queryByText('Día 1')).toBeNull();
     expect(queryByText('Día 2')).toBeNull();
   });

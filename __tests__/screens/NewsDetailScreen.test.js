@@ -3,6 +3,7 @@ import { render, waitFor, act } from '@testing-library/react-native';
 
 jest.mock('../../src/api', () => ({
   fetchNoticia: jest.fn(),
+  imgUrl: jest.requireActual('../../src/api/images').imgUrl,
 }));
 const { fetchNoticia } = require('../../src/api');
 const NewsDetailScreen = require('../../src/screens/NewsDetailScreen').default;
