@@ -225,7 +225,7 @@ describe('EventDetailScreen', () => {
     expect(getAllByText('Catálogo').length).toBe(1);
   });
 
-  test('resultados con rodeos: la 1° yunta es visible inline sin tap', async () => {
+  test('resultados con rodeos: abre el acordeón y muestra la yunta', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 300 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
     fetchEventoResultados.mockResolvedValueOnce({
@@ -245,13 +245,14 @@ describe('EventDetailScreen', () => {
         }],
       },
     });
-    const { findByText, getByText } = render(
+    const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 300 })} />,
     );
-    // Auto-pick a Resultados → única sub-tab (Rodeos) → card visible.
+    // Auto-pick a Resultados → única sub-tab (Rodeos) → acordeón colapsado.
     expect(await findByText('Categ. 19 - Final Adulta · Final')).toBeTruthy();
-    // 1° yunta inline (sin tap).
-    expect(getByText('Animal Uno')).toBeTruthy();
+    expect(queryByText('Animal Uno')).toBeNull();
+    fireEvent.press(getByText('Categ. 19 - Final Adulta · Final'));
+    await waitFor(() => expect(getByText('Animal Uno')).toBeTruthy());
     expect(getByText('Animal Dos')).toBeTruthy();
     expect(getByText('174 pts')).toBeTruthy();
     expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
@@ -277,10 +278,11 @@ describe('EventDetailScreen', () => {
     const { findByText, queryByText, getByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 301 })} />,
     );
-    // Título "Copa Especial" sin el nombre de categoría + yunta inline.
+    // Título "Copa Especial" sin el nombre de categoría.
     expect(await findByText('Copa Especial')).toBeTruthy();
     expect(queryByText('Copa Solanet')).toBeNull();
-    expect(getByText('Ganador Copa')).toBeTruthy();
+    fireEvent.press(getByText('Copa Especial'));
+    await waitFor(() => expect(getByText('Ganador Copa')).toBeTruthy());
     expect(getByText('92 pts')).toBeTruthy();
     expect(queryByText('Día 1')).toBeNull();
     expect(queryByText('Día 2')).toBeNull();
@@ -307,9 +309,10 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 302 })} />,
     );
-    await findByText('AnimalU');
+    fireEvent.press(await findByText('Categ. 19 · Final'));
+    await waitFor(() => expect(getByText('AnimalU')).toBeTruthy());
     expect(getByText('Última vaca')).toBeTruthy();
-    // Día 1 y Día 2 aparecen 2 veces cada uno (totales + última vaca).
+    // Última vaca día 1 = 12, día 2 = 4.
     expect(getByText('12')).toBeTruthy();
     expect(getByText('4')).toBeTruthy();
   });
@@ -335,7 +338,8 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 303 })} />,
     );
-    await findByText('EnCurso');
+    fireEvent.press(await findByText('Categ. 19 · Final'));
+    await waitFor(() => expect(getByText('EnCurso')).toBeTruthy());
     expect(getByText('Última vaca')).toBeTruthy();
     expect(getByText('7')).toBeTruthy();
   });
@@ -361,7 +365,8 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 304 })} />,
     );
-    await findByText('GanadorCopa');
+    fireEvent.press(await findByText('Copa Especial'));
+    await waitFor(() => expect(getByText('GanadorCopa')).toBeTruthy());
     expect(getByText('Última vaca')).toBeTruthy();
     expect(getByText('11')).toBeTruthy();
     // En CopaEspecial no debe aparecer la etiqueta "Día 1" (es implícito).
@@ -388,10 +393,12 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 312 })} />,
     );
-    expect(await findByText('CampeonMacho')).toBeTruthy();
-    expect(queryByText('PrimerPremio')).toBeNull();
-    fireEvent.press(getByText('Ver 3 puestos más'));
-    await waitFor(() => expect(getByText('PrimerPremio')).toBeTruthy());
+    // Acordeón colapsado: el contenido está oculto hasta abrir.
+    expect(await findByText('Categ. 17')).toBeTruthy();
+    expect(queryByText('CampeonMacho')).toBeNull();
+    fireEvent.press(getByText('Categ. 17'));
+    await waitFor(() => expect(getByText('CampeonMacho')).toBeTruthy());
+    expect(getByText('PrimerPremio')).toBeTruthy();
     expect(getByText('Reservado')).toBeTruthy();
     expect(getByText('Mencionado')).toBeTruthy();
     // No tiene que aparecer ningún sub-header para Campeonato / Premios / Menciones.
@@ -418,16 +425,17 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText, getAllByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 313 })} />,
     );
-    expect(await findByText('CampeonHembra')).toBeTruthy();
-    expect(queryByText('Sin Premio')).toBeNull();
-    fireEvent.press(getByText('Ver 2 puestos más'));
-    await waitFor(() => expect(getByText('SinPremio1')).toBeTruthy());
+    expect(await findByText('Categ. 18')).toBeTruthy();
+    expect(queryByText('CampeonHembra')).toBeNull();
+    fireEvent.press(getByText('Categ. 18'));
+    await waitFor(() => expect(getByText('CampeonHembra')).toBeTruthy());
+    expect(getByText('SinPremio1')).toBeTruthy();
     expect(getByText('SinPremio2')).toBeTruthy();
     // "Sin Premio" aparece como sub-header + como premio.nombre de cada entry → 3 nodos.
     expect(getAllByText('Sin Premio').length).toBe(3);
   });
 
-  test('"Ver N más" expande el resto de los puestos y luego permite ocultar', async () => {
+  test('el acordeón de la categoría abre y cierra mostrando/ocultando los puestos', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 310 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
     fetchEventoResultados.mockResolvedValueOnce({
@@ -445,17 +453,17 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 310 })} />,
     );
-    expect(await findByText('Primero')).toBeTruthy();
-    // 2°/3° escondidos hasta tap.
+    // Colapsado: todos los puestos ocultos hasta tocar el header.
+    expect(await findByText('Cat. A')).toBeTruthy();
+    expect(queryByText('Primero')).toBeNull();
     expect(queryByText('Segundo')).toBeNull();
-    expect(queryByText('Tercero')).toBeNull();
-    const expandBtn = getByText('Ver 2 puestos más');
-    fireEvent.press(expandBtn);
-    await waitFor(() => expect(getByText('Segundo')).toBeTruthy());
+    fireEvent.press(getByText('Cat. A'));
+    await waitFor(() => expect(getByText('Primero')).toBeTruthy());
+    expect(getByText('Segundo')).toBeTruthy();
     expect(getByText('Tercero')).toBeTruthy();
-    // Ahora el botón vuelve a "Ocultar".
-    fireEvent.press(getByText('Ocultar'));
-    await waitFor(() => expect(queryByText('Segundo')).toBeNull());
+    // Cerrar: se ocultan de nuevo.
+    fireEvent.press(getByText('Cat. A'));
+    await waitFor(() => expect(queryByText('Primero')).toBeNull());
   });
 
   test('botón Refrescar re-pide /resultados y actualiza el contenido', async () => {
@@ -481,7 +489,10 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, getByLabelText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 320 })} />,
     );
-    expect(await findByText('Ganador Viejo')).toBeTruthy();
+    // Abrimos el acordeón para ver el contenido y poder comparar tras refrescar.
+    expect(await findByText('Cat. única')).toBeTruthy();
+    fireEvent.press(getByText('Cat. única'));
+    await waitFor(() => expect(getByText('Ganador Viejo')).toBeTruthy());
     expect(fetchEventoResultados).toHaveBeenCalledTimes(1);
     fireEvent.press(getByLabelText('Refrescar resultados'));
     expect(fetchEventoResultados).toHaveBeenCalledTimes(2);
@@ -515,12 +526,13 @@ describe('EventDetailScreen', () => {
     const { findByText, queryByText, getByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 311 })} />,
     );
-    // Auto-pick: arranca en Morfología → ganador morfo visible, rodeo escondido.
-    expect(await findByText('GanadorMorfo')).toBeTruthy();
-    expect(queryByText('GanadorRodeo')).toBeNull();
+    // Auto-pick: arranca en Morfología → acordeón de la categoría visible, rodeo escondido.
+    expect(await findByText('CatMorfo')).toBeTruthy();
+    expect(queryByText('CatRodeo · Final')).toBeNull();
     fireEvent.press(getByText('Rodeos'));
-    await waitFor(() => expect(getByText('GanadorRodeo')).toBeTruthy());
-    expect(queryByText('GanadorMorfo')).toBeNull();
+    // Cambió la sub-tab: ahora se ve el acordeón de rodeo y no el de morfología.
+    await waitFor(() => expect(getByText('CatRodeo · Final')).toBeTruthy());
+    expect(queryByText('CatMorfo')).toBeNull();
   });
 
   test('catálogo: sub-tabs Morfología → Tipo y Aptitud → <funcionales>, auto-pick a la primera con datos', async () => {

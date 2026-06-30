@@ -655,18 +655,18 @@ function groupEntriesByTipo(entries) {
   return out;
 }
 
-// Card con la 1° entry de la categoría siempre visible inline. Tap en
-// "Ver N más" expande el resto agrupado por tipo (Campeonato / Premios /
-// Menciones / Sin Premio) — replica el nuevo shape de morfología, donde el
-// campeón sale dentro de premios[] junto con los puestos.
+// Acordeón por categoría/grupo, mismo patrón que el catálogo (CategoryAccordion):
+// card blanco, header con título + conteo, colapsado por default. Al abrir muestra
+// todos los puestos como filas planas sobre blanco, agrupados por tipo (el bloque
+// principal sin sub-header; "Sin Premio" con su sub-header aparte).
 function ResultCard({ t, title, entries, featured, navigation }) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
   if (entries.length === 0) return null;
   const groups = groupEntriesByTipo(entries);
-  const remaining = entries.length - 1;
+  const count = entries.length;
   return (
-    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: featured ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: featured ? withAlpha(t.accent, 0.07) : 'transparent' }}>
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: (open || featured) ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         {featured && (
           <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
@@ -674,73 +674,57 @@ function ResultCard({ t, title, entries, featured, navigation }) {
         )}
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
-          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{entries.length} {entries.length === 1 ? 'puesto' : 'puestos'}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{count} {count === 1 ? 'puesto' : 'puestos'}</Text>
         </View>
-      </View>
-      <View style={{ padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
-        {groups.map((g, gi) => {
-          // Colapsado: solo la 1° entry del 1° grupo. Expandido: todo.
-          const visibleEntries = expanded ? g.entries : (gi === 0 ? g.entries.slice(0, 1) : []);
-          if (visibleEntries.length === 0) return null;
-          return (
-            <View key={g.tipo || 'main'} style={{ gap: 8 }}>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+          {groups.map((g, gi) => (
+            <View key={g.tipo || 'main'}>
               {/* Sub-header solo para grupos con tipo definido (hoy: Sin Premio).
                   El bloque principal va sin header — todos los puestos juntos. */}
-              {expanded && g.tipo && (
-                <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: gi > 0 ? 4 : 0 }}>
-                  {g.tipo}
-                </Text>
+              {g.tipo && (
+                <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2, borderTopWidth: gi > 0 ? 1 : 0, borderTopColor: t.border }}>
+                  <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{g.tipo}</Text>
+                </View>
               )}
-              {visibleEntries.map((e, i) => (
-                <ResultEntry key={`${e.animal?.id || 'x'}-${gi}-${i}`} t={t} entry={e} rank={i + 1} navigation={navigation} />
+              {g.entries.map((e, i) => (
+                <View key={`${e.animal?.id || 'x'}-${gi}-${i}`}>
+                  <ResultEntry t={t} entry={e} rank={i + 1} navigation={navigation} />
+                  {i < g.entries.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+                </View>
               ))}
             </View>
-          );
-        })}
-        {remaining > 0 && (
-          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ paddingVertical: 8, alignItems: 'center' }}>
-            <Text style={{ color: t.accent, fontFamily: F.bodyBold, fontSize: 12 }}>
-              {expanded ? 'Ocultar' : `Ver ${remaining} ${remaining === 1 ? 'puesto más' : 'puestos más'}`}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
+// Fila plana de un puesto, mismo layout que AnimalRow del catálogo (gutter +
+// divisor + datos del animal), con una línea extra arriba para premio + puntaje.
 function ResultEntry({ t, entry, rank, navigation }) {
   const a = entry.animal || {};
   const premioName = entry.premio?.nombre || `${rank}° puesto`;
+  const top = rank === 1;
   return (
-    <Card t={t} style={{ borderColor: rank === 1 ? withAlpha(t.accent, 0.5) : t.border }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: rank === 1 ? withAlpha(t.accent, 0.1) : 'transparent' }}>
-        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: rank === 1 ? t.accent : t.textMute, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: F.display, fontSize: 13, color: t.bg }}>{rank}°</Text>
+    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+      <Text style={{ width: 38, fontFamily: F.display, fontSize: 15, color: top ? t.accent : t.text, textAlign: 'center' }}>{rank}°</Text>
+      <View style={{ width: 1, height: 42, backgroundColor: t.border }} />
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ flex: 1, fontSize: 10.5, fontFamily: F.bodyBold, color: top ? t.accent : t.textMute, letterSpacing: 1.1, textTransform: 'uppercase' }} numberOfLines={1}>{premioName}</Text>
+          {entry.puntaje != null && (
+            <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{entry.puntaje} pts</Text>
+          )}
         </View>
-        <Text style={{ flex: 1, fontSize: 11, fontFamily: F.bodyBold, color: rank === 1 ? t.accent : t.text, letterSpacing: 1.2, textTransform: 'uppercase' }} numberOfLines={1}>{premioName}</Text>
-        {entry.puntaje != null && (
-          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{entry.puntaje} pts</Text>
-        )}
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, marginTop: 2 }} numberOfLines={1}>{a.nombre || '—'}</Text>
+        <AnimalMetaLines t={t} a={a} />
       </View>
-      <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ padding: 12 }}>
-        {a.box != null && (
-          <View style={{ alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5, backgroundColor: withAlpha(t.accent, 0.13), borderWidth: 1, borderColor: withAlpha(t.accent, 0.32), marginBottom: 6 }}>
-            <Text style={{ color: t.accent, fontFamily: F.mono, fontSize: 11 }}>Box {a.box}</Text>
-          </View>
-        )}
-        <Text style={{ fontFamily: F.display, fontSize: 17, color: t.text }} numberOfLines={2}>{a.nombre || '—'}</Text>
-        <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 4, fontFamily: F.mono }} numberOfLines={1}>
-          {[a.rp != null && `R.P. ${a.rp}`, a.sba != null && `S.B.A. ${a.sba}`, a.fecha_nacimiento && `Nac. ${formatDate(a.fecha_nacimiento)}`].filter(Boolean).join(' · ')}
-        </Text>
-        {a.propietario?.nombre && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: t.border }}>
-            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Expositor</Text>
-            <Text style={{ fontFamily: F.bodyMed, fontSize: 12, color: t.text, flex: 1, textAlign: 'right' }} numberOfLines={1}>{a.propietario.nombre}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    </Card>
+      <Icon name="arrow" size={15} color={t.textDim} />
+    </TouchableOpacity>
   );
 }
 
@@ -773,15 +757,16 @@ function RodeosSection({ t, pruebas, navigation }) {
   );
 }
 
+// Acordeón por prueba/categoría, mismo patrón que el resto del catálogo /
+// resultados: card blanco, header con título + conteo de yuntas, colapsado por
+// default. Al abrir muestra las yuntas como grupos sobre blanco.
 function RodeoCard({ t, title, prueba, featured, navigation }) {
-  const [expanded, setExpanded] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
   const yuntas = prueba.yuntas || [];
   if (yuntas.length === 0) return null;
-  const visible = expanded ? yuntas : yuntas.slice(0, 1);
-  const remaining = yuntas.length - 1;
   return (
-    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: featured ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: featured ? withAlpha(t.accent, 0.07) : 'transparent' }}>
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: (open || featured) ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         {featured && (
           <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
@@ -791,36 +776,37 @@ function RodeoCard({ t, title, prueba, featured, navigation }) {
           <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
           <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{yuntas.length} {yuntas.length === 1 ? 'yunta' : 'yuntas'}</Text>
         </View>
-      </View>
-      <View style={{ padding: 12, gap: 8, backgroundColor: withAlpha(t.surface2, 0.4) }}>
-        {visible.map((y, i) => (
-          <RodeoYunta
-            key={`y-${i}`}
-            t={t}
-            yunta={y}
-            fallbackRank={i + 1}
-            clasificacion={prueba.clasificacion}
-            navigation={navigation}
-          />
-        ))}
-        {remaining > 0 && (
-          <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ paddingVertical: 8, alignItems: 'center' }}>
-            <Text style={{ color: t.accent, fontFamily: F.bodyBold, fontSize: 12 }}>
-              {expanded ? 'Ocultar' : `Ver ${remaining} ${remaining === 1 ? 'yunta más' : 'yuntas más'}`}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+          {yuntas.map((y, i) => (
+            <View key={`y-${i}`}>
+              <RodeoYunta
+                t={t}
+                yunta={y}
+                fallbackRank={i + 1}
+                clasificacion={prueba.clasificacion}
+                navigation={navigation}
+              />
+              {i < yuntas.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
+// Una yunta en resultados: header chico (puesto + "Yunta" + total) y las dos
+// filas de animales, todo sobre blanco — misma idea que CatalogYuntaGroup, con
+// las líneas extra de Día 1 / Día 2 y Última vaca que aporta el rodeo.
 function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   const isCopa = clasificacion === 'CopaEspecial';
   // Para CopaEspecial no hay puesto.general (la API ordena por dia1 desc),
   // así que usamos el índice del array como rank visual.
   const rank = yunta.puesto?.general ?? fallbackRank;
-  const isFirst = rank === 1;
+  const top = rank === 1;
   const animales = yunta.animales || [];
   const totDia1 = yunta.totales?.dia1;
   const totDia2 = yunta.totales?.dia2;
@@ -831,12 +817,10 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   const ultDia2 = yunta.vacas?.ultima_dia2;
   const hasUltima = isCopa ? ultDia1 != null : (ultDia1 != null || ultDia2 != null);
   return (
-    <Card t={t} style={{ borderColor: isFirst ? withAlpha(t.accent, 0.5) : t.border }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: isFirst ? withAlpha(t.accent, 0.1) : 'transparent' }}>
-        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: isFirst ? t.accent : t.textMute, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: F.display, fontSize: 13, color: t.bg }}>{rank}°</Text>
-        </View>
-        <Text style={{ flex: 1, fontSize: 11, fontFamily: F.bodyBold, color: isFirst ? t.accent : t.text, letterSpacing: 1.2, textTransform: 'uppercase' }} numberOfLines={1}>Yunta</Text>
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
+        <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
         {total != null && (
           <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{total} pts</Text>
         )}
@@ -884,7 +868,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
           )}
         </View>
       )}
-    </Card>
+    </View>
   );
 }
 
