@@ -402,8 +402,11 @@ function CategoryAccordion({ t, cat, navigation }) {
 // es minimal porque ahí el detalle del animal no es el foco.
 function CatalogYuntaGroup({ t, yunta, order, navigation }) {
   const animales = yunta.animales || [];
+  // Sin fondo propio: queda sobre el surface (blanco) del card, igual que las
+  // filas de morfología / tipo y aptitud. El header "Yunta N" alcanza para
+  // separar visualmente cada par.
   return (
-    <View style={{ backgroundColor: withAlpha(t.surface2, 0.4) }}>
+    <View>
       <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
         <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>
           Yunta {yunta.orden ?? order}
