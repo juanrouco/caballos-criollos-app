@@ -46,12 +46,19 @@ export default function NotificationsScreen({ t, navigation }) {
     const tgt = n.target;
     if (!tgt) return;
     if (tgt.url) { Linking.openURL(tgt.url).catch(() => {}); return; }
-    if (tgt.tipo && tgt.id != null) {
-      // navigateOnNotificationTap espera el shape del push payload:
-      // {kind, id, evento_id?}. Mapeamos `tipo`→`kind` y dejamos `id`
-      // duplicado en `evento_id` para los kinds vivo/evento.
-      navigateOnNotificationTap({ kind: tgt.tipo, id: tgt.id, evento_id: tgt.id });
+    if (!tgt.tipo || tgt.id == null) return;
+    if (tgt.tipo === 'noticia') {
+      // NewsDetail vive en este mismo stack (InicioStack, donde también está
+      // esta lista). Pusheamos normal en vez de resetear el tab: así el back
+      // vuelve a la lista de notificaciones, no al Home.
+      navigation.navigate('NewsDetail', { id: tgt.id });
+      return;
     }
+    // vivo / evento viven en EventosTab. Usamos el ruteo de deep-link
+    // (resetea EventosTab); su back con `from:'home'` vuelve a InicioTab, que
+    // sigue mostrando esta lista en el tope. Mapeamos `tipo`→`kind` y duplicamos
+    // `id` en `evento_id`.
+    navigateOnNotificationTap({ kind: tgt.tipo, id: tgt.id, evento_id: tgt.id });
   };
 
   const renderItem = ({ item: n }) => {

@@ -46,7 +46,7 @@ describe('navigateOnNotificationTap', () => {
       index: 1,
       routes: [
         { name: 'EventsList' },
-        { name: 'EventDetail', params: { id: 2057 } },
+        { name: 'EventDetail', params: { id: 2057, from: 'home' } },
       ],
     });
     expect(navigationRef.dispatch).toHaveBeenCalledWith({ type: 'RESET', payload: cfg });
@@ -56,7 +56,7 @@ describe('navigateOnNotificationTap', () => {
   test('kind=evento usa data.id como fallback y resetea EventosTab', () => {
     navigateOnNotificationTap({ kind: 'evento', id: 999 });
     const cfg = CommonActions.reset.mock.calls[0][0];
-    expect(cfg.routes[1].state.routes[1]).toEqual({ name: 'EventDetail', params: { id: 999 } });
+    expect(cfg.routes[1].state.routes[1]).toEqual({ name: 'EventDetail', params: { id: 999, from: 'home' } });
   });
 
   test('preserva el state interno de las otras tabs al resetear', () => {
@@ -115,7 +115,7 @@ describe('navigateOnNotificationTap', () => {
     expect(CommonActions.reset).not.toHaveBeenCalled();
     expect(navigationRef.navigate).toHaveBeenCalledWith('EventosTab', {
       screen: 'EventDetail',
-      params: { id: 5 },
+      params: { id: 5, from: 'home' },
     });
   });
 

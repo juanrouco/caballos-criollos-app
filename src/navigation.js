@@ -46,7 +46,10 @@ export function navigateOnNotificationTap(data, attempts = 0) {
   const kind = data.kind;
   if (kind === 'vivo' || kind === 'evento') {
     const id = data.evento_id ?? data.id;
-    if (id != null) resetTabToDetail('EventosTab', 'EventsList', 'EventDetail', { id });
+    // `from: 'home'` → el back del detalle vuelve al Home (de donde sale la
+    // campanita / el push), no al listado de eventos que queda debajo en el
+    // stack reseteado de EventosTab.
+    if (id != null) resetTabToDetail('EventosTab', 'EventsList', 'EventDetail', { id, from: 'home' });
     return;
   }
   if (kind === 'noticia') {
