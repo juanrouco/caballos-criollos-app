@@ -494,7 +494,7 @@ describe('EventDetailScreen', () => {
     fireEvent.press(getByText('Cat. única'));
     await waitFor(() => expect(getByText('Ganador Viejo')).toBeTruthy());
     expect(fetchEventoResultados).toHaveBeenCalledTimes(1);
-    fireEvent.press(getByLabelText('Refrescar resultados'));
+    fireEvent.press(getByLabelText('Actualizar resultados'));
     expect(fetchEventoResultados).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(getByText('Ganador Nuevo')).toBeTruthy());
     expect(queryByText('Ganador Viejo')).toBeNull();

@@ -497,13 +497,13 @@ function RefreshButton({ t, onPress, loading }) {
     <TouchableOpacity
       onPress={onPress}
       disabled={loading}
-      accessibilityLabel="Refrescar resultados"
+      accessibilityLabel="Actualizar resultados"
       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: t.border, opacity: loading ? 0.6 : 1 }}
     >
       {loading
         ? <ActivityIndicator size="small" color={t.textMute} />
         : <Icon name="refresh" size={13} color={t.textMute} />}
-      <Text style={{ color: t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>Refrescar</Text>
+      <Text style={{ color: t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>Actualizar</Text>
     </TouchableOpacity>
   );
 }
@@ -535,9 +535,9 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
 
   return (
     <View style={{ marginTop: 18 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <View style={{ flex: 1, flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          {sections.length > 1 && sections.map((s) => {
+      {sections.length > 1 && (
+        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {sections.map((s) => {
             const on = current.key === s.key;
             return (
               <TouchableOpacity
@@ -550,6 +550,10 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
             );
           })}
         </View>
+      )}
+      {/* Refrescar debajo de las sub-tabs, alineado a la derecha, para no
+          robarles ancho. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
         <RefreshButton t={t} onPress={onRefresh} loading={refreshing} />
       </View>
       {current.kind === 'std'
