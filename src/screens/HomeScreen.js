@@ -234,7 +234,7 @@ export default function HomeScreen({ t, navigation }) {
               <View style={{ height: 78, alignItems: 'center', justifyContent: 'center' }}>
                 <Image source={DISCIPLINE_ICONS[d.id]} style={{ width: 52, height: 52, tintColor: '#fff' }} resizeMode="contain" />
               </View>
-              <View style={{ padding: 11, alignItems: 'center', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' }}>
+              <View style={{ padding: 11, alignItems: 'center' }}>
                 <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: '#fff', textAlign: 'center' }}>{d.short}</Text>
               </View>
             </TouchableOpacity>
