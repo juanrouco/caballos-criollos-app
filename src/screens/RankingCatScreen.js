@@ -42,6 +42,14 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const columnas = data?.columnas || [];
   const filas    = data?.filas || [];
   const isSolanet = slug === 'solanet';
+  const isTeam    = ranking.familia === 'equipo';
+  const isRodeos  = slug === 'rodeos';
+  // Rodeos usa nombres de columna de puntaje distintos; el resto usa 'points'.
+  const pointsKey = isRodeos ? 'totalPointsRanking' : 'points';
+  // Subtítulo: la selección fija en rankings con año (individuales/apartes);
+  // en rodeos el título del campeonato que devuelve la API es más descriptivo.
+  const hasAnio = filtros.some((f) => f.param === 'anio');
+  const subtitle = hasAnio ? filterSummary : decodeEntities(data?.subtitulo || '').replace(/\s*\n+\s*/g, ' · ');
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
@@ -50,8 +58,8 @@ export default function RankingCatScreen({ t, navigation, route }) {
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
         <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{decodeEntities(nombre) || 'Ranking'}</Text>
-        {!!(filterSummary || data?.subtitulo) && (
-          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{filterSummary || decodeEntities(data.subtitulo)}</Text>
+        {!!subtitle && (
+          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{subtitle}</Text>
         )}
       </View>
 
@@ -68,7 +76,10 @@ export default function RankingCatScreen({ t, navigation, route }) {
             t={t}
             columnas={columnas}
             filas={filas}
-            isTappable={(fila) => (isSolanet ? fila.propertyNumber != null : !!fila.animalId)}
+            pointsKey={pointsKey}
+            membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
+            onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
+            isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}
             onRowPress={(fila) => {
               if (isSolanet) {
                 navigation.navigate('SolanetDetalle', { premio: filters.premio, propietario: fila.propertyNumber, nombre: fila.name, points: fila.points });

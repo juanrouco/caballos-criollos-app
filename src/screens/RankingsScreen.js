@@ -11,6 +11,9 @@ const RANK_DISC = {
   fzb: 'aparte',
   corral_analitico: 'corral',
   corral_general: 'corral',
+  apartes_analitico: 'aparte',
+  apartes_general: 'aparte',
+  rodeos: 'rodeos',
 };
 
 // La temporada de Solanet que corresponde a un año = la que termina en ese año
@@ -26,16 +29,24 @@ function premioForYear(premioF, year) {
 // el grupo aparecen sus sub-rankings, y al abrir cada uno, sus categorías.
 const GROUPS = {
   corral: { disc: 'corral', label: 'Corral de Aparte', slugs: ['corral_general', 'corral_analitico'] },
+  aparte: { disc: 'aparte', label: 'Aparte Campero', slugs: ['apartes_general', 'apartes_analitico'] },
 };
 // Sub-label = lo que va después del "—" en el nombre (ej. "...— Ranking General").
 function subLabel(nombre) {
   const parts = String(nombre || '').split('—');
   return (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').trim();
 }
-// Freno/CIO/FZB tienen un único ranking (general): sacamos el "— Ranking General"
-// del nombre. Corral, que tiene dos, conserva el sufijo para distinguirlos.
+// Freno/CIO/FZB/Rodeos tienen un único ranking: sacamos el sufijo "— Ranking"
+// (o "— Ranking General") del nombre. Los grupos (Corral, Aparte), que tienen
+// dos, conservan el sufijo vía subLabel para distinguirlos.
 function cleanName(nombre) {
-  return String(nombre || '').replace(/\s*—\s*Ranking General\s*$/i, '').trim();
+  return String(nombre || '').replace(/\s*—\s*Ranking(\s+General)?\s*$/i, '').trim();
+}
+// Filtro-hoja: la última elección antes de ver la tabla. La mayoría usa
+// 'categoria'; rodeos no tiene categoría sino 'tipo' (General/Handicap/Ranking C).
+function leafParam(r) {
+  const params = (r.filtros || []).map((f) => f.param);
+  return params.includes('categoria') ? 'categoria' : params.includes('tipo') ? 'tipo' : null;
 }
 
 export default function RankingsScreen({ t, navigation }) {
@@ -83,17 +94,19 @@ export default function RankingsScreen({ t, navigation }) {
   const anioOpciones = individuals.find((x) => x.filtros?.some((f) => f.param === 'anio'))
     ?.filtros?.find((f) => f.param === 'anio')?.opciones || [];
 
-  // Items de "Por disciplina": los rankings de un grupo (ej. Corral Aparte) se
-  // muestran como un solo item con sub-rankings; el resto quedan sueltos.
+  // Items de "Por disciplina": rankings por animal (individuales) y de equipo
+  // (apartes, rodeos). Los de un grupo (Corral, Aparte Campero) se muestran como
+  // un solo item con sub-rankings; el resto quedan sueltos.
+  const disciplineRankings = (catalog || []).filter((x) => x.familia === 'individual' || x.familia === 'equipo');
   const displayItems = [];
   const groupAdded = new Set();
-  individuals.forEach((r) => {
+  disciplineRankings.forEach((r) => {
     const disc = RANK_DISC[r.slug];
     const g = GROUPS[disc];
     if (g && g.slugs.includes(r.slug)) {
       if (!groupAdded.has(disc)) {
         groupAdded.add(disc);
-        const subs = g.slugs.map((s) => individuals.find((x) => x.slug === s)).filter(Boolean);
+        const subs = g.slugs.map((s) => disciplineRankings.find((x) => x.slug === s)).filter(Boolean);
         displayItems.push({ type: 'group', key: disc, disc, label: g.label, rankings: subs });
       }
     } else {
@@ -101,11 +114,18 @@ export default function RankingsScreen({ t, navigation }) {
     }
   });
 
-  const catsOf = (r) => r.filtros?.find((f) => f.param === 'categoria')?.opciones || [];
-  const goTo = (r, categoria) => navigation.navigate('RankingCat', {
-    ranking: r,
-    initialFilters: { ...(year != null ? { anio: year } : {}), ...(categoria != null ? { categoria } : {}) },
-  });
+  const catsOf = (r) => r.filtros?.find((f) => f.param === leafParam(r))?.opciones || [];
+  const goTo = (r, value) => {
+    const hasAnio = (r.filtros || []).some((f) => f.param === 'anio');
+    const leaf = leafParam(r);
+    navigation.navigate('RankingCat', {
+      ranking: r,
+      initialFilters: {
+        ...(hasAnio && year != null ? { anio: year } : {}),
+        ...(leaf && value != null ? { [leaf]: value } : {}),
+      },
+    });
+  };
   const renderCats = (r, color) => catsOf(r).map((c, i, arr) => (
     <View key={String(c.value)}>
       <TouchableOpacity onPress={() => goTo(r, c.value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 18, paddingRight: 14 }}>

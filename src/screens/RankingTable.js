@@ -5,16 +5,30 @@ import { decodeEntities } from '../api';
 
 // Tabla genérica de ranking en fila compacta: posición (si la hay) + entidad
 // principal + puntaje, con las columnas secundarias debajo. Reutilizada por el
-// detalle de ranking y por el detalle de propietario (Solanet).
+// detalle de ranking (individual o de equipo) y por el detalle de propietario.
 //
 // `isTappable(fila)` y `onRowPress(fila)` los define cada pantalla (ej. abrir el
 // pedigree del animal, o el detalle del propietario).
-export default function RankingTable({ t, columnas = [], filas = [], onRowPress, isTappable }) {
+//
+// Rankings de equipo: la pantalla pasa `membersOf(fila)` (los animales del
+// equipo / yunta) — se listan debajo de la fila, cada uno tappable a su pedigree
+// vía `onMemberPress(member)`. `pointsKey` permite usar una columna de puntaje
+// con otro nombre (ej. rodeos usa `totalPointsRanking`).
+export default function RankingTable({
+  t, columnas = [], filas = [], onRowPress, isTappable,
+  membersOf, onMemberPress, pointsKey = 'points',
+}) {
+  const isTeamMode = typeof membersOf === 'function';
   const primaryKey = columnas.find((c) => c.key === 'animal') ? 'animal'
+    : columnas.find((c) => c.key === 'equipo') ? 'equipo'
     : columnas.find((c) => c.key === 'name') ? 'name'
-    : (columnas.find((c) => c.key !== 'position' && c.key !== 'points')?.key || null);
+    // En modo equipo sin columna de nombre (rodeos = yunta), no forzamos un
+    // título: la identidad la dan los miembros. Sin esto, una columna de puntos
+    // extra (ej. totalPointsObtained) se colaría como título numérico.
+    : isTeamMode ? null
+    : (columnas.find((c) => !['position', 'points', pointsKey].includes(c.key))?.key || null);
   const hasPosition = columnas.some((c) => c.key === 'position');
-  const secondaryCols = columnas.filter((c) => !['position', 'points', primaryKey].includes(c.key));
+  const secondaryCols = columnas.filter((c) => !['position', 'points', pointsKey, primaryKey].includes(c.key));
 
   return (
     <View>
@@ -27,6 +41,9 @@ export default function RankingTable({ t, columnas = [], filas = [], onRowPress,
           .filter(Boolean).join('  ·  ');
         const isTop = String(fila.position) === '1';
         const tappable = isTappable ? isTappable(fila) : false;
+        const members = membersOf ? (membersOf(fila) || []) : [];
+        const primary = primaryKey && decodeEntities(fila[primaryKey]);
+        const points = fila[pointsKey];
         return (
           <View key={i}>
             <TouchableOpacity
@@ -38,13 +55,36 @@ export default function RankingTable({ t, columnas = [], filas = [], onRowPress,
                 <Text style={{ width: 30, textAlign: 'center', fontFamily: F.display, fontSize: 18, color: isTop ? t.accent : t.textMute }}>{fila.position}</Text>
               )}
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={{ flex: 1, fontFamily: F.display, fontSize: 15.5, color: t.text }} numberOfLines={1}>{(primaryKey && decodeEntities(fila[primaryKey])) || '—'}</Text>
-                  {fila.points != null && (
-                    <Text style={{ fontFamily: F.mono, fontSize: 15, color: isTop ? t.accent : t.text }}>{fila.points}</Text>
-                  )}
-                </View>
+                {(!!primary || points != null) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ flex: 1, fontFamily: F.display, fontSize: 15.5, color: t.text }} numberOfLines={1}>{primary || (members.length ? 'Yunta' : '—')}</Text>
+                    {points != null && (
+                      <Text style={{ fontFamily: F.mono, fontSize: 15, color: isTop ? t.accent : t.text }}>{points}</Text>
+                    )}
+                  </View>
+                )}
                 {!!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>}
+
+                {/* Miembros del equipo / yunta — cada uno linkea a su pedigree */}
+                {members.map((m, mi) => {
+                  const name = decodeEntities(m.nombre || m.name);
+                  const sub = decodeEntities(m.jinete || m.rider);
+                  const mTappable = !!m.animalId;
+                  return (
+                    <TouchableOpacity
+                      key={mi}
+                      disabled={!mTappable}
+                      onPress={() => { if (mTappable && onMemberPress) onMemberPress(m); }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: t.border }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.text }} numberOfLines={1}>{name || '—'}</Text>
+                        {!!sub && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 1 }} numberOfLines={1}>{sub}</Text>}
+                      </View>
+                      {mTappable && <Icon name="arrow" size={12} color={t.textDim} />}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               {tappable && <Icon name="arrow" size={14} color={t.textDim} />}
             </TouchableOpacity>

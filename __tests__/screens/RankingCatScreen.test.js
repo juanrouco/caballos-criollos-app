@@ -90,6 +90,71 @@ describe('RankingCatScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('SolanetDetalle', { premio: 2, propietario: '221', nombre: 'MATHO GARAT, RICARDO D.', points: '109.50' });
   });
 
+  test('ranking de equipo: lista los animales del equipo y linkea al pedigree', async () => {
+    const APARTES = {
+      slug: 'apartes_general', nombre: 'Aparte Campero — Ranking General', familia: 'equipo',
+      filtros: [
+        { param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+        { param: 'categoria', default: 15, opciones: [{ value: 15, label: 'A' }] },
+      ],
+    };
+    fetchRanking.mockResolvedValue({
+      columnas: [
+        { key: 'position', label: '#' }, { key: 'equipo', label: 'Equipo' },
+        { key: 'total', label: 'Total' },
+      ],
+      filas: [{
+        position: 1, equipo: 'los orejanos.', total: '01:46',
+        animales: [
+          { sba: '67698', nombre: 'OREVA CARAMELO', jinete: 'ALEJANDRO RYAN', animalId: 'pdre:70970' },
+          { sba: '75781', nombre: 'BROCAL PUESTERO', jinete: 'IGNACIO AGUIRRE', animalId: 'pdre:80428' },
+        ],
+      }],
+    });
+    const nav = navStub();
+    const { findByText, getByText } = render(
+      <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: APARTES, initialFilters: { anio: 2026, categoria: 15 } })} />,
+    );
+    expect(await findByText('los orejanos.')).toBeTruthy();      // nombre del equipo
+    expect(getByText('OREVA CARAMELO')).toBeTruthy();            // miembro
+    fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar miembro
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
+    expect(fetchRanking).toHaveBeenCalledWith('apartes_general', { anio: 2026, categoria: 15 });
+  });
+
+  test('rodeos: subtítulo del campeonato viene de la API y usa la yunta (animals)', async () => {
+    const RODEOS = {
+      slug: 'rodeos', nombre: 'Rodeos — Ranking', familia: 'equipo',
+      filtros: [
+        { param: 'calendario', default: 22, opciones: [{ value: 22, label: '2024 - 2025' }] },
+        { param: 'tipo', default: 1, opciones: [{ value: 1, label: 'General' }] },
+      ],
+    };
+    fetchRanking.mockResolvedValue({
+      subtitulo: '57° CAMPEONATO NACIONAL\nRANKING GENERAL',
+      columnas: [
+        { key: 'position', label: '#' },
+        { key: 'totalPointsObtained', label: 'Puntos obtenidos' },
+        { key: 'totalPointsRanking', label: 'Puntos ranking' },
+      ],
+      filas: [{
+        position: 1, totalPointsObtained: 148, totalPointsRanking: '95.00',
+        animals: [{ sba: '87399', name: 'CONTRAFUEGO TEJEDORA', rider: 'SANTIAGO GABRIELLI', animalId: 'exis:105929' }],
+      }],
+    });
+    const nav = navStub();
+    const { findByText, getByText } = render(
+      <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: RODEOS, initialFilters: { tipo: 2 } })} />,
+    );
+    expect(await findByText('CONTRAFUEGO TEJEDORA')).toBeTruthy();
+    expect(getByText('57° CAMPEONATO NACIONAL · RANKING GENERAL')).toBeTruthy(); // subtítulo de la API
+    expect(getByText('95.00')).toBeTruthy(); // puntaje desde totalPointsRanking
+    expect(getByText(/Puntos obtenidos 148/)).toBeTruthy(); // la otra columna de puntos va al secundario, no como título
+    fireEvent.press(getByText('CONTRAFUEGO TEJEDORA'));
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:105929' });
+    expect(fetchRanking).toHaveBeenCalledWith('rodeos', { calendario: 22, tipo: 2 });
+  });
+
   test('sin filas muestra empty state', async () => {
     fetchRanking.mockResolvedValue({ columnas: [], filas: [] });
     const { findByText } = renderCat();
