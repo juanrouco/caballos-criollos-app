@@ -12,6 +12,9 @@ jest.mock('../../src/api', () => ({
   imgUrl: jest.requireActual('../../src/api/images').imgUrl,
   fetchVivos: jest.fn(),
 }));
+const mockOpenMenu = jest.fn();
+jest.mock('../../src/MenuContext', () => ({ useMenu: () => ({ openMenu: mockOpenMenu }) }));
+
 const {
   fetchEventos, fetchNoticias, fetchNoticiaCategorias, fetchVivos,
 } = require('../../src/api');
@@ -25,9 +28,21 @@ beforeEach(() => {
   fetchNoticiaCategorias.mockReset();
   fetchVivos.mockReset();
   fetchVivos.mockResolvedValue({ data: [] }); // sin vivo por default
+  mockOpenMenu.mockClear();
 });
 
 const wrap = (ui) => <LiveProvider>{ui}</LiveProvider>;
+
+describe('HomeScreen · menú', () => {
+  test('la hamburguesa del header abre el menú lateral', async () => {
+    fetchEventos.mockResolvedValueOnce({ data: [] });
+    fetchNoticias.mockResolvedValueOnce({ data: [] });
+    fetchNoticiaCategorias.mockResolvedValueOnce({ data: [] });
+    const { findByLabelText } = render(wrap(<HomeScreen t={T} navigation={navStub()} />));
+    fireEvent.press(await findByLabelText('Abrir menú'));
+    expect(mockOpenMenu).toHaveBeenCalled();
+  });
+});
 
 describe('HomeScreen', () => {
   test('llama a /eventos con fecha_desde + sort + limit; renderiza los eventos cercanos', async () => {

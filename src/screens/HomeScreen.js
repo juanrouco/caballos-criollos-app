@@ -7,6 +7,7 @@ import { DISCIPLINES } from '../data';
 import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO, imgUrl } from '../api';
 import { useLive } from '../LiveContext';
 import { useNotifications } from '../NotificationsContext';
+import { useMenu } from '../MenuContext';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
@@ -14,6 +15,7 @@ const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/i
 export default function HomeScreen({ t, navigation }) {
   const { live } = useLive();
   const { unreadCount } = useNotifications();
+  const { openMenu } = useMenu();
   const [events, setEvents] = React.useState(null); // null = loading, [] = vacío, [...] = ok
   const [error, setError] = React.useState(null);
   const [news, setNews] = React.useState(null);
@@ -110,9 +112,16 @@ export default function HomeScreen({ t, navigation }) {
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 22 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+          <TouchableOpacity
+            onPress={openMenu}
+            accessibilityLabel="Abrir menú"
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="menu" size={18} color={t.textMute} />
+          </TouchableOpacity>
           <Crest size={42} color={t.text} bg={t.surface} ring={withAlpha(t.accent, 0.4)} horse />
-          <View>
-            <Text style={{ fontFamily: F.display, fontSize: 22, color: t.text }}>Caballos Criollos</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }} numberOfLines={1}>Caballos Criollos</Text>
             <Text style={{ fontFamily: F.body, fontSize: 10, color: t.textMute, letterSpacing: 2, marginTop: 4 }}>ASOC. CRIADORES · ACCC</Text>
           </View>
         </View>

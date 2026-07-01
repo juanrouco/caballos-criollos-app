@@ -29,6 +29,8 @@ export function Icon({ name, size = 20, color = '#000', stroke = 1.8 }) {
     case 'tv': return <Svg {...p}><Rect x="3" y="5" width="18" height="13" rx="2" /><Path d="M8 21h8M12 18v3" /></Svg>;
     case 'filter': return <Svg {...p}><Path d="M3 5h18M6 12h12M10 19h4" /></Svg>;
     case 'refresh': return <Svg {...p}><Path d="M20 12a8 8 0 1 1-2.3-5.6" /><Path d="M20 4v3.4h-3.4" /></Svg>;
+    case 'menu': return <Svg {...p}><Path d="M4 7h16M4 12h16M4 17h16" /></Svg>;
+    case 'building': return <Svg {...p}><Path d="M3 21h18M5 21V6l7-3 7 3v15" /><Path d="M9 21v-5h6v5M9 9h.01M15 9h.01M9 13h.01M15 13h.01" /></Svg>;
     default: return null;
   }
 }

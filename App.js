@@ -18,6 +18,8 @@ import { getTheme, withAlpha, HORSE_HEAD } from './src/theme';
 import { Icon } from './src/components';
 import { LiveProvider, useLive } from './src/LiveContext';
 import { NotificationsProvider } from './src/NotificationsContext';
+import { MenuProvider } from './src/MenuContext';
+import { MenuLayer } from './src/SideMenu';
 import { navigationRef } from './src/navigation';
 import { usePushNotifications } from './src/usePushNotifications';
 import HomeScreen from './src/screens/HomeScreen';
@@ -263,20 +265,25 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeCtx.Provider value={t}>
-        <LiveProvider>
-          <NotificationsProvider>
-            <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
-            <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-              <NavigationContainer
-                ref={navigationRef}
-                theme={navTheme}
-                onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
-              >
-                <Tabs />
-              </NavigationContainer>
-            </SafeAreaView>
-          </NotificationsProvider>
-        </LiveProvider>
+        <MenuProvider>
+          <LiveProvider>
+            <NotificationsProvider>
+              <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
+              <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+                <NavigationContainer
+                  ref={navigationRef}
+                  theme={navTheme}
+                  onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
+                >
+                  <Tabs />
+                </NavigationContainer>
+              </SafeAreaView>
+              {/* Overlay del menú lateral (drawer custom) — por encima de todo,
+                  sin tocar los navegadores. */}
+              <MenuLayer t={t} />
+            </NotificationsProvider>
+          </LiveProvider>
+        </MenuProvider>
       </ThemeCtx.Provider>
     </SafeAreaProvider>
   );

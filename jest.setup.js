@@ -55,6 +55,19 @@ jest.mock('react-native-youtube-iframe', () => {
   };
 });
 
+// react-native-safe-area-context: insets en 0 + passthrough en test.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+  return {
+    SafeAreaProvider: ({ children }) => React.createElement(React.Fragment, null, children),
+    SafeAreaView: ({ children, style }) => React.createElement(View, { style }, children),
+    useSafeAreaInsets: () => inset,
+    SafeAreaInsetsContext: React.createContext(inset),
+  };
+});
+
 // expo-splash-screen: no-ops en test.
 jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: jest.fn(() => Promise.resolve()),
