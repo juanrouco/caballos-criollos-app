@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
-import { formatDate } from '../format';
+import { formatDate, formatDateLong } from '../format';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   isEmptyCatalog, isEmptyResults, mapEvent, imgUrl,
@@ -678,7 +678,7 @@ function ResultCard({ t, title, entries, featured, navigation }) {
         )}
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
-          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{count} {count === 1 ? 'puesto' : 'puestos'}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{count} {count === 1 ? 'animal' : 'animales'}</Text>
         </View>
         <Icon name="arrow" size={15} color={t.textMute} />
       </TouchableOpacity>
@@ -715,13 +715,16 @@ function ResultEntry({ t, entry, rank, navigation }) {
   const top = rank === 1;
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-      <Text style={{ width: 38, fontFamily: F.display, fontSize: 15, color: top ? t.accent : t.text, textAlign: 'center' }}>{rank}°</Text>
+      <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
       <View style={{ width: 1, height: 42, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={{ flex: 1, fontSize: 10.5, fontFamily: F.bodyBold, color: top ? t.accent : t.textMute, letterSpacing: 1.1, textTransform: 'uppercase' }} numberOfLines={1}>{premioName}</Text>
           {entry.puntaje != null && (
-            <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{entry.puntaje} pts</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{entry.puntaje}</Text>
+              <Text style={{ fontSize: 8.5, color: t.textMute, letterSpacing: 1, marginTop: 1 }}>PES</Text>
+            </View>
           )}
         </View>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, marginTop: 2 }} numberOfLines={1}>{a.nombre || '—'}</Text>
@@ -848,7 +851,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
       )}
       {hasUltima && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
-          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Última vaca</Text>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Vaca corrida N°</Text>
           {isCopa ? (
             <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{ultDia1}</Text>
           ) : (
@@ -897,16 +900,16 @@ function RodeoAnimalRow({ t, a, navigation }) {
 
 function InfoTab({ t, event, mapped }) {
   const rows = [
-    ['Fecha', mapped.dateFull || formatDate(event.fecha)],
-    event.fecha_hasta && event.fecha_hasta !== event.fecha ? ['Hasta', formatDate(event.fecha_hasta)] : null,
+    ['Fecha', formatDateLong(event.fecha)],
+    event.fecha_hasta && event.fecha_hasta !== event.fecha ? ['Hasta', formatDateLong(event.fecha_hasta)] : null,
     mapped.location ? ['Lugar', mapped.location] : null,
     event.direccion ? ['Dirección', event.direccion] : null,
     event.region?.nombre ? ['Región', event.region.nombre] : null,
     mapped.disciplines.length > 0 ? ['Categorías', mapped.disciplines.join(', ')] : null,
     event.web ? ['Web', event.web] : null,
     event.email ? ['Email', event.email] : null,
-    event.fecha_inscripcion_desde ? ['Inscripción desde', formatDate(event.fecha_inscripcion_desde)] : null,
-    event.fecha_inscripcion_hasta ? ['Inscripción hasta', formatDate(event.fecha_inscripcion_hasta)] : null,
+    event.fecha_inscripcion_desde ? ['Inscripción desde', formatDateLong(event.fecha_inscripcion_desde)] : null,
+    event.fecha_inscripcion_hasta ? ['Inscripción hasta', formatDateLong(event.fecha_inscripcion_hasta)] : null,
   ].filter(Boolean);
 
   return (

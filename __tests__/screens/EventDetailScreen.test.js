@@ -57,7 +57,8 @@ describe('EventDetailScreen', () => {
     expect(await findByText('Expo Nacional')).toBeTruthy();
     // "Exposición Nacional" aparece dos veces (chip + fila "Categorías" en Info).
     expect(getAllByText('Exposición Nacional').length).toBeGreaterThanOrEqual(1);
-    expect(await findByText('10 de Abril, 2026')).toBeTruthy();
+    // Fila "Fecha" del InfoTab con el formato largo unificado.
+    expect(await findByText('10 de abril 2026')).toBeTruthy();
   });
 
   test('no muestra las tabs hasta que catálogo y resultados settlean (sin flash de reorden)', async () => {
@@ -73,7 +74,7 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Info')).toBeNull();
   });
 
-  test('Info: fecha_hasta e inscripciones se rendean como DD/MM/YYYY', async () => {
+  test('Info: fecha, hasta e inscripciones usan el mismo formato largo (D de mes YYYY)', async () => {
     fetchEvento.mockResolvedValueOnce(evento({
       id: 50,
       fecha: '2026-04-10',
@@ -87,9 +88,10 @@ describe('EventDetailScreen', () => {
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 50 })} />,
     );
     await findByText('Fecha');
-    expect(getByText('15/04/2026')).toBeTruthy();
-    expect(getByText('01/03/2026')).toBeTruthy();
-    expect(getByText('05/04/2026')).toBeTruthy();
+    expect(getByText('10 de abril 2026')).toBeTruthy();
+    expect(getByText('15 de abril 2026')).toBeTruthy();
+    expect(getByText('1 de marzo 2026')).toBeTruthy();
+    expect(getByText('5 de abril 2026')).toBeTruthy();
   });
 
   test('cap a 3 chips + chip "+N" cuando hay más categorías', async () => {
@@ -311,7 +313,7 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('Categ. 19 · Final'));
     await waitFor(() => expect(getByText('AnimalU')).toBeTruthy());
-    expect(getByText('Última vaca')).toBeTruthy();
+    expect(getByText('Vaca corrida N°')).toBeTruthy();
     // Última vaca día 1 = 12, día 2 = 4.
     expect(getByText('12')).toBeTruthy();
     expect(getByText('4')).toBeTruthy();
@@ -340,7 +342,7 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('Categ. 19 · Final'));
     await waitFor(() => expect(getByText('EnCurso')).toBeTruthy());
-    expect(getByText('Última vaca')).toBeTruthy();
+    expect(getByText('Vaca corrida N°')).toBeTruthy();
     expect(getByText('7')).toBeTruthy();
   });
 
@@ -367,7 +369,7 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('Copa Especial'));
     await waitFor(() => expect(getByText('GanadorCopa')).toBeTruthy());
-    expect(getByText('Última vaca')).toBeTruthy();
+    expect(getByText('Vaca corrida N°')).toBeTruthy();
     expect(getByText('11')).toBeTruthy();
     // En CopaEspecial no debe aparecer la etiqueta "Día 1" (es implícito).
     expect(queryByText('Día 1')).toBeNull();
@@ -382,7 +384,7 @@ describe('EventDetailScreen', () => {
         categorias: [{
           id: 1, nombre: 'Categ. 17',
           premios: [
-            { animal: { id: 'pdre:c', nombre: 'CampeonMacho' },  premio: { nombre: 'Campeón Macho',    tipo_id: 2, tipo_nombre: 'Campeonato' } },
+            { animal: { id: 'pdre:c', nombre: 'CampeonMacho', box: 'A-15' }, premio: { nombre: 'Campeón Macho', tipo_id: 2, tipo_nombre: 'Campeonato' }, puntaje: 87.5 },
             { animal: { id: 'pdre:r', nombre: 'Reservado' },     premio: { nombre: 'Reservado Campeón', tipo_id: 2, tipo_nombre: 'Campeonato' } },
             { animal: { id: 'pdre:1', nombre: 'PrimerPremio' },  premio: { nombre: '1er Premio',       tipo_id: 3, tipo_nombre: 'Premios' } },
             { animal: { id: 'pdre:m', nombre: 'Mencionado' },    premio: { nombre: 'Mención',          tipo_id: 4, tipo_nombre: 'Menciones' } },
@@ -393,11 +395,19 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 312 })} />,
     );
-    // Acordeón colapsado: el contenido está oculto hasta abrir.
+    // Acordeón colapsado: el contenido está oculto hasta abrir. El header
+    // cuenta "N animales" (no "puestos").
     expect(await findByText('Categ. 17')).toBeTruthy();
+    expect(getByText('4 animales')).toBeTruthy();
     expect(queryByText('CampeonMacho')).toBeNull();
     fireEvent.press(getByText('Categ. 17'));
     await waitFor(() => expect(getByText('CampeonMacho')).toBeTruthy());
+    // El gutter muestra el box del animal (no el puesto "1°").
+    expect(getByText('A-15')).toBeTruthy();
+    expect(queryByText('1°')).toBeNull();
+    // El puntaje va con la etiqueta PES debajo.
+    expect(getByText('87.5')).toBeTruthy();
+    expect(getByText('PES')).toBeTruthy();
     expect(getByText('PrimerPremio')).toBeTruthy();
     expect(getByText('Reservado')).toBeTruthy();
     expect(getByText('Mencionado')).toBeTruthy();
