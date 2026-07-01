@@ -190,11 +190,12 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
 |---|---|---|---|
 | `q` | string | — | Búsqueda libre `LIKE %valor%` en `Titulo`, `Copete` y `Cuerpo`. |
 | `categoria` | int | — | Filtra por `IdCategoria`. |
+| `columnista` | int | — | Filtra por `IdColumnista`. |
 | `destacado` | `1` \| `0` | — | Filtra noticias marcadas como destacadas. |
 | `fijo` | `1` \| `0` | — | Filtra noticias fijas. |
 | `fecha_desde` | `YYYY-MM-DD` | — | `Fecha >= valor`. Si el formato es inválido, se ignora. |
 | `fecha_hasta` | `YYYY-MM-DD` | — | `Fecha <= valor`. Si el formato es inválido, se ignora. |
-| `sort` | `fecha_asc` \| `fecha_desc` | `fecha_desc` | Orden. Default: fijo arriba, fecha DESC. Con `fecha_asc`: fijo arriba, fecha ASC, desempate por categoría y título (replica el orden del listado público legacy). |
+| `sort` | `fecha_asc` \| `fecha_desc` \| `columnista` | `fecha_desc` | Orden. Default: fijo arriba, fecha DESC. `fecha_asc`: fijo arriba, fecha ASC, desempate por categoría y título (replica el listado público legacy). `columnista`: agrupa por nombre de columnista. |
 | `limit` | int (1–100) | `20` | Tamaño de página. |
 | `offset` | int (≥0) | `0` | Offset para paginar. |
 
@@ -222,6 +223,8 @@ Listado paginado. **Cache**: `Cache-Control: public, max-age=300` (5 min).
   "meta": { "count": 20, "limit": 20, "offset": 0, "total": 1373 }
 }
 ```
+
+Cada item incluye además `columnista` (`{id, nombre}` o `null`) — el columnista asociado a la noticia; en la categoría Reglamentos es la "Prueba" (ver [Reglamentos](#reglamentos)).
 
 `imagen` puede ser `null` si la noticia no tiene imagen asociada. `big`/`thumb` apuntan al original tal cual se subió; `optimizada` pasa por `/api/img` (resize + recompresión WebP/JPEG + cache) y es la que conviene consumir desde la app — ver [Imágenes optimizadas](#imágenes-optimizadas). Orden: `Fijo DESC, Fecha DESC, IdNoticia DESC`.
 
@@ -286,6 +289,68 @@ Detalle de una noticia. **Cache**: `Cache-Control: public, max-age=300`.
 - `cuerpo` viene como HTML crudo. Las referencias `../_recursos/...` dentro del HTML se reescriben a URLs absolutas automáticamente, así las imágenes embebidas funcionan desde cualquier cliente.
 - `imagenes` ordenadas por `orden` ascendente.
 - `404` si la noticia no existe / no está activa / no está en rango de fechas.
+
+---
+
+### Reglamentos
+
+Los reglamentos son noticias de una categoría fija (la misma que usa `web/reglamentos.php`) que se filtran por **Prueba** (el columnista). Es un alias semántico sobre noticias: mismo shape de item que `GET /noticias`, pero con la categoría ya aplicada, ordenado por prueba, y con el columnista expuesto como `prueba`.
+
+El detalle de un reglamento se obtiene con `GET /noticias/{id}` (un reglamento es una noticia).
+
+#### `GET /reglamentos`
+
+Listado paginado de reglamentos vigentes, ordenado por prueba (y fecha DESC dentro de cada una). **Cache**: `Cache-Control: public, max-age=300`.
+
+**Query params**
+
+| Param | Tipo | Default | Descripción |
+|---|---|---|---|
+| `prueba` | int | — | Filtra por `IdColumnista` (la prueba). |
+| `q` | string | — | Búsqueda libre `LIKE %valor%` en `Titulo`, `Copete`, `Cuerpo`. |
+| `limit` | int (1–100) | `20` | Tamaño de página. |
+| `offset` | int (≥0) | `0` | Offset para paginar. |
+
+**Response**
+
+```json
+{
+  "data": [
+    {
+      "id": 1234,
+      "titulo": "Reglamento Freno de Oro 2026",
+      "copete": "",
+      "fecha": "2026-03-01",
+      "categoria": { "id": 11, "nombre": "Reglamentos" },
+      "prueba":    { "id": 5,  "nombre": "Freno de Oro" },
+      "destacado": false,
+      "fijo": false,
+      "video": "",
+      "imagen": { "big": "...", "thumb": "...", "optimizada": "..." }
+    }
+  ],
+  "meta": { "count": 20, "limit": 20, "offset": 0, "total": 37 }
+}
+```
+
+`prueba` puede ser `null` (reglamento sin columnista asignado). Mismo shape de item que `/noticias` salvo que el columnista se llama `prueba`.
+
+#### `GET /reglamentos/pruebas`
+
+Lista de pruebas (columnistas) que tienen al menos un reglamento vigente — para poblar el filtro sin opciones vacías. **Cache**: `Cache-Control: public, max-age=3600`.
+
+**Response**
+
+```json
+{
+  "data": [
+    { "id": 5, "nombre": "Freno de Oro" },
+    { "id": 8, "nombre": "Paleteada" }
+  ]
+}
+```
+
+Orden alfabético por nombre.
 
 ---
 
@@ -951,6 +1016,112 @@ La tabla `tblPushTokens` (DB `caballos_bd`) se crea con `docker/db/migrations/20
 
 ---
 
+### Rankings
+
+Rankings del sitio. Todos comparten un mismo shape de **tabla genérica** (`columnas` + `filas`) para que el cliente los renderice con un único componente. Los datos NO se calculan en la API: reusa los mismos endpoints JSON del admin que ya alimentan los reportes (mismo SQL testeado), y los normaliza.
+
+**Fase 1 (implementada)**: rankings "planos" (una fila por animal o por propietario): `solanet`, `freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`.
+**Fase 2 (pendiente)**: rankings de equipo (`rodeos` — yunta; `apartes` analítico/general — equipos de 3), que necesitan aplanado/expansión de miembros.
+
+#### `GET /rankings`
+
+Catálogo: qué rankings hay y qué filtros acepta cada uno (con sus opciones, para poblar los selects). **Cache**: `3600`.
+
+```json
+{
+  "data": [
+    {
+      "slug": "freno",
+      "nombre": "Freno de Oro — Ranking General",
+      "familia": "individual",
+      "filtros": [
+        { "param": "anio", "label": "Año", "tipo": "anio", "default": 2026,
+          "opciones": [ { "value": 2026, "label": "2026" }, { "value": 2025, "label": "2025" } ] },
+        { "param": "categoria", "label": "Categoría", "tipo": "select", "default": 23,
+          "opciones": [ { "value": 23, "label": "Adultos" } ] }
+      ]
+    }
+  ]
+}
+```
+
+- `familia`: `propietario` (Solanet) | `individual` (por animal).
+- Cada `filtro` trae `param` (el query param a mandar), `default` y `opciones` (`{value,label}`).
+- Filtros por ranking: `solanet` → `premio`; el resto → `anio` + `categoria`.
+
+#### `GET /rankings/{slug}`
+
+Datos de un ranking como tabla genérica. Los filtros van como query params (ver el catálogo); si se omiten, se usa el default. **Cache**: `300`.
+
+Ej: `GET /rankings/freno?anio=2026&categoria=23`
+
+```json
+{
+  "slug": "freno",
+  "titulo": "Freno de Oro — Ranking General",
+  "subtitulo": "Adultos Montado",
+  "familia": "individual",
+  "columnas": [
+    { "key": "position", "label": "#" },
+    { "key": "sba", "label": "SBA" },
+    { "key": "animal", "label": "Animal" },
+    { "key": "inspection", "label": "AF" },
+    { "key": "rider", "label": "Jinete" },
+    { "key": "ownet", "label": "Propietario" },
+    { "key": "event", "label": "Evento" },
+    { "key": "date", "label": "Fecha" },
+    { "key": "points", "label": "Puntaje" }
+  ],
+  "filas": [
+    { "position": 1, "idAnimal": 1000, "tabla": "IdPdre", "animalId": "pdre:1000",
+      "sba": "3501 D", "animal": "CARDAL X", "inspection": "Si",
+      "rider": "Juan", "ownet": "Cabaña Z", "event": "Expo Nacional", "date": "01/03/2026", "points": 87.5 }
+  ],
+  "meta": { "count": 1, "filtros": { "anio": 2026, "categoria": 23 } }
+}
+```
+
+- **Renderizado**: recorrer `columnas` en orden y, por cada fila, mostrar `fila[columna.key]`. Las `columnas` varían por ranking (ej. Solanet: `propertyNumber`/`name`/`cabin`/`points`; Corral: agrega `rp`).
+- **Pedigree**: en los rankings por animal (`freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`), cada fila trae además `idAnimal`, `tabla` y `animalId` (id compuesto ya armado, ej. `"pdre:1000"`). Estos campos **no** están en `columnas` (no se muestran); son para linkear a `GET /animales/{animalId}/pedigree`. El ranking `solanet` es por propietario (sin animal por fila); su detalle está abajo.
+- `subtitulo` es la categoría/premio resuelto (o `null`).
+- `404` si el `slug` no existe.
+
+#### `GET /rankings/solanet/detalle`
+
+Detalle de un propietario en el Premio Solanet: los méritos (por animal) que le suman puntos. Es el drill-down de una fila de `/rankings/solanet`. **Cache**: `300`.
+
+**Query params**: `premio` (IdPremioSolanet, default `1`) y `propietario` (NumeroPropietario, **requerido** — `400` si falta).
+
+Ej: `GET /rankings/solanet/detalle?premio=1&propietario=221`
+
+```json
+{
+  "slug": "solanet",
+  "titulo": "Premio Emilio Solanet — Detalle",
+  "propietario": { "numero": "221", "nombre": "MATHO GARAT, RICARDO D." },
+  "columnas": [
+    { "key": "animal", "label": "Animal" }, { "key": "sba", "label": "SBA" },
+    { "key": "rp", "label": "RP" }, { "key": "event", "label": "Evento" },
+    { "key": "date", "label": "Fecha" }, { "key": "test", "label": "Prueba" },
+    { "key": "category", "label": "Categoría" }, { "key": "achievement", "label": "Logro" },
+    { "key": "points", "label": "Puntos" }
+  ],
+  "filas": [
+    { "sba": "98015", "rp": "5047", "animal": "CHAKE VIROLA E PLATA 5047",
+      "event": "Final Nacional Freno de Oro 2025", "date": "25-03-2025",
+      "test": "Freno de Oro", "category": "Hembras", "achievement": "Finalista", "points": "19.00",
+      "idAnimal": null, "tabla": null, "animalId": null }
+  ],
+  "meta": { "count": 7, "filtros": { "premio": 1, "propietario": "221" } }
+}
+```
+
+> **Pedigree en el detalle Solanet**: acá `animalId` viene **`null`** — `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (Solanet identifica al animal por SBA/RP). Para el pedigree desde el detalle, resolvé por SBA: `GET /animales?sba={sba}` → tomá `data[0].id` → `GET /animales/{id}/pedigree`. (Se puede resolver server-side para que `animalId` venga listo — ver nota al pie.)
+
+> Nota de encoding: algunos nombres pueden traer la entidad HTML `&Ntilde;` (heredado de los wrappers del admin). Si el cliente no renderiza HTML, conviene reemplazarla por `Ñ` al mostrar.
+
+---
+
 ## Cache
 
 Resumen de los `Cache-Control` que envía la API:
@@ -965,6 +1136,9 @@ Resumen de los `Cache-Control` que envía la API:
 | `/notificaciones` | `30` (badge cambia rápido) |
 | `/notificaciones/{id}` | `300` (5 min) |
 | `/img/{coleccion}/{archivo}` | `31536000` (1 año, `immutable` + `ETag` + `304`) |
+| `/rankings` | `3600` (1 h) |
+| `/rankings/{slug}` | `300` (5 min) |
+| `/rankings/solanet/detalle` | `300` (5 min) |
 | resto | sin header (no cacheable por default) |
 
 ## Ejemplos rápidos (cURL)
@@ -1003,4 +1177,8 @@ curl "https://caballoscriollos.com/api/notificaciones?since=2026-06-08%2010:00:0
 # Imagen optimizada de una noticia (máx 800px, WebP si el cliente lo acepta)
 curl -H 'Accept: image/webp' \
      "https://caballoscriollos.com/api/img/noticias/2026062403064981243.png?w=800"
+
+# Reglamentos: pruebas disponibles + reglamentos de una prueba
+curl "https://caballoscriollos.com/api/reglamentos/pruebas"
+curl "https://caballoscriollos.com/api/reglamentos?prueba=5"
 ```
