@@ -81,7 +81,7 @@ describe('EventsScreen - Pasados', () => {
 });
 
 describe('EventsScreen - Remates', () => {
-  test('cambiar a la pestaña Remates dispara /noticias?categoria=13 con sort_asc + limit=12', async () => {
+  test('cambiar a la pestaña Remates dispara /noticias?categoria=13 con fecha_desc + limit=12', async () => {
     fetchEventos.mockResolvedValueOnce({ data: [] }); // próximos inicial vacío
     const { getByText, findByText } = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
     await findByText(/No hay eventos próximos/);
@@ -94,7 +94,7 @@ describe('EventsScreen - Remates', () => {
     fireEvent.press(getByText('Remates'));
     await findByText('REMATE 1');
     expect(fetchNoticias).toHaveBeenCalledWith(expect.objectContaining({
-      categoria: 13, sort: 'fecha_asc', limit: 12, offset: 0,
+      categoria: 13, sort: 'fecha_desc', limit: 12, offset: 0,
     }));
   });
 

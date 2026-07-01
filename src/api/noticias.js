@@ -23,14 +23,17 @@ const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct
 
 // Normaliza una noticia de la API al shape que consumen las pantallas.
 export function mapNoticia(n) {
-  const [, M, D] = String(n.fecha || '').split('-');
+  const [Y, M, D] = String(n.fecha || '').split('-');
   const day  = parseInt(D, 10);
   const mIdx = parseInt(M, 10) - 1;
   const date = Number.isFinite(day) && MONTHS_SHORT[mIdx] ? `${day} ${MONTHS_SHORT[mIdx]}` : '';
+  // Variante con año, para listas donde importa (ej. Remates). El resto usa `date`.
+  const dateYear = date && Y ? `${date} ${Y}` : date;
   return {
     id: n.id,
     title: n.titulo || '',
     date,
+    dateYear,
     tag: n.categoria?.nombre || '',
     // Thumb de lista (72pt → ~240px). Preferimos la optimizada del /api/img;
     // si la API no la trae (versión vieja), caemos al thumb/big legacy.

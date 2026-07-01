@@ -14,6 +14,7 @@ describe('mapNoticia', () => {
     expect(n.id).toBe(10);
     expect(n.title).toBe('Una noticia');
     expect(n.date).toBe('5 May');
+    expect(n.dateYear).toBe('5 May 2026'); // variante con año (Remates)
     expect(n.tag).toBe('Eventos');
     expect(n.thumb).toBe('thumb.jpg');
     expect(n.destacado).toBe(true);
@@ -47,9 +48,10 @@ describe('mapNoticia', () => {
     expect(n.tag).toBe('');
   });
 
-  test('fecha inválida → date vacío', () => {
+  test('fecha inválida → date y dateYear vacíos', () => {
     const n = mapNoticia({ id: 1, titulo: 'X', fecha: '' });
     expect(n.date).toBe('');
+    expect(n.dateYear).toBe('');
   });
 
   test('booleans destacado / fijo se normalizan', () => {

@@ -212,7 +212,7 @@ function RematesList({ t, navigation }) {
     try {
       const r = await fetchNoticias({
         categoria: REMATES_CATEGORIA_ID,
-        sort: 'fecha_asc',
+        sort: 'fecha_desc',
         limit: PAGE_REMATES,
         offset,
       });
@@ -272,8 +272,8 @@ function RematesList({ t, navigation }) {
           <View style={{ flexDirection: 'row', gap: 12, padding: 12 }}>
             <Image source={n.thumb ? { uri: n.thumb } : NEWS_PHOTO} style={{ width: 72, height: 72, borderRadius: 8 }} resizeMode="cover" />
             <View style={{ flex: 1, justifyContent: 'center' }}>
-              {!!n.date && (
-                <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.mono, marginBottom: 4 }}>{n.date}</Text>
+              {!!n.dateYear && (
+                <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.mono, marginBottom: 4 }}>{n.dateYear}</Text>
               )}
               <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }} numberOfLines={2}>{n.title}</Text>
             </View>
