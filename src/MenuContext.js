@@ -20,8 +20,14 @@ export function MenuProvider({ children }) {
 
   const openMenu = React.useCallback(() => setMenuOpen(true), []);
   const closeMenu = React.useCallback(() => setMenuOpen(false), []);
-  // Abrir una sección cierra el drawer (queda el overlay de la sección arriba).
-  const openSection = React.useCallback((key) => { setSection(key); setMenuOpen(false); }, []);
+  // Al abrir una sección cerramos el drawer y recién presentamos la sección
+  // cuando su Modal terminó de cerrar (~200ms). Dos Modals en transición a la
+  // vez no se llevan bien: iOS no presenta el segundo mientras el primero se
+  // está cerrando, y la sección quedaba en blanco.
+  const openSection = React.useCallback((key) => {
+    setMenuOpen(false);
+    setTimeout(() => setSection(key), 260);
+  }, []);
   const closeSection = React.useCallback(() => setSection(null), []);
 
   const value = React.useMemo(

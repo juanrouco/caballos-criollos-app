@@ -4,11 +4,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Crest, Divider, F } from './components';
 import { withAlpha } from './theme';
 import { useMenu } from './MenuContext';
+import ReglamentosScreen from './screens/ReglamentosScreen';
 
-// Secciones del menú lateral. Placeholders por ahora: cada `key` puede pasar a
-// tener su propia pantalla real más adelante (ver SectionView abajo).
+// Secciones del menú lateral. Las que tienen `Component` renderizan su pantalla
+// real; el resto muestra el placeholder (SectionView) hasta que se implementen.
 export const SECTIONS = [
-  { key: 'reglamentos',   label: 'Reglamentos',             icon: 'pdf' },
+  { key: 'reglamentos',   label: 'Reglamentos',             icon: 'pdf',      Component: ReglamentosScreen },
   { key: 'mapa',          label: 'Mapa ACCC',               icon: 'pin' },
   { key: 'institucional', label: 'Presencia Institucional', icon: 'building' },
 ];
@@ -29,7 +30,9 @@ export function MenuLayer({ t }) {
     <>
       <MenuDrawer t={t} topInset={topInset} bottomInset={insets.bottom} open={menuOpen} onClose={closeMenu} onSelect={openSection} />
       <Modal visible={!!active} animationType="slide" statusBarTranslucent onRequestClose={closeSection}>
-        {active && <SectionView t={t} topInset={topInset} section={active} onBack={closeSection} />}
+        {active && (active.Component
+          ? <active.Component t={t} topInset={topInset} onBack={closeSection} />
+          : <SectionView t={t} topInset={topInset} section={active} onBack={closeSection} />)}
       </Modal>
     </>
   );

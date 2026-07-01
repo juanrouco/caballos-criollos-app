@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { MenuProvider, useMenu } from '../src/MenuContext';
 import { MenuLayer } from '../src/SideMenu';
 import { T } from './helpers';
@@ -33,11 +33,11 @@ describe('MenuLayer / drawer', () => {
     expect(getByText('Presencia Institucional')).toBeTruthy();
   });
 
-  test('tocar una sección abre su pantalla (placeholder "Próximamente")', () => {
+  test('tocar una sección abre su pantalla (placeholder "Próximamente")', async () => {
     const { getByText, queryByText } = renderMenu();
     fireEvent.press(getByText('ABRIR'));
     expect(queryByText('Próximamente disponible')).toBeNull();
     fireEvent.press(getByText('Mapa ACCC'));
-    expect(getByText('Próximamente disponible')).toBeTruthy();
+    await waitFor(() => expect(getByText('Próximamente disponible')).toBeTruthy());
   });
 });

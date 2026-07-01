@@ -13,6 +13,7 @@ export {
   fetchNoticias, fetchNoticia, fetchNoticiaCategorias, mapNoticia,
 } from './noticias';
 export { fetchNotificaciones, mapNotificacion, isUnreadSince } from './notificaciones';
+export { fetchReglamentos, fetchReglamentoPruebas, mapReglamento } from './reglamentos';
 export {
   fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
 } from './animales';

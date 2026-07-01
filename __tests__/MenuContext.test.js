@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { MenuProvider, useMenu } from '../src/MenuContext';
 
 function Probe() {
@@ -29,19 +29,19 @@ describe('MenuContext', () => {
     expect(getByText('open:false')).toBeTruthy();
   });
 
-  test('openSection abre la sección y cierra el drawer', () => {
+  test('openSection cierra el drawer y abre la sección (tras el cierre)', async () => {
     const { getByText } = renderProbe();
     fireEvent.press(getByText('doOpen'));
     expect(getByText('open:true')).toBeTruthy();
     fireEvent.press(getByText('doSection'));
-    expect(getByText('section:reglamentos')).toBeTruthy();
-    expect(getByText('open:false')).toBeTruthy();
+    expect(getByText('open:false')).toBeTruthy(); // el drawer cierra al instante
+    await waitFor(() => expect(getByText('section:reglamentos')).toBeTruthy());
   });
 
-  test('closeSection limpia la sección', () => {
+  test('closeSection limpia la sección', async () => {
     const { getByText } = renderProbe();
     fireEvent.press(getByText('doSection'));
-    expect(getByText('section:reglamentos')).toBeTruthy();
+    await waitFor(() => expect(getByText('section:reglamentos')).toBeTruthy());
     fireEvent.press(getByText('doCloseSection'));
     expect(getByText('section:null')).toBeTruthy();
   });
