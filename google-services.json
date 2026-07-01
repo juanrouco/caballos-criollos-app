@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "86446597429",
+    "project_id": "caballos-criollos-app-e44ff",
+    "storage_bucket": "caballos-criollos-app-e44ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:86446597429:android:5df9e7c76469d963e9987c",
+        "android_client_info": {
+          "package_name": "com.caballoscriollos.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsZ-UZO5j3CIq_Szoy02TZBaBoGPLQZ-s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

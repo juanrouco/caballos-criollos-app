@@ -23,6 +23,7 @@
     },
     "android": {
       "package": "com.caballoscriollos.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#f7f3ec"
