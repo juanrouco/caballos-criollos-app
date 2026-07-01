@@ -48,6 +48,7 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
         </View>
       ) : (
         <View style={{ paddingHorizontal: 20 }}>
+         <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, paddingHorizontal: 14 }}>
           <RankingTable
             t={t}
             columnas={columnas}
@@ -55,6 +56,7 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
             isTappable={(fila) => !!fila.animalId}
             onRowPress={(fila) => { if (fila.animalId) navigation.navigate('HorseDetail', { id: fila.animalId }); }}
           />
+         </View>
         </View>
       )}
     </ScrollView>

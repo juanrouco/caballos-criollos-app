@@ -49,7 +49,9 @@ export default function RankingCatScreen({ t, navigation, route }) {
   // Subtítulo: la selección fija en rankings con año (individuales/apartes);
   // en rodeos el título del campeonato que devuelve la API es más descriptivo.
   const hasAnio = filtros.some((f) => f.param === 'anio');
-  const subtitle = hasAnio ? filterSummary : decodeEntities(data?.subtitulo || '').replace(/\s*\n+\s*/g, ' · ');
+  // La API puede traer saltos como salto real (\n) o como barra-n literal ("\n").
+  const subtitle = hasAnio ? filterSummary : decodeEntities(data?.subtitulo || '').replace(/\s*(?:\\n|\n)+\s*/g, ' · ').trim();
+  const teamPointsLabel = isTeam ? columnas.find((c) => c.key === pointsKey)?.label : undefined;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
@@ -72,11 +74,13 @@ export default function RankingCatScreen({ t, navigation, route }) {
         </View>
       ) : (
         <View style={{ paddingHorizontal: 20 }}>
+         <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, paddingHorizontal: 14 }}>
           <RankingTable
             t={t}
             columnas={columnas}
             filas={filas}
             pointsKey={pointsKey}
+            pointsLabel={teamPointsLabel}
             membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
             onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
             isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}
@@ -88,6 +92,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
               }
             }}
           />
+         </View>
         </View>
       )}
     </ScrollView>

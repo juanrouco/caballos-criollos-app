@@ -131,7 +131,7 @@ describe('RankingCatScreen', () => {
       ],
     };
     fetchRanking.mockResolvedValue({
-      subtitulo: '57° CAMPEONATO NACIONAL\nRANKING GENERAL',
+      subtitulo: '57° CAMPEONATO NACIONAL\\nRANKING GENERAL', // barra-n literal, como la API
       columnas: [
         { key: 'position', label: '#' },
         { key: 'totalPointsObtained', label: 'Puntos obtenidos' },
@@ -147,8 +147,9 @@ describe('RankingCatScreen', () => {
       <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: RODEOS, initialFilters: { tipo: 2 } })} />,
     );
     expect(await findByText('CONTRAFUEGO TEJEDORA')).toBeTruthy();
-    expect(getByText('57° CAMPEONATO NACIONAL · RANKING GENERAL')).toBeTruthy(); // subtítulo de la API
+    expect(getByText('57° CAMPEONATO NACIONAL · RANKING GENERAL')).toBeTruthy(); // subtítulo sin \n literal
     expect(getByText('95.00')).toBeTruthy(); // puntaje desde totalPointsRanking
+    expect(getByText('Puntos ranking')).toBeTruthy(); // etiqueta bajo el puntaje prominente
     expect(getByText(/Puntos obtenidos 148/)).toBeTruthy(); // la otra columna de puntos va al secundario, no como título
     fireEvent.press(getByText('CONTRAFUEGO TEJEDORA'));
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:105929' });

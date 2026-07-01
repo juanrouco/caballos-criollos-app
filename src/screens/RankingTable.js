@@ -16,7 +16,7 @@ import { decodeEntities } from '../api';
 // con otro nombre (ej. rodeos usa `totalPointsRanking`).
 export default function RankingTable({
   t, columnas = [], filas = [], onRowPress, isTappable,
-  membersOf, onMemberPress, pointsKey = 'points',
+  membersOf, onMemberPress, pointsKey = 'points', pointsLabel,
 }) {
   const isTeamMode = typeof membersOf === 'function';
   const primaryKey = columnas.find((c) => c.key === 'animal') ? 'animal'
@@ -44,11 +44,14 @@ export default function RankingTable({
         const members = membersOf ? (membersOf(fila) || []) : [];
         const primary = primaryKey && decodeEntities(fila[primaryKey]);
         const points = fila[pointsKey];
+        // La fila entera es tappable solo cuando no hay miembros (rankings por
+        // animal / propietario). En equipos, cada miembro es su propio touchable,
+        // así evitamos anidar TouchableOpacity (que rompe el tap en el device).
+        const Row = tappable ? TouchableOpacity : View;
         return (
           <View key={i}>
-            <TouchableOpacity
-              disabled={!tappable}
-              onPress={() => { if (tappable && onRowPress) onRowPress(fila); }}
+            <Row
+              {...(tappable ? { onPress: () => { if (onRowPress) onRowPress(fila); } } : {})}
               style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 14 }}
             >
               {hasPosition && (
@@ -56,10 +59,13 @@ export default function RankingTable({
               )}
               <View style={{ flex: 1 }}>
                 {(!!primary || points != null) && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ flex: 1, fontFamily: F.display, fontSize: 15.5, color: t.text }} numberOfLines={1}>{primary || (members.length ? 'Yunta' : '—')}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                    <Text style={{ flex: 1, fontFamily: F.display, fontSize: 15.5, color: t.text, marginTop: 1 }} numberOfLines={1}>{primary || (members.length ? 'Yunta' : '—')}</Text>
                     {points != null && (
-                      <Text style={{ fontFamily: F.mono, fontSize: 15, color: isTop ? t.accent : t.text }}>{points}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontFamily: F.mono, fontSize: 15, color: isTop ? t.accent : t.text }}>{points}</Text>
+                        {!!pointsLabel && <Text style={{ fontSize: 8.5, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 1 }}>{pointsLabel}</Text>}
+                      </View>
                     )}
                   </View>
                 )}
@@ -87,7 +93,7 @@ export default function RankingTable({
                 })}
               </View>
               {tappable && <Icon name="arrow" size={14} color={t.textDim} />}
-            </TouchableOpacity>
+            </Row>
             {i < filas.length - 1 && <Divider t={t} />}
           </View>
         );
