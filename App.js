@@ -29,6 +29,7 @@ import PedigreeScreen from './src/screens/PedigreeScreen';
 import HorseDetailScreen from './src/screens/HorseDetailScreen';
 import RankingsScreen from './src/screens/RankingsScreen';
 import RankingCatScreen from './src/screens/RankingCatScreen';
+import SolanetDetalleScreen from './src/screens/SolanetDetalleScreen';
 import NewsDetailScreen from './src/screens/NewsDetailScreen';
 import NewsScreen from './src/screens/NewsScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
@@ -54,6 +55,7 @@ const PedigreeT   = withT(PedigreeScreen);
 const HorseT      = withT(HorseDetailScreen);
 const RankingsT   = withT(RankingsScreen);
 const RankingCatT = withT(RankingCatScreen);
+const SolanetDetT = withT(SolanetDetalleScreen);
 const NewsT       = withT(NewsDetailScreen);
 const NewsListT   = withT(NewsScreen);
 const NotifT      = withT(NotificationsScreen);
@@ -131,6 +133,8 @@ function RankingsStack() {
     <RankingsStackN.Navigator screenOptions={stackOpts(t)}>
       <RankingsStackN.Screen name="RankingsList" component={RankingsT} />
       <RankingsStackN.Screen name="RankingCat" component={RankingCatT} />
+      <RankingsStackN.Screen name="SolanetDetalle" component={SolanetDetT} />
+      <RankingsStackN.Screen name="HorseDetail" component={HorseT} />
     </RankingsStackN.Navigator>
   );
 }

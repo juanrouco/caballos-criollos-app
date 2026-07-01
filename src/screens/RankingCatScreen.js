@@ -1,78 +1,96 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { Icon, Crest, Card, Divider, SectionLabel, F } from '../components';
-import { withAlpha } from '../theme';
-import { PREMIO_SOLANET, DISCIPLINE_RANKINGS } from '../data';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Icon, F } from '../components';
+import { fetchRanking, decodeEntities, curateRankingFiltros } from '../api';
+import RankingTable from './RankingTable';
 
-const TOP_GENERIC = [
-  { rank: 1, name: 'CASÍN, HORACIO', owner: 'Cab. El Cardal', points: 1620 },
-  { rank: 2, name: 'BARALE, GERMÁN', owner: 'La Invernada', points: 1480 },
-  { rank: 3, name: 'BALLESTER, FELIPE', owner: 'La Valentina', points: 1240 },
-  { rank: 4, name: 'AGUIRRE, MARIANO', owner: 'La Martita', points: 1180 },
-  { rank: 5, name: 'TRONCONI, J.V.', owner: 'Las Mulitas', points: 1090 },
-];
-
+// Detalle de un ranking como tabla genérica. Recibe el objeto del ranking
+// (slug + filtros con opciones) por route param. Render en fila compacta:
+// posición + entidad principal + puntaje, con las demás columnas debajo.
 export default function RankingCatScreen({ t, navigation, route }) {
-  const { disc, cat } = route.params || {};
-  const isSolanet = disc === 'solanet';
-  const d = !isSolanet ? DISCIPLINE_RANKINGS.find((x) => x.id === disc) : null;
-  const c = !isSolanet ? d?.categories.find((x) => x.id === cat) : null;
-  const list = isSolanet ? PREMIO_SOLANET.topCriadores : (c?.top || TOP_GENERIC);
-  const title = isSolanet ? 'Premio E. Solanet' : c?.name;
-  const subtitle = isSolanet ? 'Edición ' + PREMIO_SOLANET.season : d?.name;
-  const accent = isSolanet ? t.accent : (d?.color === '#0d121f' ? t.accent : d?.color || t.accent);
+  const ranking = React.useMemo(() => curateRankingFiltros(route.params?.ranking || {}), [route.params?.ranking]);
+  const { slug, nombre, filtros = [] } = ranking;
+
+  // Filtros seleccionados: defaults del catálogo + los que vengan preseleccionados
+  // desde el landing (ej. año + categoría al tocar una categoría de la disciplina).
+  const [filters, setFilters] = React.useState(() => {
+    const base = filtros.reduce((acc, f) => ({ ...acc, [f.param]: f.default }), {});
+    return { ...base, ...(route.params?.initialFilters || {}) };
+  });
+  const [data, setData] = React.useState(null); // null=loading
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!slug) { setError(true); setData({}); return; }
+    let cancelled = false;
+    setData(null); setError(false);
+    fetchRanking(slug, filters)
+      .then((r) => { if (!cancelled) setData(r || {}); })
+      .catch(() => { if (!cancelled) { setError(true); setData({}); } });
+    return () => { cancelled = true; };
+  }, [slug, filters]);
+
+  const columnas = data?.columnas || [];
+  const filas    = data?.filas || [];
+  const isSolanet = slug === 'solanet';
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 22 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Volver" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
-        <Text style={{ fontSize: 11, color: accent, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 8 }}>{subtitle}</Text>
-        <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }}>{title}</Text>
+        <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{decodeEntities(nombre) || 'Ranking'}</Text>
+        {!!data?.subtitulo && (
+          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{decodeEntities(data.subtitulo)}</Text>
+        )}
       </View>
 
-      {/* Podium */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 18, flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-        {[list[1], list[0], list[2]].map((r, i) => {
-          if (!r) return <View key={i} style={{ flex: 1 }} />;
-          const place = r.rank;
-          const pc = place === 1 ? accent : place === 2 ? t.textMute : t.accentDeep;
-          return (
-            <View key={r.rank} style={{ flex: place === 1 ? 1.15 : 1, backgroundColor: place === 1 ? t.surface2 : t.surface, borderWidth: 1, borderColor: place === 1 ? withAlpha(accent, 0.6) : t.border, borderRadius: 12, padding: 12, paddingVertical: place === 1 ? 18 : 14, alignItems: 'center', gap: 6 }}>
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: pc, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: F.display, fontSize: 13, color: t.bg }}>{place}</Text>
-              </View>
-              <Crest size={place === 1 ? 38 : 32} color={accent} bg={withAlpha(accent, 0.1)} ring={withAlpha(accent, 0.25)} horse />
-              <Text numberOfLines={2} style={{ fontFamily: F.display, fontSize: place === 1 ? 13 : 12, color: t.text, textAlign: 'center' }}>{r.name}</Text>
-              <Text style={{ fontFamily: F.mono, fontSize: place === 1 ? 14 : 12, color: accent }}>{r.points}</Text>
-            </View>
-          );
-        })}
-      </View>
+      {/* Filtros */}
+      {filtros.map((f) => (
+        <View key={f.param} style={{ marginBottom: 14 }}>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, paddingHorizontal: 20, marginBottom: 8 }}>{f.label}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+            {(f.opciones || []).map((o) => {
+              const on = filters[f.param] === o.value;
+              return (
+                <TouchableOpacity
+                  key={String(o.value)}
+                  onPress={() => setFilters((prev) => ({ ...prev, [f.param]: o.value }))}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
+                >
+                  <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{decodeEntities(o.label)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ))}
 
-      <SectionLabel t={t}>Tabla completa</SectionLabel>
-      <View style={{ paddingHorizontal: 20 }}>
-        <Card t={t}>
-          {list.map((r, i) => (
-            <View key={r.rank}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
-                <Text style={{ width: 26, fontFamily: F.display, fontSize: 18, color: r.rank <= 3 ? accent : t.textMute, textAlign: 'center' }}>{r.rank}</Text>
-                <Crest size={32} color={accent} bg={withAlpha(accent, 0.1)} ring={withAlpha(accent, 0.25)} horse />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{r.name}</Text>
-                  <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3 }}>{r.owner}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ fontFamily: F.mono, fontSize: 14, color: t.text }}>{r.points}</Text>
-                  <Text style={{ fontSize: 10, color: t.textDim, letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 }}>pts</Text>
-                </View>
-              </View>
-              {i < list.length - 1 && <Divider t={t} style={{ marginLeft: 16 }} />}
-            </View>
-          ))}
-        </Card>
-      </View>
+      {/* Tabla */}
+      {data === null ? (
+        <View style={{ paddingTop: 30, alignItems: 'center' }}><ActivityIndicator color={t.accent} /></View>
+      ) : filas.length === 0 ? (
+        <View style={{ paddingHorizontal: 40, paddingTop: 20, alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center' }}>{error ? 'No se pudo cargar el ranking.' : 'No hay datos para este filtro.'}</Text>
+        </View>
+      ) : (
+        <View style={{ paddingHorizontal: 20 }}>
+          <RankingTable
+            t={t}
+            columnas={columnas}
+            filas={filas}
+            isTappable={(fila) => (isSolanet ? fila.propertyNumber != null : !!fila.animalId)}
+            onRowPress={(fila) => {
+              if (isSolanet) {
+                navigation.navigate('SolanetDetalle', { premio: filters.premio, propietario: fila.propertyNumber, nombre: fila.name, points: fila.points });
+              } else if (fila.animalId) {
+                navigation.navigate('HorseDetail', { id: fila.animalId });
+              }
+            }}
+          />
+        </View>
+      )}
     </ScrollView>
   );
 }
