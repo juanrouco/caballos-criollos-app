@@ -12,11 +12,20 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const { slug, nombre, filtros = [] } = ranking;
 
   // Filtros seleccionados: defaults del catálogo + los que vengan preseleccionados
-  // desde el landing (ej. año + categoría al tocar una categoría de la disciplina).
-  const [filters, setFilters] = React.useState(() => {
+  // desde el landing (año + categoría al tocar una categoría de la disciplina).
+  // Se fijan al entrar (no se cambian acá): la elección se hace en el landing.
+  const filters = React.useMemo(() => {
     const base = filtros.reduce((acc, f) => ({ ...acc, [f.param]: f.default }), {});
     return { ...base, ...(route.params?.initialFilters || {}) };
-  });
+  }, [ranking, route.params?.initialFilters]);
+
+  // Resumen de la selección para el subtítulo, ej. "Año: 2026 - Hembras".
+  const filterSummary = filtros.map((f) => {
+    const opt = (f.opciones || []).find((o) => o.value === filters[f.param]);
+    if (!opt) return null;
+    const label = decodeEntities(opt.label);
+    return f.param === 'anio' ? `Año: ${label}` : label;
+  }).filter(Boolean).join(' - ');
   const [data, setData] = React.useState(null); // null=loading
   const [error, setError] = React.useState(false);
 
@@ -41,31 +50,10 @@ export default function RankingCatScreen({ t, navigation, route }) {
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
         <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{decodeEntities(nombre) || 'Ranking'}</Text>
-        {!!data?.subtitulo && (
-          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{decodeEntities(data.subtitulo)}</Text>
+        {!!(filterSummary || data?.subtitulo) && (
+          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{filterSummary || decodeEntities(data.subtitulo)}</Text>
         )}
       </View>
-
-      {/* Filtros */}
-      {filtros.map((f) => (
-        <View key={f.param} style={{ marginBottom: 14 }}>
-          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, paddingHorizontal: 20, marginBottom: 8 }}>{f.label}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
-            {(f.opciones || []).map((o) => {
-              const on = filters[f.param] === o.value;
-              return (
-                <TouchableOpacity
-                  key={String(o.value)}
-                  onPress={() => setFilters((prev) => ({ ...prev, [f.param]: o.value }))}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
-                >
-                  <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{decodeEntities(o.label)}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ))}
 
       {/* Tabla */}
       {data === null ? (

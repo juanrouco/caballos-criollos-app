@@ -1020,8 +1020,9 @@ La tabla `tblPushTokens` (DB `caballos_bd`) se crea con `docker/db/migrations/20
 
 Rankings del sitio. Todos comparten un mismo shape de **tabla genérica** (`columnas` + `filas`) para que el cliente los renderice con un único componente. Los datos NO se calculan en la API: reusa los mismos endpoints JSON del admin que ya alimentan los reportes (mismo SQL testeado), y los normaliza.
 
-**Fase 1 (implementada)**: rankings "planos" (una fila por animal o por propietario): `solanet`, `freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`.
-**Fase 2 (pendiente)**: rankings de equipo (`rodeos` — yunta; `apartes` analítico/general — equipos de 3), que necesitan aplanado/expansión de miembros.
+Hay dos familias de rankings:
+- **Individuales / propietario** (una fila por animal o propietario): `solanet`, `freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`. La fila es plana.
+- **De equipo** (`familia: "equipo"`): `rodeos`, `apartes_analitico`, `apartes_general`. Además de las `columnas` escalares, cada fila trae un array `animales` con los miembros del equipo (cada uno con su `animalId` para el pedigree). Ver [Rankings de equipo](#rankings-de-equipo).
 
 #### `GET /rankings`
 
@@ -1045,9 +1046,9 @@ Catálogo: qué rankings hay y qué filtros acepta cada uno (con sus opciones, p
 }
 ```
 
-- `familia`: `propietario` (Solanet) | `individual` (por animal).
+- `familia`: `propietario` (Solanet) | `individual` (por animal) | `equipo` (rodeos, apartes).
 - Cada `filtro` trae `param` (el query param a mandar), `default` y `opciones` (`{value,label}`).
-- Filtros por ranking: `solanet` → `premio`; el resto → `anio` + `categoria`.
+- Filtros por ranking: `solanet` → `premio`; `rodeos` → `calendario` + `tipo`; el resto → `anio` + `categoria`.
 
 #### `GET /rankings/{slug}`
 
@@ -1119,6 +1120,40 @@ Ej: `GET /rankings/solanet/detalle?premio=1&propietario=221`
 > **Pedigree en el detalle Solanet**: acá `animalId` viene **`null`** — `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (Solanet identifica al animal por SBA/RP). Para el pedigree desde el detalle, resolvé por SBA: `GET /animales?sba={sba}` → tomá `data[0].id` → `GET /animales/{id}/pedigree`. (Se puede resolver server-side para que `animalId` venga listo — ver nota al pie.)
 
 > Nota de encoding: algunos nombres pueden traer la entidad HTML `&Ntilde;` (heredado de los wrappers del admin). Si el cliente no renderiza HTML, conviene reemplazarla por `Ñ` al mostrar.
+
+#### Rankings de equipo
+
+`rodeos`, `apartes_analitico` y `apartes_general` tienen `familia: "equipo"`. Se consumen igual (`GET /rankings/{slug}`), pero además de las `columnas` escalares, **cada fila trae un array con los miembros del equipo**, cada uno con su `animalId` para el pedigree. La app renderiza esos animales dentro de la fila (como en el reporte del admin).
+
+**Apartes** (`apartes_analitico`, `apartes_general`) — la fila trae `animales[]`:
+
+```json
+{
+  "position": 1,
+  "equipo": "La Invernada",
+  "animales": [
+    { "sba": "100", "nombre": "CARDAL A", "jinete": "Juan", "animalId": "pdre:1", "idAnimal": "1", "tabla": "IdPdre" }
+  ],
+  "tiempo1": "01:20", "tiempo2": "01:25", "total": "02:45", "evento1": "...", "evento2": "..."
+}
+```
+(`apartes_general` agrega `inspection` por animal; `apartes_analitico` usa `tiempo` + `encierro` en vez de `tiempo1/2/total`.)
+
+**Rodeos** — es una matriz (yunta × eventos). La fila trae dos arrays: `animals[]` (la yunta, con `animalId`) y `rankings[]` (los mejores eventos):
+
+```json
+{
+  "position": 1,
+  "animals": [
+    { "sba": "100", "name": "CARDAL A", "rider": "Juan", "handicap": 5, "functionalApproval": true, "animalId": "pdre:1" }
+  ],
+  "rankings": [
+    { "pointsObtained": 30, "handicap": 5, "position": 2, "date": "...", "event": "...", "participanCount": 12, "pointsRanking": 10 }
+  ],
+  "totalPointsObtained": 30, "totalPointsRanking": 28
+}
+```
+(rodeos usa las claves legacy `animals`/`rankings` en inglés porque el mismo wrapper alimenta `web/rodeos_ranking.php`. El `subtitulo` del endpoint es el título del calendario/campeonato.)
 
 ---
 

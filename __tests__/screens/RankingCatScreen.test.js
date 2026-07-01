@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 jest.mock('../../src/api', () => ({
   fetchRanking: jest.fn(),
@@ -32,27 +32,29 @@ const renderCat = (nav = navStub()) =>
   render(<RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: FRENO })} />);
 
 describe('RankingCatScreen', () => {
-  test('pide el ranking con los filtros default y renderiza la fila compacta', async () => {
+  test('pide el ranking con los filtros default y muestra el resumen en el subtítulo', async () => {
     const { findByText, getByText } = renderCat();
     expect(await findByText('CARDAL X')).toBeTruthy();
     expect(fetchRanking).toHaveBeenCalledWith('freno', { anio: 2026, categoria: 24 });
+    expect(getByText('Año: 2026 - Machos')).toBeTruthy(); // subtítulo desde los filtros fijos
     expect(getByText(/SBA 3501 D/)).toBeTruthy(); // columna secundaria
     expect(getByText('87.5')).toBeTruthy();        // puntaje
   });
 
   test('usa los initialFilters (año + categoría) por sobre los defaults', async () => {
-    const { findByText } = render(
+    const { findByText, getByText } = render(
       <RankingCatScreen t={T} navigation={navStub()} route={routeStub({ ranking: FRENO, initialFilters: { anio: 2025, categoria: 23 } })} />,
     );
     await findByText('CARDAL X');
     expect(fetchRanking).toHaveBeenCalledWith('freno', { anio: 2025, categoria: 23 });
+    expect(getByText('Año: 2025 - Hembras')).toBeTruthy();
   });
 
-  test('cambiar un filtro re-pide con el nuevo valor', async () => {
-    const { findByText, getByText } = renderCat();
+  test('no muestra chips para cambiar año ni categoría', async () => {
+    const { findByText, queryByText } = renderCat();
     await findByText('CARDAL X');
-    fireEvent.press(getByText('Hembras'));
-    await waitFor(() => expect(fetchRanking).toHaveBeenLastCalledWith('freno', { anio: 2026, categoria: 23 }));
+    expect(queryByText('Hembras')).toBeNull();
+    expect(queryByText('2025')).toBeNull();
   });
 
   test('tocar una fila con animalId abre HorseDetail', async () => {

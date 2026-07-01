@@ -22,12 +22,29 @@ function premioForYear(premioF, year) {
   return match || opts.find((o) => o.value === premioF.default) || opts[0] || null;
 }
 
+// Rankings que se agrupan bajo un solo item (acordeón de dos niveles): al abrir
+// el grupo aparecen sus sub-rankings, y al abrir cada uno, sus categorías.
+const GROUPS = {
+  corral: { disc: 'corral', label: 'Corral de Aparte', slugs: ['corral_general', 'corral_analitico'] },
+};
+// Sub-label = lo que va después del "—" en el nombre (ej. "...— Ranking General").
+function subLabel(nombre) {
+  const parts = String(nombre || '').split('—');
+  return (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').trim();
+}
+// Freno/CIO/FZB tienen un único ranking (general): sacamos el "— Ranking General"
+// del nombre. Corral, que tiene dos, conserva el sufijo para distinguirlos.
+function cleanName(nombre) {
+  return String(nombre || '').replace(/\s*—\s*Ranking General\s*$/i, '').trim();
+}
+
 export default function RankingsScreen({ t, navigation }) {
   const [catalog, setCatalog] = React.useState(null); // null=loading, []=vacío/error
   const [error, setError] = React.useState(false);
   const [solanetTop, setSolanetTop] = React.useState(undefined); // undefined=loading, null=sin datos
-  const [year, setYear] = React.useState(null);   // año seleccionado (filtro anio de los individuales)
-  const [open, setOpen] = React.useState(null);   // slug del acordeón abierto
+  const [year, setYear] = React.useState(null);       // año seleccionado (filtro anio de los individuales)
+  const [open, setOpen] = React.useState(null);       // item de disciplina abierto (slug o key de grupo)
+  const [openSub, setOpenSub] = React.useState(null); // sub-ranking abierto dentro de un grupo
 
   const load = React.useCallback(() => {
     let cancelled = false;
@@ -65,6 +82,43 @@ export default function RankingsScreen({ t, navigation }) {
   const individuals = (catalog || []).filter((x) => x.familia === 'individual');
   const anioOpciones = individuals.find((x) => x.filtros?.some((f) => f.param === 'anio'))
     ?.filtros?.find((f) => f.param === 'anio')?.opciones || [];
+
+  // Items de "Por disciplina": los rankings de un grupo (ej. Corral Aparte) se
+  // muestran como un solo item con sub-rankings; el resto quedan sueltos.
+  const displayItems = [];
+  const groupAdded = new Set();
+  individuals.forEach((r) => {
+    const disc = RANK_DISC[r.slug];
+    const g = GROUPS[disc];
+    if (g && g.slugs.includes(r.slug)) {
+      if (!groupAdded.has(disc)) {
+        groupAdded.add(disc);
+        const subs = g.slugs.map((s) => individuals.find((x) => x.slug === s)).filter(Boolean);
+        displayItems.push({ type: 'group', key: disc, disc, label: g.label, rankings: subs });
+      }
+    } else {
+      displayItems.push({ type: 'ranking', key: r.slug, disc, ranking: { ...r, nombre: cleanName(r.nombre) } });
+    }
+  });
+
+  const catsOf = (r) => r.filtros?.find((f) => f.param === 'categoria')?.opciones || [];
+  const goTo = (r, categoria) => navigation.navigate('RankingCat', {
+    ranking: r,
+    initialFilters: { ...(year != null ? { anio: year } : {}), ...(categoria != null ? { categoria } : {}) },
+  });
+  const renderCats = (r, color) => catsOf(r).map((c, i, arr) => (
+    <View key={String(c.value)}>
+      <TouchableOpacity onPress={() => goTo(r, c.value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 18, paddingRight: 14 }}>
+        <View style={{ width: 3, height: 22, backgroundColor: color, borderRadius: 2 }} />
+        <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13.5, color: t.text }}>{decodeEntities(c.label)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6, backgroundColor: withAlpha(color, 0.15) }}>
+          <Text style={{ color: color === '#0d121f' ? t.text : color, fontSize: 10.5, fontFamily: F.bodyBold, textTransform: 'uppercase' }}>Ver</Text>
+          <Icon name="arrow" size={11} color={color === '#0d121f' ? t.text : color} />
+        </View>
+      </TouchableOpacity>
+      {i < arr.length - 1 && <Divider t={t} style={{ marginLeft: 18 }} />}
+    </View>
+  ));
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
@@ -137,47 +191,56 @@ export default function RankingsScreen({ t, navigation }) {
             </View>
           )}
 
-          {/* Por disciplina — acordeón con las categorías de cada ranking */}
-          {individuals.length > 0 && (
+          {/* Por disciplina — acordeón (con grupos de dos niveles, ej. Corral) */}
+          {displayItems.length > 0 && (
             <>
               <SectionLabel t={t}>Por disciplina</SectionLabel>
               <View style={{ paddingHorizontal: 20, gap: 10 }}>
-                {individuals.map((r) => {
-                  const isOpen = open === r.slug;
-                  const disc = RANK_DISC[r.slug];
-                  const color = (disc && DISCIPLINE_COLORS[disc]) || t.accent;
-                  const icon = disc && DISCIPLINE_ICONS[disc];
-                  const cats = r.filtros?.find((f) => f.param === 'categoria')?.opciones || [];
-                  const goTo = (categoria) => navigation.navigate('RankingCat', {
-                    ranking: r,
-                    initialFilters: { ...(year != null ? { anio: year } : {}), ...(categoria != null ? { categoria } : {}) },
-                  });
+                {displayItems.map((item) => {
+                  const isOpen = open === item.key;
+                  const color = (item.disc && DISCIPLINE_COLORS[item.disc]) || t.accent;
+                  const icon = item.disc && DISCIPLINE_ICONS[item.disc];
+                  const canOpen = item.type === 'group' || catsOf(item.ranking).length > 0;
+                  const onHeader = () => {
+                    if (item.type === 'ranking' && !canOpen) { goTo(item.ranking, null); return; }
+                    setOpen(isOpen ? null : item.key); setOpenSub(null);
+                  };
                   return (
-                    <View key={r.slug} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden' }}>
-                      <TouchableOpacity onPress={() => (cats.length > 0 ? setOpen(isOpen ? null : r.slug) : goTo(null))} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
+                    <View key={item.key} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden' }}>
+                      <TouchableOpacity onPress={onHeader} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
                         <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
                           {icon ? <Image source={icon} style={{ width: 26, height: 26, tintColor: '#fff' }} resizeMode="contain" /> : <Icon name="trophy" size={20} color="#fff" />}
                         </View>
-                        <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{decodeEntities(r.nombre)}</Text>
-                        <View style={{ transform: [{ rotate: cats.length > 0 && isOpen ? '90deg' : '0deg' }] }}>
+                        <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{item.type === 'group' ? item.label : decodeEntities(item.ranking.nombre)}</Text>
+                        <View style={{ transform: [{ rotate: canOpen && isOpen ? '90deg' : '0deg' }] }}>
                           <Icon name="arrow" size={16} color={t.textMute} />
                         </View>
                       </TouchableOpacity>
-                      {isOpen && cats.length > 0 && (
+
+                      {/* Ranking suelto → categorías */}
+                      {item.type === 'ranking' && isOpen && catsOf(item.ranking).length > 0 && (
+                        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>{renderCats(item.ranking, color)}</View>
+                      )}
+
+                      {/* Grupo → sub-rankings, cada uno con sus categorías */}
+                      {item.type === 'group' && isOpen && (
                         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
-                          {cats.map((c, i) => (
-                            <View key={String(c.value)}>
-                              <TouchableOpacity onPress={() => goTo(c.value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 18, paddingRight: 14 }}>
-                                <View style={{ width: 3, height: 22, backgroundColor: color, borderRadius: 2 }} />
-                                <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13.5, color: t.text }}>{decodeEntities(c.label)}</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6, backgroundColor: withAlpha(color, 0.15) }}>
-                                  <Text style={{ color: color === '#0d121f' ? t.text : color, fontSize: 10.5, fontFamily: F.bodyBold, textTransform: 'uppercase' }}>Ver</Text>
-                                  <Icon name="arrow" size={11} color={color === '#0d121f' ? t.text : color} />
-                                </View>
-                              </TouchableOpacity>
-                              {i < cats.length - 1 && <Divider t={t} style={{ marginLeft: 18 }} />}
-                            </View>
-                          ))}
+                          {item.rankings.map((sub, si) => {
+                            const subOpen = openSub === sub.slug;
+                            return (
+                              <View key={sub.slug}>
+                                <TouchableOpacity onPress={() => setOpenSub(subOpen ? null : sub.slug)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, paddingLeft: 16, paddingRight: 14 }}>
+                                  <View style={{ width: 3, height: 24, backgroundColor: color, borderRadius: 2 }} />
+                                  <Text style={{ flex: 1, fontFamily: F.display, fontSize: 15, color: t.text }}>{subLabel(sub.nombre)}</Text>
+                                  <View style={{ transform: [{ rotate: subOpen ? '90deg' : '0deg' }] }}>
+                                    <Icon name="arrow" size={14} color={t.textMute} />
+                                  </View>
+                                </TouchableOpacity>
+                                {subOpen && <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>{renderCats(sub, color)}</View>}
+                                {si < item.rankings.length - 1 && <Divider t={t} style={{ marginLeft: 16 }} />}
+                              </View>
+                            );
+                          })}
                         </View>
                       )}
                     </View>

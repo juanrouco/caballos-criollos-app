@@ -27,7 +27,22 @@ const FRENO = {
     { param: 'categoria', default: 24, opciones: [{ value: 23, label: 'Hembras' }, { value: 24, label: 'Machos' }] },
   ],
 };
-const CATALOG = [SOLANET, FRENO];
+const CORRAL_GEN = {
+  slug: 'corral_general', nombre: 'Corral de Aparte — Ranking General', familia: 'individual',
+  filtros: [
+    { param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+    { param: 'categoria', default: 5, opciones: [{ value: 5, label: 'Libre' }, { value: 6, label: 'Novicios' }] },
+  ],
+};
+const CORRAL_ANA = {
+  slug: 'corral_analitico', nombre: 'Corral de Aparte — Ranking Analítico', familia: 'individual',
+  filtros: [
+    { param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+    { param: 'categoria', default: 5, opciones: [{ value: 5, label: 'Libre' }, { value: 6, label: 'Novicios' }] },
+  ],
+};
+const CATALOG = [SOLANET, FRENO, CORRAL_GEN, CORRAL_ANA];
+const FRENO_CLEAN = { ...FRENO, nombre: 'Freno de Oro' }; // sin "— Ranking General" en el landing
 
 beforeEach(() => {
   fetchRankings.mockReset(); fetchRanking.mockReset();
@@ -43,7 +58,8 @@ describe('RankingsScreen', () => {
     expect(await findByText('MATHO GARAT, RICARDO D.')).toBeTruthy();
     expect(getByText('CABAÑA LA ESTRELLA')).toBeTruthy();
     expect(getByText('2026')).toBeTruthy(); // tab de año
-    expect(getByText('Freno de Oro — Ranking General')).toBeTruthy();
+    expect(getByText('Freno de Oro')).toBeTruthy(); // sin "— Ranking General"
+    expect(queryByText('Freno de Oro — Ranking General')).toBeNull();
     expect(queryByText('Machos')).toBeNull(); // categorías ocultas hasta expandir
   });
 
@@ -57,22 +73,44 @@ describe('RankingsScreen', () => {
   test('expandir una disciplina y tocar una categoría navega con año + categoría', async () => {
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
-    fireEvent.press(await findByText('Freno de Oro — Ranking General')); // expande
+    fireEvent.press(await findByText('Freno de Oro')); // expande
     fireEvent.press(getByText('Machos')); // categoría
     expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
-      ranking: FRENO, initialFilters: { anio: 2026, categoria: 24 },
+      ranking: FRENO_CLEAN, initialFilters: { anio: 2026, categoria: 24 },
     });
   });
 
   test('cambiar el año se propaga a la categoría abierta', async () => {
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
-    await findByText('Freno de Oro — Ranking General');
+    await findByText('Freno de Oro');
     fireEvent.press(getByText('2025')); // tab de año
-    fireEvent.press(getByText('Freno de Oro — Ranking General')); // expande
+    fireEvent.press(getByText('Freno de Oro')); // expande
     fireEvent.press(getByText('Machos'));
     expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
-      ranking: FRENO, initialFilters: { anio: 2025, categoria: 24 },
+      ranking: FRENO_CLEAN, initialFilters: { anio: 2025, categoria: 24 },
+    });
+  });
+
+  test('Corral de Aparte es un solo item que agrupa General y Analítico', async () => {
+    const nav = navStub();
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    // Un solo item "Corral de Aparte" (no dos rankings sueltos)
+    expect(await findByText('Corral de Aparte')).toBeTruthy();
+    expect(queryByText('Corral de Aparte — Ranking General')).toBeNull();
+    expect(queryByText('Ranking General')).toBeNull(); // sub-rankings ocultos
+
+    // Abrir el grupo → aparecen los sub-rankings
+    fireEvent.press(getByText('Corral de Aparte'));
+    expect(getByText('Ranking General')).toBeTruthy();
+    expect(getByText('Ranking Analítico')).toBeTruthy();
+    expect(queryByText('Libre')).toBeNull(); // categorías aún ocultas
+
+    // Abrir un sub-ranking → aparecen sus categorías
+    fireEvent.press(getByText('Ranking General'));
+    fireEvent.press(getByText('Libre'));
+    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+      ranking: CORRAL_GEN, initialFilters: { anio: 2026, categoria: 5 },
     });
   });
 
