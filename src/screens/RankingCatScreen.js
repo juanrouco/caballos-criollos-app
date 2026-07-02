@@ -49,6 +49,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const isApartes = slug === 'apartes_general' || slug === 'apartes_analitico';
   const isFzb     = slug === 'fzb';
   const isCorral  = slug === 'corral_general' || slug === 'corral_analitico';
+  const isFreno   = slug === 'freno';
   // Columna que hace de "puntaje" prominente según el ranking. Apartes usa el
   // tiempo (total en general, mejor tiempo en analítico); FZB el promedio de los
   // dos eventos; corral su puntaje; rodeos su puntaje de ranking; el resto 'points'.
@@ -87,6 +88,20 @@ export default function RankingCatScreen({ t, navigation, route }) {
       clean(fila.inspection) && `AF ${clean(fila.inspection)}`,
     ].filter(Boolean).join('  ·  ');
     return [l1, clean(fila.propietario) && `Propietario: ${clean(fila.propietario)}`, clean(fila.evento)].filter(Boolean);
+  };
+  // Freno de Oro: 1ª línea SBA · RP · AF, 2ª jinete, 3ª propietario. El puntaje
+  // va arriba a la derecha (points).
+  const frenoLines = (fila) => {
+    const l1 = [
+      clean(fila.sba) && `SBA ${clean(fila.sba)}`,
+      clean(fila.rp) && `RP ${clean(fila.rp)}`,
+      clean(fila.inspection) && `AF ${clean(fila.inspection)}`,
+    ].filter(Boolean).join('  ·  ');
+    return [
+      l1,
+      clean(fila.rider) && `Jinete: ${clean(fila.rider)}`,
+      clean(fila.ownet) && `Propietario: ${clean(fila.ownet)}`,
+    ].filter(Boolean);
   };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
   // puntaje de ranking). Se puede reponer sacándolo de esta lista.
@@ -145,7 +160,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
             expandable={isApartes}
             detailOf={isApartes ? apartesDetail : isFzb ? fzbDetail : undefined}
             detailValueLabel={isFzb ? 'Puntaje' : 'Tiempo'}
-            secondaryLines={isFzb ? fzbLines : isCorral ? corralLines : undefined}
+            secondaryLines={isFzb ? fzbLines : isCorral ? corralLines : isFreno ? frenoLines : undefined}
             membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
             onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
             isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}

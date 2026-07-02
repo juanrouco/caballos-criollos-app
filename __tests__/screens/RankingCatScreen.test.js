@@ -171,6 +171,30 @@ describe('RankingCatScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:81774' });
   });
 
+  test('freno: puntaje a la derecha, líneas SBA·RP·AF / Jinete / Propietario', async () => {
+    fetchRanking.mockResolvedValue({
+      columnas: [
+        { key: 'position', label: '#' }, { key: 'sba', label: 'SBA' }, { key: 'rp', label: 'RP' },
+        { key: 'animal', label: 'Animal' }, { key: 'inspection', label: 'AF' },
+        { key: 'rider', label: 'Jinete' }, { key: 'ownet', label: 'Propietario' },
+        { key: 'event', label: 'Evento' }, { key: 'points', label: 'Puntaje' },
+      ],
+      filas: [{
+        position: 1, animalId: 'pdre:127547', sba: '93182 D', rp: '210', animal: 'FOGATA GATOPARDO',
+        inspection: 'Si', rider: 'HORACIO DANIEL CASIN', ownet: 'CRIOLLOS DON MIGUEL S.R.L.', points: '19.783',
+      }],
+    });
+    const nav = navStub();
+    const { findByText, getByText } = renderCat(nav);
+    expect(await findByText('FOGATA GATOPARDO')).toBeTruthy();
+    expect(getByText('19.783')).toBeTruthy();                        // puntaje a la derecha
+    expect(getByText('SBA 93182 D  ·  RP 210  ·  AF Si')).toBeTruthy(); // 1ª línea
+    expect(getByText('Jinete: HORACIO DANIEL CASIN')).toBeTruthy();  // 2ª línea
+    expect(getByText('Propietario: CRIOLLOS DON MIGUEL S.R.L.')).toBeTruthy(); // 3ª línea
+    fireEvent.press(getByText('FOGATA GATOPARDO'));                  // fila → pedigree
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:127547' });
+  });
+
   test('corral: puntaje a la derecha, líneas SBA·RP·AF / propietario / evento (sin tabla)', async () => {
     const CORRAL = {
       slug: 'corral_general', nombre: 'Corral Aparte — Ranking General', familia: 'individual',
