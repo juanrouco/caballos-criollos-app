@@ -72,7 +72,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
   // FZB: bajo el nombre, SBA (+ RP si la API lo trae) y, en otra línea, el propietario.
   const fzbLines = (fila) => {
     const l1 = [fila.sba != null && fila.sba !== '' ? `SBA ${fila.sba}` : null, fila.rp != null && fila.rp !== '' ? `RP ${fila.rp}` : null].filter(Boolean).join('  ·  ');
-    const l2 = fila.propietario != null && fila.propietario !== '' ? decodeEntities(fila.propietario) : null;
+    const l2 = fila.propietario != null && fila.propietario !== '' ? `Propietario: ${decodeEntities(fila.propietario)}` : null;
     return [l1, l2].filter(Boolean);
   };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el

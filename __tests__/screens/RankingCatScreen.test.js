@@ -163,7 +163,7 @@ describe('RankingCatScreen', () => {
     expect(await findByText('MAÑANERA MAESTRA')).toBeTruthy();   // nombre
     expect(getByText('53.50')).toBeTruthy();                     // promedio a la derecha
     expect(getByText(/SBA 75394/)).toBeTruthy();                 // línea SBA
-    expect(getByText('DUTROC, RICARDO ALFREDO')).toBeTruthy();   // propietario en otra línea
+    expect(getByText('Propietario: DUTROC, RICARDO ALFREDO')).toBeTruthy(); // propietario con label
     expect(getByText('EXPO OTOÑO')).toBeTruthy();                // tabla Evento/Puntaje
     expect(getByText('52.00')).toBeTruthy();
     expect(getByText('55.00')).toBeTruthy();
