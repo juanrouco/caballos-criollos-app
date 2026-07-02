@@ -51,17 +51,23 @@ export default function MapaScreen({ t, topInset, onBack }) {
     return () => { cancelled = true; };
   }, []);
 
-  const byRomano = React.useMemo(() => {
-    const m = {};
-    (dels || []).forEach((d) => { (m[d.romano] = m[d.romano] || []).push(d); });
-    return m;
-  }, [dels]);
-
-  const selectedDels = selected ? (byRomano[selected] || []) : [];
-
   const mapW = Math.min(width - 40, 320);
   const mapH = mapW / aspect;
   const MR = Math.max(14, Math.round(mapW * 0.062)); // radio del marcador (px), proporcional
+
+  // Al tocar un marcador del mapa, seleccionamos y hacemos scroll a su fila en la
+  // lista (donde se ven los datos), así no hay que subir a buscarlos.
+  const scrollRef = React.useRef(null);
+  const listYRef = React.useRef(0);
+  const rowYRef = React.useRef({});
+  const selectFromMap = (romano) => {
+    setSelected(romano);
+    const idx = (dels || []).findIndex((d) => d.romano === romano);
+    const y = rowYRef.current[idx];
+    if (scrollRef.current?.scrollTo && y != null) {
+      scrollRef.current.scrollTo({ y: Math.max(0, listYRef.current + y - 90), animated: true });
+    }
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: topInset }}>
@@ -72,7 +78,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
         <Text style={{ fontFamily: F.display, fontSize: 24, color: t.text, flex: 1 }}>Mapa ACCC</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Mapa (imagen del backend) + marcadores numerados encima */}
         {!!mapaUrl && (
           <View style={{ alignItems: 'center', paddingVertical: 8 }}>
@@ -92,7 +98,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
                 return (
                   <TouchableOpacity
                     key={mk.romano}
-                    onPress={() => setSelected(mk.romano)}
+                    onPress={() => selectFromMap(mk.romano)}
                     accessibilityLabel={`Delegación ${mk.romano}`}
                     style={{ position: 'absolute', left: mk.x * mapW - r, top: mk.y * mapH - r, width: r * 2, height: r * 2, borderRadius: r, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.accent : withAlpha(t.bg, 0.9), borderWidth: 1.6, borderColor: on ? t.accent : t.text }}
                   >
@@ -102,35 +108,6 @@ export default function MapaScreen({ t, topInset, onBack }) {
               })}
             </View>
             <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 6 }}>Tocá una delegación en el mapa</Text>
-          </View>
-        )}
-
-        {/* Detalle de la delegación seleccionada */}
-        {selectedDels.length > 0 && (
-          <View style={{ paddingHorizontal: 20, marginTop: 6, marginBottom: 4 }}>
-            <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(t.accent, 0.5), padding: 16 }}>
-              {selectedDels.map((d, i) => (
-                <View key={i} style={{ marginTop: i === 0 ? 0 : 14 }}>
-                  <Text style={{ fontSize: 11, color: t.accent, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{d.delegacion || `Delegación ${d.romano}`}</Text>
-                  {!!d.delegado && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                      <Icon name="user" size={15} color={t.textMute} />
-                      <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }}>{d.delegado}</Text>
-                    </View>
-                  )}
-                  {!!d.email && (
-                    <TouchableOpacity
-                      onPress={() => Linking.openURL(`mailto:${d.email}`).catch(() => {})}
-                      accessibilityLabel={`Enviar email a ${d.delegado || d.email}`}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}
-                    >
-                      <Icon name="mail" size={14} color={t.accent} />
-                      <Text style={{ flex: 1, fontSize: 13, color: t.accent }} numberOfLines={1}>{d.email}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-            </View>
           </View>
         )}
 
@@ -144,21 +121,36 @@ export default function MapaScreen({ t, topInset, onBack }) {
             </Text>
           </View>
         ) : (
-          <View style={{ marginTop: 18 }}>
+          <View style={{ marginTop: 18 }} onLayout={(e) => { listYRef.current = e.nativeEvent.layout.y; }}>
             <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', fontFamily: F.bodyBold, paddingHorizontal: 20, marginBottom: 4 }}>Delegaciones</Text>
             {dels.map((d, i) => {
               const on = selected === d.romano;
               return (
-                <View key={`${d.romano}-${i}`}>
-                  <TouchableOpacity onPress={() => setSelected(d.romano)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 13, paddingHorizontal: 20, backgroundColor: on ? withAlpha(t.accent, 0.08) : 'transparent' }}>
-                    <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.4, borderColor: on ? t.accent : t.border, backgroundColor: on ? t.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: on ? t.bg : t.textMute }}>{d.romano}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{d.delegacion || `Delegación ${d.romano}`}</Text>
-                      {!!d.delegado && <Text style={{ fontSize: 12, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{d.delegado}</Text>}
-                    </View>
-                  </TouchableOpacity>
+                <View key={`${d.romano}-${i}`} onLayout={(e) => { rowYRef.current[i] = e.nativeEvent.layout.y; }}>
+                  <View style={{ backgroundColor: on ? withAlpha(t.accent, 0.08) : 'transparent' }}>
+                    <TouchableOpacity onPress={() => setSelected(on ? null : d.romano)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 13, paddingBottom: on ? 8 : 13, paddingHorizontal: 20 }}>
+                      <View style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1.4, borderColor: on ? t.accent : t.border, backgroundColor: on ? t.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: on ? t.bg : t.textMute }}>{d.romano}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{d.delegacion || `Delegación ${d.romano}`}</Text>
+                        {!!d.delegado && <Text style={{ fontSize: 12, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{d.delegado}</Text>}
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Al seleccionar, el email aparece en la misma fila (→ mailto) */}
+                    {on && (d.email
+                      ? <TouchableOpacity
+                          onPress={() => Linking.openURL(`mailto:${d.email}`).catch(() => {})}
+                          accessibilityLabel={`Enviar email a ${d.delegado || d.email}`}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 13, paddingLeft: 68, paddingRight: 20 }}
+                        >
+                          <Icon name="mail" size={14} color={t.accent} />
+                          <Text style={{ flex: 1, fontSize: 13, color: t.accent }} numberOfLines={1}>{d.email}</Text>
+                        </TouchableOpacity>
+                      : <Text style={{ fontSize: 12, color: t.textMute, paddingBottom: 13, paddingLeft: 68 }}>Sin email registrado</Text>
+                    )}
+                  </View>
                   {i < dels.length - 1 && <Divider t={t} style={{ marginLeft: 20 }} />}
                 </View>
               );

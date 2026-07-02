@@ -16,7 +16,7 @@ const RESP = {
   data: [
     { delegacion: 'DELEGACIÓN I - NOA', nombre: 'María Lourdes Arias Figueroa', email: 'lulyaf84@hotmail.com' },
     { delegacion: 'DELEGACIÓN V - a - CENTRO NORTE', nombre: 'Pablo Agüero', email: null },
-    { delegacion: 'DELEGACIÓN V - b - CENTRO SUR', nombre: 'Emanuel Muñoz', email: null },
+    { delegacion: 'DELEGACIÓN V - b - CENTRO SUR', nombre: 'Emanuel Muñoz', email: 'veterinariomunoz@gmail.com' },
   ],
 };
 
@@ -29,27 +29,27 @@ describe('MapaScreen', () => {
     expect(getByText('Pablo Agüero')).toBeTruthy();
   });
 
-  test('tocar un marcador del mapa muestra la delegación + delegado', async () => {
-    const { findByText, getByLabelText, getAllByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
+  test('tocar un marcador del mapa selecciona su fila y muestra el email inline', async () => {
+    const { findByText, getByLabelText, queryByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
     await findByText('DELEGACIÓN I - NOA'); // lista cargada
+    expect(queryByText('lulyaf84@hotmail.com')).toBeNull(); // colapsado
     fireEvent.press(getByLabelText('Delegación I')); // marcador del mapa
-    // El delegado aparece en la card de detalle (además de en la lista)
-    await waitFor(() => expect(getAllByText('María Lourdes Arias Figueroa').length).toBeGreaterThan(1));
+    expect(await findByText('lulyaf84@hotmail.com')).toBeTruthy(); // email en la fila
   });
 
   test('el romano se deriva del texto: el marcador V agrupa V-a y V-b', async () => {
-    const { findByText, getByLabelText, getAllByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
+    const { findByText, getByLabelText, getByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
     await findByText('DELEGACIÓN I - NOA');
     fireEvent.press(getByLabelText('Delegación V')); // un solo marcador para las dos sub-delegaciones
-    await waitFor(() => expect(getAllByText('Pablo Agüero').length).toBeGreaterThan(1)); // card + lista
-    expect(getAllByText('Emanuel Muñoz').length).toBeGreaterThan(1);
+    expect(await findByText('veterinariomunoz@gmail.com')).toBeTruthy(); // V-b (con email)
+    expect(getByText('Sin email registrado')).toBeTruthy();             // V-a (sin email)
   });
 
-  test('tocar el email abre el compositor con mailto', async () => {
+  test('tocar una fila muestra su email y tocarlo abre el compositor (mailto)', async () => {
     const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
-    const { findByText, getByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
-    fireEvent.press(await findByText('DELEGACIÓN I - NOA')); // selecciona → aparece la card
-    fireEvent.press(getByText('lulyaf84@hotmail.com'));
+    const { findByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
+    fireEvent.press(await findByText('DELEGACIÓN I - NOA')); // selecciona la fila → aparece el email
+    fireEvent.press(await findByText('lulyaf84@hotmail.com'));
     expect(spy).toHaveBeenCalledWith('mailto:lulyaf84@hotmail.com');
     spy.mockRestore();
   });
