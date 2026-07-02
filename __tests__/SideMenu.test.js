@@ -25,19 +25,25 @@ describe('MenuLayer / drawer', () => {
     expect(queryByText('Mapa ACCC')).toBeNull();
   });
 
-  test('al abrir el menú lista las 3 secciones', () => {
-    const { getByText } = renderMenu();
-    fireEvent.press(getByText('ABRIR'));
-    expect(getByText('Reglamentos')).toBeTruthy();
-    expect(getByText('Mapa ACCC')).toBeTruthy();
-    expect(getByText('Presencia Institucional')).toBeTruthy();
-  });
-
-  test('tocar una sección abre su pantalla (placeholder "Próximamente")', async () => {
+  test('al abrir el menú lista los accesos a las tabs y las secciones', () => {
     const { getByText, queryByText } = renderMenu();
     fireEvent.press(getByText('ABRIR'));
-    expect(queryByText('Próximamente disponible')).toBeNull();
-    fireEvent.press(getByText('Presencia Institucional')); // sección sin Component aún
-    await waitFor(() => expect(getByText('Próximamente disponible')).toBeTruthy());
+    // Accesos a las tabs del footer
+    expect(getByText('Inicio')).toBeTruthy();
+    expect(getByText('Eventos')).toBeTruthy();
+    expect(getByText('Pedigree')).toBeTruthy();
+    expect(getByText('Rankings')).toBeTruthy();
+    // Secciones propias
+    expect(getByText('Reglamentos')).toBeTruthy();
+    expect(getByText('Mapa ACCC')).toBeTruthy();
+    // Presencia Institucional quitada por ahora
+    expect(queryByText('Presencia Institucional')).toBeNull();
+  });
+
+  test('tocar un acceso de navegación cierra el drawer', async () => {
+    const { getByText, queryByText } = renderMenu();
+    fireEvent.press(getByText('ABRIR'));
+    fireEvent.press(getByText('Inicio')); // navega a la tab (no-op sin nav) y cierra
+    await waitFor(() => expect(queryByText('Reglamentos')).toBeNull());
   });
 });
