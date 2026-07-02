@@ -45,11 +45,11 @@ describe('MapaScreen', () => {
     expect(getAllByText('Emanuel Muñoz').length).toBeGreaterThan(1);
   });
 
-  test('el botón "Enviar email" abre el compositor con mailto', async () => {
+  test('tocar el email abre el compositor con mailto', async () => {
     const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
     const { findByText, getByText } = render(<MapaScreen t={T} topInset={0} onBack={jest.fn()} />);
     fireEvent.press(await findByText('DELEGACIÓN I - NOA')); // selecciona → aparece la card
-    fireEvent.press(getByText('Enviar email'));
+    fireEvent.press(getByText('lulyaf84@hotmail.com'));
     expect(spy).toHaveBeenCalledWith('mailto:lulyaf84@hotmail.com');
     spy.mockRestore();
   });

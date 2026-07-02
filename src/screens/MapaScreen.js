@@ -122,14 +122,10 @@ export default function MapaScreen({ t, topInset, onBack }) {
                     <TouchableOpacity
                       onPress={() => Linking.openURL(`mailto:${d.email}`).catch(() => {})}
                       accessibilityLabel={`Enviar email a ${d.delegado || d.email}`}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: withAlpha(t.accent, 0.12) }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}
                     >
-                      <Icon name="mail" size={16} color={t.accent} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, color: t.accent, fontFamily: F.bodyBold }}>Enviar email</Text>
-                        <Text style={{ fontSize: 11, color: t.textMute, marginTop: 1 }} numberOfLines={1}>{d.email}</Text>
-                      </View>
-                      <Icon name="arrowUR" size={14} color={t.accent} />
+                      <Icon name="mail" size={14} color={t.accent} />
+                      <Text style={{ flex: 1, fontSize: 13, color: t.accent }} numberOfLines={1}>{d.email}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
