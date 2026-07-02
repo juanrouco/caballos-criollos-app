@@ -134,7 +134,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{d.delegacion || `Delegación ${d.romano}`}</Text>
-                        {!!d.delegado && <Text style={{ fontSize: 12, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{d.delegado}</Text>}
+                        {!!d.delegado && <Text style={{ fontSize: 14, color: t.textMute, marginTop: 3 }} numberOfLines={1}>{d.delegado}</Text>}
                       </View>
                     </TouchableOpacity>
 
@@ -145,10 +145,10 @@ export default function MapaScreen({ t, topInset, onBack }) {
                           accessibilityLabel={`Enviar email a ${d.delegado || d.email}`}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 13, paddingLeft: 68, paddingRight: 20 }}
                         >
-                          <Icon name="mail" size={14} color={t.accent} />
-                          <Text style={{ flex: 1, fontSize: 13, color: t.accent }} numberOfLines={1}>{d.email}</Text>
+                          <Icon name="mail" size={15} color={t.accent} />
+                          <Text style={{ flex: 1, fontSize: 14.5, color: t.accent }} numberOfLines={1}>{d.email}</Text>
                         </TouchableOpacity>
-                      : <Text style={{ fontSize: 12, color: t.textMute, paddingBottom: 13, paddingLeft: 68 }}>Sin email registrado</Text>
+                      : <Text style={{ fontSize: 13, color: t.textMute, paddingBottom: 13, paddingLeft: 68 }}>Sin email registrado</Text>
                     )}
                   </View>
                   {i < dels.length - 1 && <Divider t={t} style={{ marginLeft: 20 }} />}
