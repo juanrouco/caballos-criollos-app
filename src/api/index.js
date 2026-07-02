@@ -14,7 +14,7 @@ export {
 } from './noticias';
 export { fetchNotificaciones, mapNotificacion, isUnreadSince } from './notificaciones';
 export { fetchReglamentos, fetchReglamentoPruebas, mapReglamento } from './reglamentos';
-export { fetchDelegaciones, mapDelegacion } from './delegaciones';
+export { fetchDelegados, mapDelegado, romanFromDelegacion } from './delegados';
 export { fetchRankings, fetchRanking, fetchSolanetDetalle, decodeEntities, curateRankingFiltros } from './rankings';
 export {
   fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,

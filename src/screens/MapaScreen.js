@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, u
 import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
 import { Icon, Divider, F } from '../components';
 import { withAlpha } from '../theme';
-import { fetchDelegaciones, mapDelegacion } from '../api';
+import { fetchDelegados, mapDelegado } from '../api';
 
 // Contorno simplificado de Argentina (placeholder) en el viewBox de MAP_VB. Se
 // puede reemplazar por el SVG oficial de la ACCC sin tocar el resto: sólo hay
@@ -35,8 +35,9 @@ const MARKERS = [
 
 // Sección Mapa ACCC: mapa de Argentina con las delegaciones como marcadores
 // numerados. Al tocar un marcador (o una fila de la lista) se resalta y se
-// muestra la delegación + su delegado. Los datos vienen de GET /delegaciones.
-// Se monta como overlay del menú lateral → recibe t / topInset / onBack.
+// muestra la delegación + su delegado. Los datos vienen de GET /delegados
+// (el romano se deriva del texto de `delegacion`). Se monta como overlay del
+// menú lateral → recibe t / topInset / onBack.
 export default function MapaScreen({ t, topInset, onBack }) {
   const { width } = useWindowDimensions();
   const [dels, setDels] = React.useState(null); // null=cargando, []=vacío/error
@@ -46,8 +47,8 @@ export default function MapaScreen({ t, topInset, onBack }) {
   React.useEffect(() => {
     let cancelled = false;
     setDels(null); setError(false);
-    fetchDelegaciones()
-      .then((r) => { if (!cancelled) setDels((r.data || []).map(mapDelegacion)); })
+    fetchDelegados()
+      .then((r) => { if (!cancelled) setDels((r.data || []).map(mapDelegado)); })
       .catch(() => { if (!cancelled) { setError(true); setDels([]); } });
     return () => { cancelled = true; };
   }, []);
@@ -97,7 +98,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
             <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(t.accent, 0.5), padding: 16 }}>
               {selectedDels.map((d, i) => (
                 <View key={i} style={{ marginTop: i === 0 ? 0 : 14 }}>
-                  <Text style={{ fontSize: 11, color: t.accent, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{d.titulo || `Delegación ${d.romano}`}</Text>
+                  <Text style={{ fontSize: 11, color: t.accent, letterSpacing: 0.8, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{d.delegacion || `Delegación ${d.romano}`}</Text>
                   {!!d.delegado && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
                       <Icon name="user" size={15} color={t.textMute} />
@@ -137,7 +138,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
                       <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: on ? t.bg : t.textMute }}>{d.romano}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{d.titulo || `Delegación ${d.romano}`}</Text>
+                      <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{d.delegacion || `Delegación ${d.romano}`}</Text>
                       {!!d.delegado && <Text style={{ fontSize: 12, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{d.delegado}</Text>}
                     </View>
                   </TouchableOpacity>

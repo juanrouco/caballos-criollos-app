@@ -385,51 +385,6 @@ Detalle de un reglamento: el **HTML del cuerpo** + el **PDF** + la prueba. **Cac
 
 ---
 
-### Delegaciones
-
-Delegaciones regionales de la ACCC — alimentan la sección **"Mapa ACCC"** de la
-app (mapa de Argentina con las delegaciones como marcadores numerados; al tocar
-uno se muestra la delegación y su delegado). **Pendiente de implementar en el
-backend** — la app ya consume este contrato.
-
-La posición de cada marcador en el mapa vive en la app (se cruza por `romano`);
-el backend sólo aporta los datos (zona, delegado, contacto).
-
-#### `GET /delegaciones`
-
-Listado de delegaciones, ordenado por número. **Cache** sugerido: `3600` (cambia
-poco).
-
-**Response**
-
-```json
-{
-  "data": [
-    {
-      "numero": 1,
-      "romano": "I",
-      "titulo": "Delegación I - NOA",
-      "zona": "NOA",
-      "delegado": "María Lourdes Arias Figueroa",
-      "email": "delegacion1@caballoscriollos.com"
-    }
-  ]
-}
-```
-
-- `numero`: entero 1..13 (orden). `romano`: el número romano que se muestra en el
-  marcador del mapa (`I`..`XIII`) — es la clave que cruza con la posición del
-  marcador. Si se omite, la app lo deriva de `numero`.
-- `titulo`: etiqueta completa (ej. `"Delegación V - a - Centro Norte"`). `zona`:
-  nombre corto de la región (ej. `"CUYO"`). Ambos opcionales; la app cae a
-  `Delegación {romano}` si no vienen.
-- `delegado`: nombre del delegado. `email`: opcional — si viene, la app lo muestra
-  como enlace `mailto:`.
-- Una delegación puede subdividirse (ej. `V - a` y `V - b`): se devuelven como
-  dos ítems con el mismo `romano` (`"V"`); la app los agrupa bajo ese marcador.
-
----
-
 ### Eventos
 
 Eventos del sitio público (`caballos_web.tblEventos`), con categorías asociadas y, opcionalmente, su catálogo y resultados desde el sistema de inscripciones (`caballos_bd`).
