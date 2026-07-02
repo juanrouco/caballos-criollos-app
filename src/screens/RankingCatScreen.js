@@ -48,13 +48,15 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const isRodeos  = slug === 'rodeos';
   const isApartes = slug === 'apartes_general' || slug === 'apartes_analitico';
   const isFzb     = slug === 'fzb';
+  const isCorral  = slug === 'corral_general' || slug === 'corral_analitico';
   // Columna que hace de "puntaje" prominente según el ranking. Apartes usa el
   // tiempo (total en general, mejor tiempo en analítico); FZB el promedio de los
-  // dos eventos; rodeos su puntaje de ranking; el resto el 'points' estándar.
+  // dos eventos; corral su puntaje; rodeos su puntaje de ranking; el resto 'points'.
   const pointsKey = isRodeos ? 'totalPointsRanking'
     : slug === 'apartes_general' ? 'total'
     : slug === 'apartes_analitico' ? 'tiempo'
     : isFzb ? 'promedio'
+    : isCorral ? 'puntaje'
     : 'points';
   // Aparte Campero: al expandir la fila, tabla Evento/Tiempo (2 corridas en
   // general, 1 en analítico). Cada fila del detalle es { evento, valor }.
@@ -69,11 +71,22 @@ export default function RankingCatScreen({ t, navigation, route }) {
     { evento: fila.evento1, valor: fila.total1 },
     { evento: fila.evento2, valor: fila.total2 },
   ].filter((r) => (r.evento != null && r.evento !== '') || (r.valor != null && r.valor !== ''));
+  const clean = (v) => (v != null && String(v).trim() !== '' ? decodeEntities(String(v).trim()) : null);
   // FZB: bajo el nombre, SBA (+ RP si la API lo trae) y, en otra línea, el propietario.
   const fzbLines = (fila) => {
-    const l1 = [fila.sba != null && fila.sba !== '' ? `SBA ${fila.sba}` : null, fila.rp != null && fila.rp !== '' ? `RP ${fila.rp}` : null].filter(Boolean).join('  ·  ');
-    const l2 = fila.propietario != null && fila.propietario !== '' ? `Propietario: ${decodeEntities(fila.propietario)}` : null;
+    const l1 = [clean(fila.sba) && `SBA ${clean(fila.sba)}`, clean(fila.rp) && `RP ${clean(fila.rp)}`].filter(Boolean).join('  ·  ');
+    const l2 = clean(fila.propietario) && `Propietario: ${clean(fila.propietario)}`;
     return [l1, l2].filter(Boolean);
+  };
+  // Corral: 1ª línea SBA · RP · AF, 2ª propietario, 3ª el nombre del evento (un
+  // solo evento, así que no hay tabla). El puntaje va arriba a la derecha.
+  const corralLines = (fila) => {
+    const l1 = [
+      clean(fila.sba) && `SBA ${clean(fila.sba)}`,
+      clean(fila.rp) && `RP ${clean(fila.rp)}`,
+      clean(fila.inspection) && `AF ${clean(fila.inspection)}`,
+    ].filter(Boolean).join('  ·  ');
+    return [l1, clean(fila.propietario) && `Propietario: ${clean(fila.propietario)}`, clean(fila.evento)].filter(Boolean);
   };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
   // puntaje de ranking). Se puede reponer sacándolo de esta lista.
@@ -128,7 +141,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
             expandable={isApartes}
             detailOf={isApartes ? apartesDetail : isFzb ? fzbDetail : undefined}
             detailValueLabel={isFzb ? 'Puntaje' : 'Tiempo'}
-            secondaryLines={isFzb ? fzbLines : undefined}
+            secondaryLines={isFzb ? fzbLines : isCorral ? corralLines : undefined}
             membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
             onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
             isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}

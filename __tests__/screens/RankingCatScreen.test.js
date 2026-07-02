@@ -171,6 +171,41 @@ describe('RankingCatScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:81774' });
   });
 
+  test('corral: puntaje a la derecha, líneas SBA·RP·AF / propietario / evento (sin tabla)', async () => {
+    const CORRAL = {
+      slug: 'corral_general', nombre: 'Corral Aparte — Ranking General', familia: 'individual',
+      filtros: [
+        { param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+        { param: 'categoria', default: 9, opciones: [{ value: 9, label: 'A' }] },
+      ],
+    };
+    fetchRanking.mockResolvedValue({
+      columnas: [
+        { key: 'position', label: '#' }, { key: 'sba', label: 'SBA' }, { key: 'rp', label: 'RP' },
+        { key: 'animal', label: 'Animal' }, { key: 'inspection', label: 'AF' },
+        { key: 'propietario', label: 'Propietario' }, { key: 'puntaje', label: 'Puntaje' },
+        { key: 'evento', label: 'Evento' },
+      ],
+      filas: [{
+        position: 1, animalId: 'pdre:119084', sba: '84724', rp: '896', animal: 'TINAJERA ARROPE',
+        inspection: 'Si', propietario: 'ESEVICH, VICTOR\r', puntaje: '38.50',
+        evento: 'FERIAGRO (LUJAN DE CUYO) 31/05/2025',
+      }],
+    });
+    const nav = navStub();
+    const { findByText, getByText, queryByText } = render(
+      <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: CORRAL, initialFilters: { anio: 2026, categoria: 9 } })} />,
+    );
+    expect(await findByText('TINAJERA ARROPE')).toBeTruthy();       // nombre
+    expect(getByText('38.50')).toBeTruthy();                        // puntaje a la derecha
+    expect(getByText('SBA 84724  ·  RP 896  ·  AF Si')).toBeTruthy(); // 1ª línea con AF
+    expect(getByText('Propietario: ESEVICH, VICTOR')).toBeTruthy();  // 2ª (sin el \r)
+    expect(getByText('FERIAGRO (LUJAN DE CUYO) 31/05/2025')).toBeTruthy(); // 3ª: evento
+    expect(queryByText('Evento')).toBeNull();                       // no hay tabla (encabezado)
+    fireEvent.press(getByText('TINAJERA ARROPE'));                  // fila → pedigree
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:119084' });
+  });
+
   test('rodeos: subtítulo del campeonato viene de la API y usa la yunta (animals)', async () => {
     const RODEOS = {
       slug: 'rodeos', nombre: 'Rodeos — Ranking', familia: 'equipo',
