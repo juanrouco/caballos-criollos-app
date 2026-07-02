@@ -1,16 +1,19 @@
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { MenuProvider, useMenu } from '../src/MenuContext';
 import { MenuLayer } from '../src/SideMenu';
 import { T } from './helpers';
 
 // Botón para abrir el menú desde afuera del MenuLayer (simula la hamburguesa).
+// Expone `menuOpen` como texto para poder assertir el cierre sin depender de la
+// animación de desmontaje del drawer.
 function Harness() {
-  const { openMenu } = useMenu();
+  const { openMenu, menuOpen } = useMenu();
   return (
     <>
       <TouchableOpacity onPress={openMenu}><Text>ABRIR</Text></TouchableOpacity>
+      <Text>{menuOpen ? 'MENU_OPEN' : 'MENU_CLOSED'}</Text>
       <MenuLayer t={T} />
     </>
   );
@@ -40,10 +43,11 @@ describe('MenuLayer / drawer', () => {
     expect(queryByText('Presencia Institucional')).toBeNull();
   });
 
-  test('tocar un acceso de navegación cierra el drawer', async () => {
-    const { getByText, queryByText } = renderMenu();
+  test('tocar un acceso de navegación cierra el menú', () => {
+    const { getByText } = renderMenu();
     fireEvent.press(getByText('ABRIR'));
-    fireEvent.press(getByText('Inicio')); // navega a la tab (no-op sin nav) y cierra
-    await waitFor(() => expect(queryByText('Reglamentos')).toBeNull());
+    expect(getByText('MENU_OPEN')).toBeTruthy();
+    fireEvent.press(getByText('Inicio')); // navega a la tab (no-op sin nav) y cierra el menú
+    expect(getByText('MENU_CLOSED')).toBeTruthy();
   });
 });
