@@ -118,7 +118,11 @@ export default function RankingCatScreen({ t, navigation, route }) {
         {!!subtitle && (
           hasAnio
             ? <Text style={{ fontSize: 17, color: t.accent, marginTop: 12, fontFamily: F.bodyBold }}>{subtitle}</Text>
-            : <Text style={{ fontSize: 13, color: t.textMute, marginTop: 10, lineHeight: 18 }}>{subtitle}</Text>
+            : (
+              <View style={{ marginTop: 14, borderLeftWidth: 3, borderLeftColor: t.accent, paddingLeft: 12 }}>
+                <Text style={{ fontSize: 15, color: t.accent, lineHeight: 21, fontFamily: F.bodyBold }}>{subtitle}</Text>
+              </View>
+            )
         )}
       </View>
 
