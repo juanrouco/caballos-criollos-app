@@ -37,7 +37,7 @@ describe('MenuLayer / drawer', () => {
     const { getByText, queryByText } = renderMenu();
     fireEvent.press(getByText('ABRIR'));
     expect(queryByText('Próximamente disponible')).toBeNull();
-    fireEvent.press(getByText('Mapa ACCC'));
+    fireEvent.press(getByText('Presencia Institucional')); // sección sin Component aún
     await waitFor(() => expect(getByText('Próximamente disponible')).toBeTruthy());
   });
 });

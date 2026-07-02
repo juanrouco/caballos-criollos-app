@@ -385,6 +385,51 @@ Detalle de un reglamento: el **HTML del cuerpo** + el **PDF** + la prueba. **Cac
 
 ---
 
+### Delegaciones
+
+Delegaciones regionales de la ACCC — alimentan la sección **"Mapa ACCC"** de la
+app (mapa de Argentina con las delegaciones como marcadores numerados; al tocar
+uno se muestra la delegación y su delegado). **Pendiente de implementar en el
+backend** — la app ya consume este contrato.
+
+La posición de cada marcador en el mapa vive en la app (se cruza por `romano`);
+el backend sólo aporta los datos (zona, delegado, contacto).
+
+#### `GET /delegaciones`
+
+Listado de delegaciones, ordenado por número. **Cache** sugerido: `3600` (cambia
+poco).
+
+**Response**
+
+```json
+{
+  "data": [
+    {
+      "numero": 1,
+      "romano": "I",
+      "titulo": "Delegación I - NOA",
+      "zona": "NOA",
+      "delegado": "María Lourdes Arias Figueroa",
+      "email": "delegacion1@caballoscriollos.com"
+    }
+  ]
+}
+```
+
+- `numero`: entero 1..13 (orden). `romano`: el número romano que se muestra en el
+  marcador del mapa (`I`..`XIII`) — es la clave que cruza con la posición del
+  marcador. Si se omite, la app lo deriva de `numero`.
+- `titulo`: etiqueta completa (ej. `"Delegación V - a - Centro Norte"`). `zona`:
+  nombre corto de la región (ej. `"CUYO"`). Ambos opcionales; la app cae a
+  `Delegación {romano}` si no vienen.
+- `delegado`: nombre del delegado. `email`: opcional — si viene, la app lo muestra
+  como enlace `mailto:`.
+- Una delegación puede subdividirse (ej. `V - a` y `V - b`): se devuelven como
+  dos ítems con el mismo `romano` (`"V"`); la app los agrupa bajo ese marcador.
+
+---
+
 ### Eventos
 
 Eventos del sitio público (`caballos_web.tblEventos`), con categorías asociadas y, opcionalmente, su catálogo y resultados desde el sistema de inscripciones (`caballos_bd`).
@@ -1188,6 +1233,29 @@ Ej: `GET /rankings/solanet/detalle?premio=1&propietario=221`
 
 ---
 
+### Delegados
+
+Delegados por delegación/región (la misma info que muestra `web/delegados.php`). La lista está en la API para que el cliente no la hardcodee: si cambia un delegado, se actualiza acá y el front no se toca.
+
+#### `GET /delegados`
+
+**Cache**: `86400` (1 día — cambian muy de vez en cuando).
+
+```json
+{
+  "mapa": "https://caballoscriollos.com/web/assets/images/mapa_delegados.png",
+  "data": [
+    { "delegacion": "DELEGACIÓN I - NOA", "nombre": "María Lourdes Arias Figueroa", "email": "lulyaf84@hotmail.com" },
+    { "delegacion": "DELEGACIÓN V - a - CENTRO NORTE", "nombre": "Pablo Agüero", "email": null }
+  ]
+}
+```
+
+- `data`: lista ordenada de delegaciones, cada una con `delegacion` (nombre de la delegación/región), `nombre` (el delegado) y `email` (o `null` si no tiene).
+- `mapa`: URL del mapa de delegaciones.
+
+---
+
 ## Cache
 
 Resumen de los `Cache-Control` que envía la API:
@@ -1205,6 +1273,7 @@ Resumen de los `Cache-Control` que envía la API:
 | `/rankings` | `3600` (1 h) |
 | `/rankings/{slug}` | `300` (5 min) |
 | `/rankings/solanet/detalle` | `300` (5 min) |
+| `/delegados` | `86400` (1 día) |
 | resto | sin header (no cacheable por default) |
 
 ## Ejemplos rápidos (cURL)

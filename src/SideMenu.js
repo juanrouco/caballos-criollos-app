@@ -5,12 +5,13 @@ import { Icon, Crest, Divider, F } from './components';
 import { withAlpha } from './theme';
 import { useMenu } from './MenuContext';
 import ReglamentosScreen from './screens/ReglamentosScreen';
+import MapaScreen from './screens/MapaScreen';
 
 // Secciones del menú lateral. Las que tienen `Component` renderizan su pantalla
 // real; el resto muestra el placeholder (SectionView) hasta que se implementen.
 export const SECTIONS = [
   { key: 'reglamentos',   label: 'Reglamentos',             icon: 'pdf',      Component: ReglamentosScreen },
-  { key: 'mapa',          label: 'Mapa ACCC',               icon: 'pin' },
+  { key: 'mapa',          label: 'Mapa ACCC',               icon: 'pin',      Component: MapaScreen },
   { key: 'institucional', label: 'Presencia Institucional', icon: 'building' },
 ];
 
