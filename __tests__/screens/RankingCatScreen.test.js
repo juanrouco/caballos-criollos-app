@@ -122,15 +122,15 @@ describe('RankingCatScreen', () => {
     expect(getByText('Aparte Campero')).toBeTruthy();            // header: disciplina
     expect(getByText('01:46')).toBeTruthy();                     // total como puntaje
     expect(getByText('Total')).toBeTruthy();                     // etiqueta del puntaje
-    expect(queryByText('OREVA CARAMELO')).toBeNull();            // colapsado: animales ocultos
-    expect(queryByText('EXPO LA CARLOTA')).toBeNull();           // colapsado: tabla oculta
+    expect(getByText('OREVA CARAMELO')).toBeTruthy();            // animales SIEMPRE visibles (fuera del acordeón)
+    expect(queryByText('EXPO LA CARLOTA')).toBeNull();           // tabla Evento/Tiempo colapsada
 
-    fireEvent.press(getByText('los orejanos.'));                 // expandir acordeón
+    fireEvent.press(getByText('BROCAL PUESTERO'));               // animal → pedigree sin expandir
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
+
+    fireEvent.press(getByText('los orejanos.'));                 // expandir acordeón (solo eventos)
     expect(getByText('EXPO LA CARLOTA')).toBeTruthy();           // tabla Evento/Tiempo
     expect(getByText('EXPO LABOULAYE')).toBeTruthy();
-    expect(getByText('OREVA CARAMELO')).toBeTruthy();            // animales visibles
-    fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar animal → pedigree
-    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
     expect(fetchRanking).toHaveBeenCalledWith('apartes_general', { anio: 2026, categoria: 15 });
   });
 

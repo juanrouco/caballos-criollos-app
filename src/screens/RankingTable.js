@@ -52,7 +52,6 @@ export default function RankingTable({
         const detailRows = expandable && detailOf ? (detailOf(fila) || []) : [];
         const primary = primaryKey && decodeEntities(fila[primaryKey]);
         const points = fila[pointsKey];
-        const showMembers = !expandable || expanded; // en acordeón, sólo al abrir
 
         // El header togglea el acordeón (expandable), navega (tappable) o es
         // estático. Los miembros van fuera del header para no anidar touchables.
@@ -89,43 +88,51 @@ export default function RankingTable({
                 : rowTappable && <Icon name="arrow" size={14} color={t.textDim} />}
             </Header>
 
-            {/* Detalle expandido (tabla Evento/Tiempo) + miembros del equipo */}
-            {((showMembers && members.length > 0) || (expanded && detailRows.length > 0)) && (
-              <View style={{ paddingLeft: hasPosition ? 42 : 0, paddingBottom: expandable && expanded ? 14 : 0 }}>
-                {expanded && detailRows.length > 0 && (
-                  <View style={{ borderWidth: 1, borderColor: t.border, borderRadius: 8, overflow: 'hidden' }}>
-                    <View style={{ flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: t.bg }}>
-                      <Text style={{ flex: 1, fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Evento</Text>
-                      <Text style={{ width: 64, textAlign: 'right', fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Tiempo</Text>
-                    </View>
-                    {detailRows.map((r, ri) => (
-                      <View key={ri} style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: t.border }}>
-                        <Text style={{ flex: 1, fontSize: 12.5, color: t.text }} numberOfLines={2}>{decodeEntities(r.evento) || '—'}</Text>
-                        <Text style={{ width: 64, textAlign: 'right', fontFamily: F.mono, fontSize: 12.5, color: t.text }}>{r.tiempo || '—'}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {showMembers && members.map((m, mi) => {
+            {/* Componentes del equipo (siempre visibles). En apartes van a ancho
+                completo de la card; en rodeos, indentados bajo el contenido. */}
+            {members.length > 0 && (
+              <View style={{ paddingLeft: expandable ? 0 : (hasPosition ? 42 : 0), paddingBottom: 6 }}>
+                {members.map((m, mi) => {
                   const name = decodeEntities(m.nombre || m.name);
                   const sub = decodeEntities(m.jinete || m.rider);
                   const mTappable = !!m.animalId;
                   return (
-                    <TouchableOpacity
-                      key={mi}
-                      disabled={!mTappable}
-                      onPress={() => { if (mTappable && onMemberPress) onMemberPress(m); }}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: t.border }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.text }} numberOfLines={1}>{name || '—'}</Text>
-                        {!!sub && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 1 }} numberOfLines={1}>{sub}</Text>}
-                      </View>
-                      {mTappable && <Icon name="arrow" size={12} color={t.textDim} />}
-                    </TouchableOpacity>
+                    <View key={mi}>
+                      {expandable && mi > 0 && <Divider t={t} />}
+                      <TouchableOpacity
+                        disabled={!mTappable}
+                        onPress={() => { if (mTappable && onMemberPress) onMemberPress(m); }}
+                        style={expandable
+                          ? { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 }
+                          : { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: t.border }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.text }} numberOfLines={1}>{name || '—'}</Text>
+                          {!!sub && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 1 }} numberOfLines={1}>{sub}</Text>}
+                        </View>
+                        {mTappable && <Icon name="arrow" size={12} color={t.textDim} />}
+                      </TouchableOpacity>
+                    </View>
                   );
                 })}
+              </View>
+            )}
+
+            {/* Acordeón (sólo tabla Evento/Tiempo) — a ancho completo de la card */}
+            {expanded && detailRows.length > 0 && (
+              <View style={{ paddingBottom: 14 }}>
+                <View style={{ borderWidth: 1, borderColor: t.border, borderRadius: 8, overflow: 'hidden' }}>
+                  <View style={{ flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: t.bg }}>
+                    <Text style={{ flex: 1, fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Evento</Text>
+                    <Text style={{ width: 64, textAlign: 'right', fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Tiempo</Text>
+                  </View>
+                  {detailRows.map((r, ri) => (
+                    <View key={ri} style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: t.border }}>
+                      <Text style={{ flex: 1, fontSize: 12.5, color: t.text }} numberOfLines={2}>{decodeEntities(r.evento) || '—'}</Text>
+                      <Text style={{ width: 64, textAlign: 'right', fontFamily: F.mono, fontSize: 12.5, color: t.text }}>{r.tiempo || '—'}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
             {i < filas.length - 1 && <Divider t={t} />}
