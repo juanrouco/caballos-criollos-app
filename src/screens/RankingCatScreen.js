@@ -19,12 +19,15 @@ export default function RankingCatScreen({ t, navigation, route }) {
     return { ...base, ...(route.params?.initialFilters || {}) };
   }, [ranking, route.params?.initialFilters]);
 
-  // Resumen de la selección para el subtítulo, ej. "Año: 2026 - Hembras".
+  // Resumen de la selección para el subtítulo, ej. "Año: 2026 - Categoría: A".
+  // Cada filtro se prefija con su nombre (fallback por si la API no trae `label`).
+  const PARAM_LABELS = { anio: 'Año', categoria: 'Categoría' };
   const filterSummary = filtros.map((f) => {
     const opt = (f.opciones || []).find((o) => o.value === filters[f.param]);
     if (!opt) return null;
     const label = decodeEntities(opt.label);
-    return f.param === 'anio' ? `Año: ${label}` : label;
+    const prefix = PARAM_LABELS[f.param] || f.label;
+    return prefix ? `${prefix}: ${label}` : label;
   }).filter(Boolean).join(' - ');
   const [data, setData] = React.useState(null); // null=loading
   const [error, setError] = React.useState(false);
@@ -70,7 +73,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
         </TouchableOpacity>
         <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{mainTitle}</Text>
         {!!rankLabel && (
-          <Text style={{ fontSize: 15, color: t.textMute, marginTop: 3, fontFamily: F.bodyMed }}>{rankLabel}</Text>
+          <Text style={{ fontSize: 15, color: t.textMute, marginTop: 3, fontFamily: F.bodyBold }}>{rankLabel}</Text>
         )}
         {!!subtitle && (
           hasAnio

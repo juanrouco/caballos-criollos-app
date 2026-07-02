@@ -36,7 +36,7 @@ describe('RankingCatScreen', () => {
     const { findByText, getByText } = renderCat();
     expect(await findByText('CARDAL X')).toBeTruthy();
     expect(fetchRanking).toHaveBeenCalledWith('freno', { anio: 2026, categoria: 24 });
-    expect(getByText('Año: 2026 - Machos')).toBeTruthy(); // subtítulo desde los filtros fijos
+    expect(getByText('Año: 2026 - Categoría: Machos')).toBeTruthy(); // subtítulo desde los filtros fijos
     expect(getByText(/SBA 3501 D/)).toBeTruthy(); // columna secundaria
     expect(getByText('87.5')).toBeTruthy();        // puntaje
   });
@@ -47,7 +47,7 @@ describe('RankingCatScreen', () => {
     );
     await findByText('CARDAL X');
     expect(fetchRanking).toHaveBeenCalledWith('freno', { anio: 2025, categoria: 23 });
-    expect(getByText('Año: 2025 - Hembras')).toBeTruthy();
+    expect(getByText('Año: 2025 - Categoría: Hembras')).toBeTruthy();
   });
 
   test('no muestra chips para cambiar año ni categoría', async () => {
@@ -118,7 +118,7 @@ describe('RankingCatScreen', () => {
     expect(await findByText('los orejanos.')).toBeTruthy();      // nombre del equipo
     expect(getByText('Aparte Campero')).toBeTruthy();            // header: disciplina
     expect(getByText('Ranking General')).toBeTruthy();           // header: sub-ranking
-    expect(getByText('Año: 2026 - A')).toBeTruthy();             // header: selección
+    expect(getByText('Año: 2026 - Categoría: A')).toBeTruthy();  // header: selección
     expect(getByText('OREVA CARAMELO')).toBeTruthy();            // miembro
     fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar miembro
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
