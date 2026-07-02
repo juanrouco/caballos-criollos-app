@@ -9,21 +9,21 @@ import { fetchDelegados, mapDelegado } from '../api';
 // geometría de UI; los datos (delegado) vienen del endpoint y se cruzan por
 // `romano`. Se afinan una vez que está la imagen definitiva.
 const MARKERS = [
-  { romano: 'I',    x: 0.38, y: 0.17 },
-  { romano: 'II',   x: 0.61, y: 0.15 },
-  { romano: 'III',  x: 0.72, y: 0.24 },
-  { romano: 'IV',   x: 0.31, y: 0.39 },
-  { romano: 'V',    x: 0.44, y: 0.32 },
-  { romano: 'VI',   x: 0.58, y: 0.27 },
-  { romano: 'VII',  x: 0.49, y: 0.41 },
-  { romano: 'VIII', x: 0.66, y: 0.36 },
-  { romano: 'IX',   x: 0.69, y: 0.42 },
-  { romano: 'X',    x: 0.58, y: 0.49 },
-  { romano: 'XI',   x: 0.38, y: 0.54 },
-  { romano: 'XII',  x: 0.41, y: 0.44 },
-  { romano: 'XIII', x: 0.40, y: 0.81 },
+  { romano: 'I',    x: 0.309, y: 0.151 },
+  { romano: 'II',   x: 0.610, y: 0.126 },
+  { romano: 'III',  x: 0.748, y: 0.207 },
+  { romano: 'IV',   x: 0.192, y: 0.361 },
+  { romano: 'V',    x: 0.404, y: 0.298 },
+  { romano: 'VI',   x: 0.573, y: 0.231 },
+  { romano: 'VII',  x: 0.496, y: 0.420 },
+  { romano: 'VIII', x: 0.651, y: 0.381 },
+  { romano: 'IX',   x: 0.696, y: 0.452 },
+  { romano: 'X',    x: 0.569, y: 0.501 },
+  { romano: 'XI',   x: 0.211, y: 0.554 },
+  { romano: 'XII',  x: 0.332, y: 0.466 },
+  { romano: 'XIII', x: 0.146, y: 0.784 },
 ];
-const DEFAULT_ASPECT = 240 / 470; // ancho/alto, hasta saber el de la imagen real
+const DEFAULT_ASPECT = 197 / 421; // ancho/alto de mapa_delegados.png (se ajusta en onLoad)
 
 // Sección Mapa ACCC: mapa de Argentina (imagen del backend) con las
 // delegaciones como marcadores numerados dibujados encima. Al tocar un marcador
@@ -61,7 +61,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
 
   const mapW = Math.min(width - 40, 320);
   const mapH = mapW / aspect;
-  const MR = 15; // radio del marcador (px)
+  const MR = Math.max(14, Math.round(mapW * 0.062)); // radio del marcador (px), proporcional
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: topInset }}>
@@ -96,7 +96,7 @@ export default function MapaScreen({ t, topInset, onBack }) {
                     accessibilityLabel={`Delegación ${mk.romano}`}
                     style={{ position: 'absolute', left: mk.x * mapW - r, top: mk.y * mapH - r, width: r * 2, height: r * 2, borderRadius: r, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.accent : withAlpha(t.bg, 0.9), borderWidth: 1.6, borderColor: on ? t.accent : t.text }}
                   >
-                    <Text style={{ fontFamily: F.bodyBold, fontSize: 9.5, color: on ? t.bg : t.text }}>{mk.romano}</Text>
+                    <Text style={{ fontFamily: F.bodyBold, fontSize: Math.round(MR * 0.62), color: on ? t.bg : t.text }}>{mk.romano}</Text>
                   </TouchableOpacity>
                 );
               })}
