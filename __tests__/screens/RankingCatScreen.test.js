@@ -90,7 +90,7 @@ describe('RankingCatScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('SolanetDetalle', { premio: 2, propietario: '221', nombre: 'MATHO GARAT, RICARDO D.', points: '109.50' });
   });
 
-  test('ranking de equipo: lista los animales del equipo y linkea al pedigree', async () => {
+  test('apartes: total como puntaje, acordeón con tabla Evento/Tiempo y animales al pedigree', async () => {
     const APARTES = {
       slug: 'apartes_general', nombre: 'Aparte Campero — Ranking General', familia: 'equipo',
       filtros: [
@@ -101,10 +101,13 @@ describe('RankingCatScreen', () => {
     fetchRanking.mockResolvedValue({
       columnas: [
         { key: 'position', label: '#' }, { key: 'equipo', label: 'Equipo' },
+        { key: 'tiempo1', label: 'Tiempo 1' }, { key: 'tiempo2', label: 'Tiempo 2' },
         { key: 'total', label: 'Total' },
+        { key: 'evento1', label: 'Evento 1' }, { key: 'evento2', label: 'Evento 2' },
       ],
       filas: [{
-        position: 1, equipo: 'los orejanos.', total: '01:46',
+        position: 1, equipo: 'los orejanos.', tiempo1: '00:47', tiempo2: '00:59', total: '01:46',
+        evento1: 'EXPO LA CARLOTA', evento2: 'EXPO LABOULAYE',
         animales: [
           { sba: '67698', nombre: 'OREVA CARAMELO', jinete: 'ALEJANDRO RYAN', animalId: 'pdre:70970' },
           { sba: '75781', nombre: 'BROCAL PUESTERO', jinete: 'IGNACIO AGUIRRE', animalId: 'pdre:80428' },
@@ -112,15 +115,21 @@ describe('RankingCatScreen', () => {
       }],
     });
     const nav = navStub();
-    const { findByText, getByText } = render(
+    const { findByText, getByText, queryByText } = render(
       <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: APARTES, initialFilters: { anio: 2026, categoria: 15 } })} />,
     );
     expect(await findByText('los orejanos.')).toBeTruthy();      // nombre del equipo
     expect(getByText('Aparte Campero')).toBeTruthy();            // header: disciplina
-    expect(getByText('Ranking General')).toBeTruthy();           // header: sub-ranking
-    expect(getByText('Año: 2026 - Categoría: A')).toBeTruthy();  // header: selección
-    expect(getByText('OREVA CARAMELO')).toBeTruthy();            // miembro
-    fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar miembro
+    expect(getByText('01:46')).toBeTruthy();                     // total como puntaje
+    expect(getByText('Total')).toBeTruthy();                     // etiqueta del puntaje
+    expect(queryByText('OREVA CARAMELO')).toBeNull();            // colapsado: animales ocultos
+    expect(queryByText('EXPO LA CARLOTA')).toBeNull();           // colapsado: tabla oculta
+
+    fireEvent.press(getByText('los orejanos.'));                 // expandir acordeón
+    expect(getByText('EXPO LA CARLOTA')).toBeTruthy();           // tabla Evento/Tiempo
+    expect(getByText('EXPO LABOULAYE')).toBeTruthy();
+    expect(getByText('OREVA CARAMELO')).toBeTruthy();            // animales visibles
+    fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar animal → pedigree
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
     expect(fetchRanking).toHaveBeenCalledWith('apartes_general', { anio: 2026, categoria: 15 });
   });

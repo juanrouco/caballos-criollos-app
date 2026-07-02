@@ -14,10 +14,16 @@ import { decodeEntities } from '../api';
 // equipo / yunta) — se listan debajo de la fila, cada uno tappable a su pedigree
 // vía `onMemberPress(member)`. `pointsKey` permite usar una columna de puntaje
 // con otro nombre (ej. rodeos usa `totalPointsRanking`).
+//
+// Modo acordeón (`expandable` + `detailOf`): la fila colapsa el detalle; al
+// tocarla se abre una tabla Evento/Tiempo (`detailOf(fila) → [{evento,tiempo}]`)
+// más los miembros. Usado por Aparte Campero.
 export default function RankingTable({
   t, columnas = [], filas = [], onRowPress, isTappable,
   membersOf, onMemberPress, pointsKey = 'points', pointsLabel,
+  expandable = false, detailOf,
 }) {
+  const [openIdx, setOpenIdx] = React.useState(null);
   const isTeamMode = typeof membersOf === 'function';
   const primaryKey = columnas.find((c) => c.key === 'animal') ? 'animal'
     : columnas.find((c) => c.key === 'equipo') ? 'equipo'
@@ -40,18 +46,25 @@ export default function RankingTable({
           })
           .filter(Boolean).join('  ·  ');
         const isTop = String(fila.position) === '1';
-        const tappable = isTappable ? isTappable(fila) : false;
+        const rowTappable = !expandable && (isTappable ? isTappable(fila) : false);
+        const expanded = expandable && openIdx === i;
         const members = membersOf ? (membersOf(fila) || []) : [];
+        const detailRows = expandable && detailOf ? (detailOf(fila) || []) : [];
         const primary = primaryKey && decodeEntities(fila[primaryKey]);
         const points = fila[pointsKey];
-        // La fila entera es tappable solo cuando no hay miembros (rankings por
-        // animal / propietario). En equipos, cada miembro es su propio touchable,
-        // así evitamos anidar TouchableOpacity (que rompe el tap en el device).
-        const Row = tappable ? TouchableOpacity : View;
+        const showMembers = !expandable || expanded; // en acordeón, sólo al abrir
+
+        // El header togglea el acordeón (expandable), navega (tappable) o es
+        // estático. Los miembros van fuera del header para no anidar touchables.
+        const Header = (expandable || rowTappable) ? TouchableOpacity : View;
+        const onPress = expandable ? () => setOpenIdx(expanded ? null : i)
+          : rowTappable ? () => { if (onRowPress) onRowPress(fila); }
+          : undefined;
+
         return (
           <View key={i}>
-            <Row
-              {...(tappable ? { onPress: () => { if (onRowPress) onRowPress(fila); } } : {})}
+            <Header
+              {...(onPress ? { onPress } : {})}
               style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 14 }}
             >
               {hasPosition && (
@@ -69,10 +82,32 @@ export default function RankingTable({
                     )}
                   </View>
                 )}
-                {!!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>}
+                {!expandable && !!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>}
+              </View>
+              {expandable
+                ? <View style={{ marginTop: 2, transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}><Icon name="arrow" size={14} color={t.textMute} /></View>
+                : rowTappable && <Icon name="arrow" size={14} color={t.textDim} />}
+            </Header>
 
-                {/* Miembros del equipo / yunta — cada uno linkea a su pedigree */}
-                {members.map((m, mi) => {
+            {/* Detalle expandido (tabla Evento/Tiempo) + miembros del equipo */}
+            {((showMembers && members.length > 0) || (expanded && detailRows.length > 0)) && (
+              <View style={{ paddingLeft: hasPosition ? 42 : 0, paddingBottom: expandable && expanded ? 14 : 0 }}>
+                {expanded && detailRows.length > 0 && (
+                  <View style={{ borderWidth: 1, borderColor: t.border, borderRadius: 8, overflow: 'hidden' }}>
+                    <View style={{ flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: t.bg }}>
+                      <Text style={{ flex: 1, fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Evento</Text>
+                      <Text style={{ width: 64, textAlign: 'right', fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Tiempo</Text>
+                    </View>
+                    {detailRows.map((r, ri) => (
+                      <View key={ri} style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: t.border }}>
+                        <Text style={{ flex: 1, fontSize: 12.5, color: t.text }} numberOfLines={2}>{decodeEntities(r.evento) || '—'}</Text>
+                        <Text style={{ width: 64, textAlign: 'right', fontFamily: F.mono, fontSize: 12.5, color: t.text }}>{r.tiempo || '—'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {showMembers && members.map((m, mi) => {
                   const name = decodeEntities(m.nombre || m.name);
                   const sub = decodeEntities(m.jinete || m.rider);
                   const mTappable = !!m.animalId;
@@ -92,8 +127,7 @@ export default function RankingTable({
                   );
                 })}
               </View>
-              {tappable && <Icon name="arrow" size={14} color={t.textDim} />}
-            </Row>
+            )}
             {i < filas.length - 1 && <Divider t={t} />}
           </View>
         );

@@ -46,8 +46,22 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const isSolanet = slug === 'solanet';
   const isTeam    = ranking.familia === 'equipo';
   const isRodeos  = slug === 'rodeos';
-  // Rodeos usa nombres de columna de puntaje distintos; el resto usa 'points'.
-  const pointsKey = isRodeos ? 'totalPointsRanking' : 'points';
+  const isApartes = slug === 'apartes_general' || slug === 'apartes_analitico';
+  // Columna que hace de "puntaje" prominente según el ranking. Apartes usa el
+  // tiempo (total en general, mejor tiempo en analítico); rodeos su puntaje de
+  // ranking; el resto el 'points' estándar.
+  const pointsKey = isRodeos ? 'totalPointsRanking'
+    : slug === 'apartes_general' ? 'total'
+    : slug === 'apartes_analitico' ? 'tiempo'
+    : 'points';
+  // Aparte Campero: al expandir la fila, tabla Evento/Tiempo (2 corridas en
+  // general, 1 en analítico).
+  const apartesDetail = (fila) => {
+    const rows = (fila.evento1 !== undefined || fila.evento2 !== undefined)
+      ? [{ evento: fila.evento1, tiempo: fila.tiempo1 }, { evento: fila.evento2, tiempo: fila.tiempo2 }]
+      : [{ evento: fila.evento, tiempo: fila.tiempo }];
+    return rows.filter((r) => (r.evento != null && r.evento !== '') || (r.tiempo != null && r.tiempo !== ''));
+  };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
   // puntaje de ranking). Se puede reponer sacándolo de esta lista.
   const HIDDEN_COLS = ['totalPointsObtained'];
@@ -98,6 +112,8 @@ export default function RankingCatScreen({ t, navigation, route }) {
             filas={filas}
             pointsKey={pointsKey}
             pointsLabel={teamPointsLabel}
+            expandable={isApartes}
+            detailOf={isApartes ? apartesDetail : undefined}
             membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
             onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
             isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}
