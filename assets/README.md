@@ -1198,7 +1198,7 @@ Delegados por delegación/región (la misma info que muestra `web/delegados.php`
 
 ```json
 {
-  "mapa": "https://caballoscriollos.com/web/assets/images/mapa_delegados.png",
+  "mapa": "https://caballoscriollos.com/web/assets/images/mapa_delegados_2.png",
   "data": [
     { "delegacion": "DELEGACIÓN I - NOA", "nombre": "María Lourdes Arias Figueroa", "email": "lulyaf84@hotmail.com" },
     { "delegacion": "DELEGACIÓN V - a - CENTRO NORTE", "nombre": "Pablo Agüero", "email": null }
