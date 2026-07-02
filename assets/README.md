@@ -296,7 +296,7 @@ Detalle de una noticia. **Cache**: `Cache-Control: public, max-age=300`.
 
 Los reglamentos son noticias de una categoría fija (la misma que usa `web/reglamentos.php`) que se filtran por **Prueba** (el columnista). Es un alias semántico sobre noticias: mismo shape de item que `GET /noticias`, pero con la categoría ya aplicada, ordenado por prueba, y con el columnista expuesto como `prueba`.
 
-El detalle de un reglamento se obtiene con `GET /noticias/{id}` (un reglamento es una noticia).
+El detalle (con el HTML del cuerpo y el PDF) se obtiene con `GET /reglamentos/{id}` — ver abajo. (Como un reglamento es una noticia, `GET /noticias/{id}` devuelve lo mismo, sin el framing de reglamento.)
 
 #### `GET /reglamentos`
 
@@ -351,6 +351,37 @@ Lista de pruebas (columnistas) que tienen al menos un reglamento vigente — par
 ```
 
 Orden alfabético por nombre.
+
+#### `GET /reglamentos/{id}`
+
+Detalle de un reglamento: el **HTML del cuerpo** + el **PDF** + la prueba. **Cache**: `300`.
+
+```json
+{
+  "id": 1072,
+  "titulo": "Reglamento Copa Incentivo de Oro 2026",
+  "copete": "",
+  "cuerpo": "<p>...</p>",
+  "fecha": "2026-02-27",
+  "fuente": "",
+  "video": "",
+  "destacado": false,
+  "fijo": false,
+  "categoria": { "id": 11, "nombre": "Reglamentos" },
+  "prueba": { "id": 2, "nombre": "Copa Incentivo de Oro" },
+  "imagenes": [ ... ],
+  "archivos": [
+    { "id": 1414, "nombre": "REGLAMENTO ... .pdf",
+      "url": "https://caballoscriollos.com/web/_recursos/noticias/archivos/2026022709574460118.pdf" }
+  ],
+  "pdf": "https://caballoscriollos.com/web/_recursos/noticias/archivos/2026022709574460118.pdf"
+}
+```
+
+- `cuerpo` es HTML crudo (con las URLs `../_recursos/...` ya reescritas a absolutas).
+- `pdf` es una conveniencia: la URL del primer adjunto `.pdf` (o el primer archivo si no hay `.pdf`), o `null`. El array `archivos` completo también viene.
+- `prueba` = el columnista (o `null`).
+- `404` si el id no existe o no es un reglamento (otra categoría).
 
 ---
 
