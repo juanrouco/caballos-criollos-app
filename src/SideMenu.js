@@ -8,20 +8,22 @@ import { navigationRef } from './navigation';
 import ReglamentosScreen from './screens/ReglamentosScreen';
 import MapaScreen from './screens/MapaScreen';
 
-// Accesos directos a las tabs del footer (misma botonera). Navegan a la tab
-// vía navigationRef y cierran el menú.
-export const NAV_ITEMS = [
+// Secciones con pantalla propia (overlay). Las que tienen `Component` renderizan
+// su pantalla real; el resto muestra el placeholder (SectionView).
+export const SECTIONS = [
+  { key: 'reglamentos', label: 'Reglamentos', icon: 'pdf', Component: ReglamentosScreen },
+  { key: 'mapa',        label: 'Mapa ACCC',   icon: 'pin', Component: MapaScreen },
+];
+
+// Todo el menú en un solo listado: accesos a las tabs del footer (con `tab`) +
+// las secciones propias. Los que tienen `tab` navegan a esa tab; el resto abre
+// su sección.
+const MENU_ITEMS = [
   { key: 'inicio',   label: 'Inicio',   icon: 'home',     tab: 'InicioTab' },
   { key: 'eventos',  label: 'Eventos',  icon: 'calendar', tab: 'EventosTab' },
   { key: 'pedigree', label: 'Pedigree', icon: 'tree',     tab: 'PedigreeTab' },
   { key: 'rankings', label: 'Rankings', icon: 'rank',     tab: 'RankingsTab' },
-];
-
-// Secciones del menú lateral (pantallas propias). Las que tienen `Component`
-// renderizan su pantalla real; el resto muestra el placeholder (SectionView).
-export const SECTIONS = [
-  { key: 'reglamentos', label: 'Reglamentos', icon: 'pdf', Component: ReglamentosScreen },
-  { key: 'mapa',        label: 'Mapa ACCC',   icon: 'pin', Component: MapaScreen },
+  ...SECTIONS,
 ];
 
 // Capa de overlay del menú: el drawer deslizante + la sección abierta. Se monta
@@ -101,25 +103,14 @@ function MenuDrawer({ t, topInset, bottomInset, open, onClose, onSelect }) {
           </View>
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: bottomInset + 20 }} showsVerticalScrollIndicator={false}>
-            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 4, marginTop: 6 }}>Navegación</Text>
-            {NAV_ITEMS.map((s, i) => (
+            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 4, marginTop: 6 }}>Secciones</Text>
+            {MENU_ITEMS.map((s, i) => (
               <View key={s.key}>
-                <TouchableOpacity onPress={() => onNavigateTab(s.tab)} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15 }}>
+                <TouchableOpacity onPress={() => (s.tab ? onNavigateTab(s.tab) : onSelect(s.key))} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15 }}>
                   <Icon name={s.icon} size={20} color={t.accent} />
                   <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }}>{s.label}</Text>
                 </TouchableOpacity>
-                {i < NAV_ITEMS.length - 1 && <Divider t={t} />}
-              </View>
-            ))}
-
-            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 4, marginTop: 22 }}>Secciones</Text>
-            {SECTIONS.map((s, i) => (
-              <View key={s.key}>
-                <TouchableOpacity onPress={() => onSelect(s.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15 }}>
-                  <Icon name={s.icon} size={20} color={t.accent} />
-                  <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }}>{s.label}</Text>
-                </TouchableOpacity>
-                {i < SECTIONS.length - 1 && <Divider t={t} />}
+                {i < MENU_ITEMS.length - 1 && <Divider t={t} />}
               </View>
             ))}
           </ScrollView>
