@@ -134,6 +134,43 @@ describe('RankingCatScreen', () => {
     expect(fetchRanking).toHaveBeenCalledWith('apartes_general', { anio: 2026, categoria: 15 });
   });
 
+  test('fzb: promedio como puntaje, SBA + propietario en líneas y tabla Evento/Puntaje', async () => {
+    const FZB2 = {
+      slug: 'fzb', nombre: 'FZB — Ranking General', familia: 'individual',
+      filtros: [
+        { param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+        { param: 'categoria', default: 6, opciones: [{ value: 6, label: 'A' }] },
+      ],
+    };
+    fetchRanking.mockResolvedValue({
+      columnas: [
+        { key: 'position', label: '#' }, { key: 'sba', label: 'SBA' }, { key: 'animal', label: 'Animal' },
+        { key: 'propietario', label: 'Propietario' },
+        { key: 'evento1', label: 'Evento 1' }, { key: 'total1', label: 'Puntaje 1' },
+        { key: 'evento2', label: 'Evento 2' }, { key: 'total2', label: 'Puntaje 2' },
+        { key: 'promedio', label: 'Promedio' },
+      ],
+      filas: [{
+        position: 1, animalId: 'exis:81774', sba: '75394', animal: 'MAÑANERA MAESTRA',
+        propietario: 'DUTROC, RICARDO ALFREDO',
+        evento1: 'EXPO OTOÑO', total1: '52.00', evento2: 'EL VERIJERO', total2: '55.00', promedio: '53.50',
+      }],
+    });
+    const nav = navStub();
+    const { findByText, getByText } = render(
+      <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: FZB2, initialFilters: { anio: 2026, categoria: 6 } })} />,
+    );
+    expect(await findByText('MAÑANERA MAESTRA')).toBeTruthy();   // nombre
+    expect(getByText('53.50')).toBeTruthy();                     // promedio a la derecha
+    expect(getByText(/SBA 75394/)).toBeTruthy();                 // línea SBA
+    expect(getByText('DUTROC, RICARDO ALFREDO')).toBeTruthy();   // propietario en otra línea
+    expect(getByText('EXPO OTOÑO')).toBeTruthy();                // tabla Evento/Puntaje
+    expect(getByText('52.00')).toBeTruthy();
+    expect(getByText('55.00')).toBeTruthy();
+    fireEvent.press(getByText('MAÑANERA MAESTRA'));              // fila tappable → pedigree
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:81774' });
+  });
+
   test('rodeos: subtítulo del campeonato viene de la API y usa la yunta (animals)', async () => {
     const RODEOS = {
       slug: 'rodeos', nombre: 'Rodeos — Ranking', familia: 'equipo',

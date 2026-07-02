@@ -47,20 +47,33 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const isTeam    = ranking.familia === 'equipo';
   const isRodeos  = slug === 'rodeos';
   const isApartes = slug === 'apartes_general' || slug === 'apartes_analitico';
+  const isFzb     = slug === 'fzb';
   // Columna que hace de "puntaje" prominente según el ranking. Apartes usa el
-  // tiempo (total en general, mejor tiempo en analítico); rodeos su puntaje de
-  // ranking; el resto el 'points' estándar.
+  // tiempo (total en general, mejor tiempo en analítico); FZB el promedio de los
+  // dos eventos; rodeos su puntaje de ranking; el resto el 'points' estándar.
   const pointsKey = isRodeos ? 'totalPointsRanking'
     : slug === 'apartes_general' ? 'total'
     : slug === 'apartes_analitico' ? 'tiempo'
+    : isFzb ? 'promedio'
     : 'points';
   // Aparte Campero: al expandir la fila, tabla Evento/Tiempo (2 corridas en
-  // general, 1 en analítico).
+  // general, 1 en analítico). Cada fila del detalle es { evento, valor }.
   const apartesDetail = (fila) => {
     const rows = (fila.evento1 !== undefined || fila.evento2 !== undefined)
-      ? [{ evento: fila.evento1, tiempo: fila.tiempo1 }, { evento: fila.evento2, tiempo: fila.tiempo2 }]
-      : [{ evento: fila.evento, tiempo: fila.tiempo }];
-    return rows.filter((r) => (r.evento != null && r.evento !== '') || (r.tiempo != null && r.tiempo !== ''));
+      ? [{ evento: fila.evento1, valor: fila.tiempo1 }, { evento: fila.evento2, valor: fila.tiempo2 }]
+      : [{ evento: fila.evento, valor: fila.tiempo }];
+    return rows.filter((r) => (r.evento != null && r.evento !== '') || (r.valor != null && r.valor !== ''));
+  };
+  // FZB: tabla Evento/Puntaje con los dos eventos que promedian.
+  const fzbDetail = (fila) => [
+    { evento: fila.evento1, valor: fila.total1 },
+    { evento: fila.evento2, valor: fila.total2 },
+  ].filter((r) => (r.evento != null && r.evento !== '') || (r.valor != null && r.valor !== ''));
+  // FZB: bajo el nombre, SBA (+ RP si la API lo trae) y, en otra línea, el propietario.
+  const fzbLines = (fila) => {
+    const l1 = [fila.sba != null && fila.sba !== '' ? `SBA ${fila.sba}` : null, fila.rp != null && fila.rp !== '' ? `RP ${fila.rp}` : null].filter(Boolean).join('  ·  ');
+    const l2 = fila.propietario != null && fila.propietario !== '' ? decodeEntities(fila.propietario) : null;
+    return [l1, l2].filter(Boolean);
   };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
   // puntaje de ranking). Se puede reponer sacándolo de esta lista.
@@ -113,7 +126,9 @@ export default function RankingCatScreen({ t, navigation, route }) {
             pointsKey={pointsKey}
             pointsLabel={teamPointsLabel}
             expandable={isApartes}
-            detailOf={isApartes ? apartesDetail : undefined}
+            detailOf={isApartes ? apartesDetail : isFzb ? fzbDetail : undefined}
+            detailValueLabel={isFzb ? 'Puntaje' : 'Tiempo'}
+            secondaryLines={isFzb ? fzbLines : undefined}
             membersOf={isTeam ? ((fila) => fila.animales || fila.animals) : undefined}
             onMemberPress={(m) => { if (m.animalId) navigation.navigate('HorseDetail', { id: m.animalId }); }}
             isTappable={(fila) => (isTeam ? false : isSolanet ? fila.propertyNumber != null : !!fila.animalId)}

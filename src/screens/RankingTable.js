@@ -21,7 +21,7 @@ import { decodeEntities } from '../api';
 export default function RankingTable({
   t, columnas = [], filas = [], onRowPress, isTappable,
   membersOf, onMemberPress, pointsKey = 'points', pointsLabel,
-  expandable = false, detailOf,
+  expandable = false, detailOf, detailValueLabel = 'Tiempo', secondaryLines,
 }) {
   const [openIdx, setOpenIdx] = React.useState(null);
   const isTeamMode = typeof membersOf === 'function';
@@ -49,7 +49,11 @@ export default function RankingTable({
         const rowTappable = !expandable && (isTappable ? isTappable(fila) : false);
         const expanded = expandable && openIdx === i;
         const members = membersOf ? (membersOf(fila) || []) : [];
-        const detailRows = expandable && detailOf ? (detailOf(fila) || []) : [];
+        // Tabla de detalle (Evento/valor). En apartes va en acordeón (expandable);
+        // en FZB, siempre visible bajo los datos del animal.
+        const detailRows = detailOf ? (detailOf(fila) || []) : [];
+        const showDetail = (!expandable || expanded) && detailRows.length > 0;
+        const lines = !expandable && secondaryLines ? (secondaryLines(fila) || []) : null;
         const primary = primaryKey && decodeEntities(fila[primaryKey]);
         const points = fila[pointsKey];
 
@@ -81,7 +85,12 @@ export default function RankingTable({
                     )}
                   </View>
                 )}
-                {!expandable && !!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>}
+                {!expandable && (lines
+                  ? lines.map((line, li) => (
+                      <Text key={li} style={{ fontSize: li === 0 ? 12 : 11.5, color: t.textMute, marginTop: li === 0 ? 4 : 2, lineHeight: 16 }} numberOfLines={1}>{line}</Text>
+                    ))
+                  : (!!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>)
+                )}
               </View>
               {expandable
                 ? <View style={{ marginTop: 2, transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}><Icon name="arrow" size={14} color={t.textMute} /></View>
@@ -118,18 +127,18 @@ export default function RankingTable({
               </View>
             )}
 
-            {/* Acordeón (sólo tabla Evento/Tiempo) — a ancho completo de la card */}
-            {expanded && detailRows.length > 0 && (
-              <View style={{ paddingBottom: 14 }}>
+            {/* Tabla de detalle (Evento / Tiempo o Puntaje) — a ancho completo */}
+            {showDetail && (
+              <View style={{ paddingBottom: 14, paddingTop: expandable ? 0 : 2 }}>
                 <View style={{ borderWidth: 1, borderColor: t.border, borderRadius: 8, overflow: 'hidden' }}>
                   <View style={{ flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 10, backgroundColor: t.bg }}>
                     <Text style={{ flex: 1, fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Evento</Text>
-                    <Text style={{ width: 64, textAlign: 'right', fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>Tiempo</Text>
+                    <Text style={{ width: 64, textAlign: 'right', fontSize: 10, color: t.textMute, textTransform: 'uppercase', letterSpacing: 0.6, fontFamily: F.bodyBold }}>{detailValueLabel}</Text>
                   </View>
                   {detailRows.map((r, ri) => (
                     <View key={ri} style={{ flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1, borderTopColor: t.border }}>
                       <Text style={{ flex: 1, fontSize: 12.5, color: t.text }} numberOfLines={2}>{decodeEntities(r.evento) || '—'}</Text>
-                      <Text style={{ width: 64, textAlign: 'right', fontFamily: F.mono, fontSize: 12.5, color: t.text }}>{r.tiempo || '—'}</Text>
+                      <Text style={{ width: 64, textAlign: 'right', fontFamily: F.mono, fontSize: 12.5, color: t.text }}>{r.valor || '—'}</Text>
                     </View>
                   ))}
                 </View>
