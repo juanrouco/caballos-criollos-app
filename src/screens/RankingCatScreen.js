@@ -39,13 +39,16 @@ export default function RankingCatScreen({ t, navigation, route }) {
     return () => { cancelled = true; };
   }, [slug, filters]);
 
-  const columnas = data?.columnas || [];
   const filas    = data?.filas || [];
   const isSolanet = slug === 'solanet';
   const isTeam    = ranking.familia === 'equipo';
   const isRodeos  = slug === 'rodeos';
   // Rodeos usa nombres de columna de puntaje distintos; el resto usa 'points'.
   const pointsKey = isRodeos ? 'totalPointsRanking' : 'points';
+  // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
+  // puntaje de ranking). Se puede reponer sacándolo de esta lista.
+  const HIDDEN_COLS = ['totalPointsObtained'];
+  const columnas = (data?.columnas || []).filter((c) => !HIDDEN_COLS.includes(c.key));
   // Subtítulo: la selección fija en rankings con año (individuales/apartes);
   // en rodeos el título del campeonato que devuelve la API es más descriptivo.
   const hasAnio = filtros.some((f) => f.param === 'anio');
@@ -53,15 +56,26 @@ export default function RankingCatScreen({ t, navigation, route }) {
   const subtitle = hasAnio ? filterSummary : decodeEntities(data?.subtitulo || '').replace(/\s*(?:\\n|\n)+\s*/g, ' · ').trim();
   const teamPointsLabel = isTeam ? columnas.find((c) => c.key === pointsKey)?.label : undefined;
 
+  // El nombre viene como "Disciplina — Sub-ranking" (ej. "Aparte Campero —
+  // Ranking General"). Partimos para dar a cada parte su jerarquía en el header.
+  const nameParts = (decodeEntities(nombre) || 'Ranking').split('—').map((s) => s.trim());
+  const mainTitle = nameParts[0];
+  const rankLabel = nameParts.length > 1 ? nameParts.slice(1).join(' — ') : '';
+
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Volver" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
-        <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{decodeEntities(nombre) || 'Ranking'}</Text>
+        <Text style={{ fontFamily: F.display, fontSize: 26, color: t.text }} numberOfLines={2}>{mainTitle}</Text>
+        {!!rankLabel && (
+          <Text style={{ fontSize: 15, color: t.textMute, marginTop: 3, fontFamily: F.bodyMed }}>{rankLabel}</Text>
+        )}
         {!!subtitle && (
-          <Text style={{ fontSize: 12.5, color: t.textMute, marginTop: 6 }}>{subtitle}</Text>
+          hasAnio
+            ? <Text style={{ fontSize: 17, color: t.accent, marginTop: 12, fontFamily: F.bodyBold }}>{subtitle}</Text>
+            : <Text style={{ fontSize: 13, color: t.textMute, marginTop: 10, lineHeight: 18 }}>{subtitle}</Text>
         )}
       </View>
 

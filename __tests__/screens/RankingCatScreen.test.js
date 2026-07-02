@@ -116,6 +116,9 @@ describe('RankingCatScreen', () => {
       <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: APARTES, initialFilters: { anio: 2026, categoria: 15 } })} />,
     );
     expect(await findByText('los orejanos.')).toBeTruthy();      // nombre del equipo
+    expect(getByText('Aparte Campero')).toBeTruthy();            // header: disciplina
+    expect(getByText('Ranking General')).toBeTruthy();           // header: sub-ranking
+    expect(getByText('Año: 2026 - A')).toBeTruthy();             // header: selección
     expect(getByText('OREVA CARAMELO')).toBeTruthy();            // miembro
     fireEvent.press(getByText('BROCAL PUESTERO'));               // tocar miembro
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:80428' });
@@ -143,14 +146,14 @@ describe('RankingCatScreen', () => {
       }],
     });
     const nav = navStub();
-    const { findByText, getByText } = render(
+    const { findByText, getByText, queryByText } = render(
       <RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: RODEOS, initialFilters: { tipo: 2 } })} />,
     );
     expect(await findByText('CONTRAFUEGO TEJEDORA')).toBeTruthy();
     expect(getByText('57° CAMPEONATO NACIONAL · RANKING GENERAL')).toBeTruthy(); // subtítulo sin \n literal
     expect(getByText('95.00')).toBeTruthy(); // puntaje desde totalPointsRanking
     expect(getByText('Puntos ranking')).toBeTruthy(); // etiqueta bajo el puntaje prominente
-    expect(getByText(/Puntos obtenidos 148/)).toBeTruthy(); // la otra columna de puntos va al secundario, no como título
+    expect(queryByText(/Puntos obtenidos/)).toBeNull(); // oculto por ahora
     fireEvent.press(getByText('CONTRAFUEGO TEJEDORA'));
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:105929' });
     expect(fetchRanking).toHaveBeenCalledWith('rodeos', { calendario: 22, tipo: 2 });
