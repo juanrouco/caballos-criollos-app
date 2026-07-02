@@ -1,46 +1,40 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, useWindowDimensions } from 'react-native';
-import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, Image, useWindowDimensions } from 'react-native';
 import { Icon, Divider, F } from '../components';
 import { withAlpha } from '../theme';
 import { fetchDelegados, mapDelegado } from '../api';
 
-// Contorno simplificado de Argentina (placeholder) en el viewBox de MAP_VB. Se
-// puede reemplazar por el SVG oficial de la ACCC sin tocar el resto: sólo hay
-// que reubicar los marcadores (MARKERS) sobre el nuevo contorno.
-const MAP_VB = { w: 240, h: 470 };
-const AR_OUTLINE =
-  'M70 34 L92 24 L150 30 L176 44 L196 74 L178 92 L188 112 L182 150 L190 200 ' +
-  'L196 236 L182 256 L170 250 L166 300 L152 322 L150 360 L132 386 L124 420 ' +
-  'L110 444 L96 466 L84 436 L74 384 L62 320 L56 258 L52 198 L56 150 L62 92 L66 52 Z';
-
-// Posición de cada marcador (número romano) sobre el contorno, en coords del
-// viewBox. Es geometría de UI (estable); los datos (delegado, zona) vienen del
-// endpoint y se cruzan por `romano`.
+// Posición de cada marcador (número romano) como porcentaje del alto/ancho de la
+// imagen del mapa (contorno de Argentina, servido por el backend en `mapa`). Es
+// geometría de UI; los datos (delegado) vienen del endpoint y se cruzan por
+// `romano`. Se afinan una vez que está la imagen definitiva.
 const MARKERS = [
-  { romano: 'I',    x: 92,  y: 80 },
-  { romano: 'II',   x: 146, y: 72 },
-  { romano: 'III',  x: 172, y: 112 },
-  { romano: 'IV',   x: 74,  y: 182 },
-  { romano: 'V',    x: 106, y: 152 },
-  { romano: 'VI',   x: 138, y: 128 },
-  { romano: 'VII',  x: 118, y: 192 },
-  { romano: 'VIII', x: 158, y: 168 },
-  { romano: 'IX',   x: 166, y: 198 },
-  { romano: 'X',    x: 138, y: 228 },
-  { romano: 'XI',   x: 92,  y: 254 },
-  { romano: 'XII',  x: 98,  y: 208 },
-  { romano: 'XIII', x: 96,  y: 382 },
+  { romano: 'I',    x: 0.38, y: 0.17 },
+  { romano: 'II',   x: 0.61, y: 0.15 },
+  { romano: 'III',  x: 0.72, y: 0.24 },
+  { romano: 'IV',   x: 0.31, y: 0.39 },
+  { romano: 'V',    x: 0.44, y: 0.32 },
+  { romano: 'VI',   x: 0.58, y: 0.27 },
+  { romano: 'VII',  x: 0.49, y: 0.41 },
+  { romano: 'VIII', x: 0.66, y: 0.36 },
+  { romano: 'IX',   x: 0.69, y: 0.42 },
+  { romano: 'X',    x: 0.58, y: 0.49 },
+  { romano: 'XI',   x: 0.38, y: 0.54 },
+  { romano: 'XII',  x: 0.41, y: 0.44 },
+  { romano: 'XIII', x: 0.40, y: 0.81 },
 ];
+const DEFAULT_ASPECT = 240 / 470; // ancho/alto, hasta saber el de la imagen real
 
-// Sección Mapa ACCC: mapa de Argentina con las delegaciones como marcadores
-// numerados. Al tocar un marcador (o una fila de la lista) se resalta y se
-// muestra la delegación + su delegado. Los datos vienen de GET /delegados
-// (el romano se deriva del texto de `delegacion`). Se monta como overlay del
-// menú lateral → recibe t / topInset / onBack.
+// Sección Mapa ACCC: mapa de Argentina (imagen del backend) con las
+// delegaciones como marcadores numerados dibujados encima. Al tocar un marcador
+// (o una fila de la lista) se resalta y se muestra la delegación + su delegado.
+// Datos: GET /delegados (el romano se deriva del texto de `delegacion`). Se
+// monta como overlay del menú lateral → recibe t / topInset / onBack.
 export default function MapaScreen({ t, topInset, onBack }) {
   const { width } = useWindowDimensions();
-  const [dels, setDels] = React.useState(null); // null=cargando, []=vacío/error
+  const [dels, setDels] = React.useState(null);   // null=cargando, []=vacío/error
+  const [mapaUrl, setMapaUrl] = React.useState(null);
+  const [aspect, setAspect] = React.useState(DEFAULT_ASPECT);
   const [error, setError] = React.useState(false);
   const [selected, setSelected] = React.useState(null); // romano seleccionado
 
@@ -48,7 +42,11 @@ export default function MapaScreen({ t, topInset, onBack }) {
     let cancelled = false;
     setDels(null); setError(false);
     fetchDelegados()
-      .then((r) => { if (!cancelled) setDels((r.data || []).map(mapDelegado)); })
+      .then((r) => {
+        if (cancelled) return;
+        setDels((r.data || []).map(mapDelegado));
+        setMapaUrl(r.mapa || null);
+      })
       .catch(() => { if (!cancelled) { setError(true); setDels([]); } });
     return () => { cancelled = true; };
   }, []);
@@ -61,9 +59,9 @@ export default function MapaScreen({ t, topInset, onBack }) {
 
   const selectedDels = selected ? (byRomano[selected] || []) : [];
 
-  const mapW = Math.min(width - 40, 300);
-  const mapH = (mapW * MAP_VB.h) / MAP_VB.w;
-  const R = 12; // radio del marcador en coords del viewBox
+  const mapW = Math.min(width - 40, 320);
+  const mapH = mapW / aspect;
+  const MR = 15; // radio del marcador (px)
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: topInset }}>
@@ -75,22 +73,37 @@ export default function MapaScreen({ t, topInset, onBack }) {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {/* Mapa con marcadores */}
-        <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-          <Svg width={mapW} height={mapH} viewBox={`0 0 ${MAP_VB.w} ${MAP_VB.h}`}>
-            <Path d={AR_OUTLINE} fill={t.surface2} stroke={withAlpha(t.accent, 0.5)} strokeWidth={1.4} strokeLinejoin="round" />
-            {MARKERS.map((mk) => {
-              const on = selected === mk.romano;
-              return (
-                <G key={mk.romano} onPress={() => setSelected(mk.romano)} accessibilityLabel={`Delegación ${mk.romano}`}>
-                  <Circle cx={mk.x} cy={mk.y} r={on ? R + 2 : R} fill={on ? t.accent : t.bg} stroke={on ? t.accent : t.text} strokeWidth={1.6} />
-                  <SvgText x={mk.x} y={mk.y + 3.5} fontSize={9.5} fontWeight="bold" fill={on ? t.bg : t.text} textAnchor="middle">{mk.romano}</SvgText>
-                </G>
-              );
-            })}
-          </Svg>
-          <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 4 }}>Tocá una delegación en el mapa</Text>
-        </View>
+        {/* Mapa (imagen del backend) + marcadores numerados encima */}
+        {!!mapaUrl && (
+          <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <View style={{ width: mapW, height: mapH }}>
+              <Image
+                source={{ uri: mapaUrl }}
+                style={{ width: mapW, height: mapH }}
+                resizeMode="contain"
+                onLoad={(e) => {
+                  const s = e?.nativeEvent?.source;
+                  if (s?.width > 0 && s?.height > 0) setAspect(s.width / s.height);
+                }}
+              />
+              {MARKERS.map((mk) => {
+                const on = selected === mk.romano;
+                const r = on ? MR + 2 : MR;
+                return (
+                  <TouchableOpacity
+                    key={mk.romano}
+                    onPress={() => setSelected(mk.romano)}
+                    accessibilityLabel={`Delegación ${mk.romano}`}
+                    style={{ position: 'absolute', left: mk.x * mapW - r, top: mk.y * mapH - r, width: r * 2, height: r * 2, borderRadius: r, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? t.accent : withAlpha(t.bg, 0.9), borderWidth: 1.6, borderColor: on ? t.accent : t.text }}
+                  >
+                    <Text style={{ fontFamily: F.bodyBold, fontSize: 9.5, color: on ? t.bg : t.text }}>{mk.romano}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 6 }}>Tocá una delegación en el mapa</Text>
+          </View>
+        )}
 
         {/* Detalle de la delegación seleccionada */}
         {selectedDels.length > 0 && (
