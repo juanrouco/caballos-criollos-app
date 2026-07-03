@@ -707,9 +707,9 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
           "puesto":      { "general": 1, "handicap": 1, "c": 2 },
           "puesto_dia2": { "general": 1, "handicap": 1, "c": 2 },
           "totales": {
-            "dia1": 88, "dia2": 86,
-            "total_handicap_1": 78, "total_handicap_2": 76,
-            "total_c_1": 78, "total_c_2": 76,
+            "dia1": 88.5, "dia2": 86,
+            "total_handicap_1": 78.5, "total_handicap_2": 76,
+            "total_c_1": 78.5, "total_c_2": 76,
             "desempate_dia1": 8, "desempate_dia2": 7
           },
           "handicaps": {
@@ -756,6 +756,7 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 
 - Una **yunta** = par de animales que corrieron juntos. La tabla guarda un row por animal con los mismos puntajes copiados; el endpoint consolida en una sola yunta. `animales` siempre trae los dos (en el orden estable del par; un solo animal si la yunta quedó coja por carga incompleta).
 - **Vacas**: array de 12 `(int|null)` por día (`dia1` = Vaca1..Vaca12, `dia2` = Vaca13..Vaca24). `null` significa "vaca todavía no procesada"; `0` es una vaca corrida con cero puntos. Los desempates van en `extras` (`vaca25` = primer desempate, `vaca26` y `vaca27` = adicionales) y también pueden ser `null`.
+- **Totales** (`totales.dia1`, `dia2`, `total_handicap_*`, `total_c_*`): `(float|null)`. Pueden traer decimales porque la morfología (paso 0.25) suma al total. Los puestos, handicaps (`h*`) y desempates son enteros; `morfologia_1` / `morfologia_2` son float.
 - **`ultima_dia1` / `ultima_dia2`**: número de la última vaca **del día** (1..12) con dato no-null. Por ej. `ultima_dia2 = 4` significa que el día 2 se procesaron hasta la Vaca16 (la 4ta del día). `null` si todavía no se cargó ninguna en ese día. No incluye los desempates (vaca25/26/27).
 - **CopaEspecial**: solo un día, sin handicap ni Total C. En esas yuntas, los campos `dia2`, `total_handicap_*`, `total_c_*`, `desempate_dia2`, `vacas.dia2`, `vacas.extras.vaca26`, `vacas.extras.vaca27`, `puesto_dia2` y `puesto.handicap` / `puesto.c` salen en `null`. La key `handicaps` también queda `null`. El cliente discrimina por `clasificacion === "CopaEspecial"`.
 - **Equipo** vs **Equipo2**: `equipo` es el equipo del jinete principal (`IdJinete`), `equipo2` el del jinete secundario (`IdJinete2`). Cualquiera puede ser `null` si la inscripción no tiene equipo cargado.

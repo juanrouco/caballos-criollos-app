@@ -853,6 +853,14 @@ function RodeoCard({ t, title, prueba, featured, navigation }) {
   );
 }
 
+// Formatea un puntaje de rodeo: los totales pueden traer decimales (la
+// morfología suma en pasos de 0.25). Muestra enteros sin decimales y limpia el
+// ruido flotante de las sumas (redondeo a 2 decimales, sin ceros de más).
+function fmtPts(n) {
+  if (n == null || Number.isNaN(Number(n))) return null;
+  return String(Math.round(Number(n) * 100) / 100);
+}
+
 // Una yunta en resultados: header chico (puesto + "Yunta" + total) y las dos
 // filas de animales, todo sobre blanco — misma idea que CatalogYuntaGroup, con
 // las líneas extra de Día 1 / Día 2 y Última vaca que aporta el rodeo.
@@ -867,7 +875,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   const totDia2 = yunta.totales?.dia2;
   const total = isCopa
     ? totDia1
-    : (totDia1 != null && totDia2 != null ? totDia1 + totDia2 : null);
+    : (totDia1 != null && totDia2 != null ? Number(totDia1) + Number(totDia2) : null);
   const ultDia1 = yunta.vacas?.ultima_dia1;
   const ultDia2 = yunta.vacas?.ultima_dia2;
   const hasUltima = isCopa ? ultDia1 != null : (ultDia1 != null || ultDia2 != null);
@@ -877,7 +885,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
         <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
         <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
         {total != null && (
-          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{total} pts</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{fmtPts(total)} pts</Text>
         )}
       </View>
       <View>
@@ -891,10 +899,10 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
       {!isCopa && totDia1 != null && totDia2 != null && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
           <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 1</Text>
-          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{totDia1}</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{fmtPts(totDia1)}</Text>
           <View style={{ width: 1, height: 12, backgroundColor: t.border }} />
           <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>Día 2</Text>
-          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{totDia2}</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{fmtPts(totDia2)}</Text>
         </View>
       )}
       {hasUltima && (

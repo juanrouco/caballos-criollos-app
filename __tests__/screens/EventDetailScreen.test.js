@@ -261,6 +261,33 @@ describe('EventDetailScreen', () => {
     expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
   });
 
+  test('rodeo: totales con decimales (morfología) se muestran prolijos', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 305 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 9, nombre: 'Categ. Dec' },
+          clasificacion: 'Final',
+          yuntas: [{
+            puesto: { general: 1 },
+            totales: { dia1: 88.5, dia2: 86.25 },
+            animales: [{ id: 'pdre:1', nombre: 'AnimalD' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 305 })} />,
+    );
+    fireEvent.press(await findByText('Categ. Dec · Final'));
+    await waitFor(() => expect(getByText('AnimalD')).toBeTruthy());
+    expect(getByText('174.75 pts')).toBeTruthy(); // 88.5 + 86.25, sin ruido flotante
+    expect(getByText('88.5')).toBeTruthy();        // Día 1
+    expect(getByText('86.25')).toBeTruthy();       // Día 2
+  });
+
   test('rodeo CopaEspecial: usa dia1 como total y no muestra fila Día 1 / Día 2', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 301 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
