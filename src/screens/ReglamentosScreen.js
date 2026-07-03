@@ -149,39 +149,36 @@ function ReglamentoDetail({ t, topInset, item, detail, error, onBack }) {
               {[item.prueba, item.date].filter(Boolean).join(' · ')}
             </Text>
           )}
+
+          {/* Acceso al PDF, justo debajo del título */}
+          {!!pdfUrl && (
+            <Card t={t} style={{ marginTop: 16 }}>
+              <TouchableOpacity onPress={() => Linking.openURL(pdfUrl)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: withAlpha(t.accent, 0.12), alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="pdf" size={19} color={t.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>Abrir PDF</Text>
+                  <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2 }}>Se abre en el visor del teléfono</Text>
+                </View>
+                <Icon name="arrowUR" size={16} color={t.textDim} />
+              </TouchableOpacity>
+            </Card>
+          )}
         </View>
 
         {loading ? (
           <View style={{ paddingTop: 40, alignItems: 'center' }}><ActivityIndicator color={t.accent} /></View>
         ) : (
-          <>
-            {!!cuerpo ? (
-              <HtmlBody html={cuerpo} t={t} />
-            ) : (
-              <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
-                <Text style={{ fontSize: 13, color: t.textMute }}>
-                  {error ? 'No se pudo cargar el contenido del reglamento.' : 'Este reglamento no tiene contenido para mostrar.'}
-                </Text>
-              </View>
-            )}
-
-            {!!pdfUrl && (
-              <View style={{ paddingHorizontal: 20, marginTop: 28 }}>
-                <Card t={t}>
-                  <TouchableOpacity onPress={() => Linking.openURL(pdfUrl)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: withAlpha(t.accent, 0.12), alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="pdf" size={19} color={t.accent} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>Abrir PDF</Text>
-                      <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2 }}>Se abre en el visor del teléfono</Text>
-                    </View>
-                    <Icon name="arrowUR" size={16} color={t.textDim} />
-                  </TouchableOpacity>
-                </Card>
-              </View>
-            )}
-          </>
+          !!cuerpo ? (
+            <HtmlBody html={cuerpo} t={t} />
+          ) : (
+            <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+              <Text style={{ fontSize: 13, color: t.textMute }}>
+                {error ? 'No se pudo cargar el contenido del reglamento.' : 'Este reglamento no tiene contenido para mostrar.'}
+              </Text>
+            </View>
+          )
         )}
       </ScrollView>
     </View>
