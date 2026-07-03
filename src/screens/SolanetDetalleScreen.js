@@ -1,15 +1,34 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Icon, F } from '../components';
-import { fetchSolanetDetalle } from '../api';
+import { fetchSolanetDetalle, fetchAnimales } from '../api';
 import RankingTable from './RankingTable';
 
 // Detalle de un propietario en el Premio Solanet: los méritos (por animal) que
-// le suman puntos. Cada animal linkea a su pedigree (animalId ya viene armado).
+// le suman puntos. Cada animal linkea a su pedigree.
 export default function SolanetDetalleScreen({ t, navigation, route }) {
   const { premio, propietario, nombre, points } = route.params || {};
   const [data, setData] = React.useState(null); // null=loading
   const [error, setError] = React.useState(false);
+  const [resolving, setResolving] = React.useState(false);
+
+  // El `animalId` del detalle Solanet no es confiable: cuando un SBA se repite
+  // entre tablas (pdre/exis) apunta al animal equivocado. Resolvemos por SBA+RP,
+  // que sí identifica de forma única, y caemos al animalId sólo si falla.
+  const openAnimal = React.useCallback((fila) => {
+    if (resolving) return;
+    const sba = fila.sba, rp = fila.rp;
+    if (sba == null && !fila.animalId) return;
+    if (sba == null) { navigation.navigate('HorseDetail', { id: fila.animalId }); return; }
+    setResolving(true);
+    fetchAnimales({ sba, rp })
+      .then((r) => {
+        const id = (r.data || [])[0]?.id || fila.animalId || null;
+        if (id) navigation.navigate('HorseDetail', { id });
+      })
+      .catch(() => { if (fila.animalId) navigation.navigate('HorseDetail', { id: fila.animalId }); })
+      .finally(() => setResolving(false));
+  }, [resolving, navigation]);
 
   React.useEffect(() => {
     if (propietario == null) { setError(true); setData({}); return; }
@@ -53,8 +72,8 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
             t={t}
             columnas={columnas}
             filas={filas}
-            isTappable={(fila) => !!fila.animalId}
-            onRowPress={(fila) => { if (fila.animalId) navigation.navigate('HorseDetail', { id: fila.animalId }); }}
+            isTappable={(fila) => fila.sba != null || !!fila.animalId}
+            onRowPress={openAnimal}
           />
          </View>
         </View>
