@@ -266,11 +266,34 @@ export default function RankingsScreen({ t, navigation }) {
                     </View>
                   );
                 })}
+
+                {/* Anuncio: ranking que se habilitará más adelante */}
+                <ComingSoonCard t={t} label="Paleteada campera" disc="paleteada" />
               </View>
             </>
           )}
         </>
       )}
     </ScrollView>
+  );
+}
+
+// Card de disciplina en estado "Próximamente" (no clickeable): anuncia un
+// ranking que todavía no está habilitado.
+function ComingSoonCard({ t, label, disc }) {
+  const color = (disc && DISCIPLINE_COLORS[disc]) || t.accent;
+  const icon = disc && DISCIPLINE_ICONS[disc];
+  return (
+    <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, overflow: 'hidden', opacity: 0.8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
+        <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
+          {icon ? <Image source={icon} style={{ width: 26, height: 26, tintColor: '#fff' }} resizeMode="contain" /> : <Icon name="trophy" size={20} color="#fff" />}
+        </View>
+        <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{label}</Text>
+        <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: withAlpha(t.accent, 0.14) }}>
+          <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>Próximamente</Text>
+        </View>
+      </View>
+    </View>
   );
 }

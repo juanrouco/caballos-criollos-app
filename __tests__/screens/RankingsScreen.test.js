@@ -172,6 +172,12 @@ describe('RankingsScreen', () => {
     expect(fetchRanking).toHaveBeenLastCalledWith('solanet', { premio: 1 });
   });
 
+  test('anuncia "Paleteada campera" como Próximamente', async () => {
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
+    expect(await findByText('Paleteada campera')).toBeTruthy();
+    expect(getByText('Próximamente')).toBeTruthy();
+  });
+
   test('error muestra reintentar', async () => {
     fetchRankings.mockRejectedValue(new Error('net'));
     const { findByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
