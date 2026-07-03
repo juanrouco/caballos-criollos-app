@@ -166,7 +166,7 @@ export default function HomeScreen({ t, navigation }) {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <View style={{ backgroundColor: t.live, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
-                      <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.6 }}>● EN VIVO</Text>
+                      <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.6 }}>● AHORA</Text>
                     </View>
                     {!!live.titulo && (
                       <Text style={{ fontSize: 11, color: t.textMute, fontFamily: F.body }} numberOfLines={1}>{live.titulo}</Text>

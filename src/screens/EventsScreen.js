@@ -155,7 +155,7 @@ function EventsList({ t, navigation, filter }) {
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', marginBottom: 6 }}>
                   <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderColor: isLive ? t.live : withAlpha(t.accent, 0.33), backgroundColor: isLive ? t.live : 'transparent' }}>
-                    <Text style={{ fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.6, color: isLive ? '#fff' : t.accent }}>{isLive ? '● EN VIVO' : e.type}</Text>
+                    <Text style={{ fontSize: 10, fontFamily: F.bodyBold, letterSpacing: 0.6, color: isLive ? '#fff' : t.accent }}>{isLive ? '● AHORA' : e.type}</Text>
                   </View>
                 </View>
                 <Text style={{ fontFamily: F.display, fontSize: 18, color: t.text }} numberOfLines={2}>{e.name}</Text>

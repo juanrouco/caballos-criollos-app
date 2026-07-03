@@ -180,7 +180,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
           {vivo && (
             <View style={{ backgroundColor: t.live, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold }}>● EN VIVO</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontFamily: F.bodyBold }}>● AHORA</Text>
             </View>
           )}
           {mapped.disciplines.slice(0, MAX_DISCIPLINE_CHIPS).map((d, i) => (
