@@ -516,14 +516,62 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 316 })} />,
     );
-    // El nombre de la categoría + un acordeón por subcategoría
+    // La categoría es una card acordeón; las subcategorías están adentro (ocultas).
     expect(await findByText('Cat. Grande')).toBeTruthy();
-    expect(getByText('Subcategoría 1')).toBeTruthy();
+    expect(queryByText('Subcategoría 1')).toBeNull();
+    expect(queryByText('Subcategoría 2')).toBeNull();
+    // Abrir la categoría → aparecen los 2 acordeones de subcategoría (cerrados).
+    fireEvent.press(getByText('Cat. Grande'));
+    await waitFor(() => expect(getByText('Subcategoría 1')).toBeTruthy());
     expect(getByText('Subcategoría 2')).toBeTruthy();
-    expect(queryByText('UnoA')).toBeNull(); // colapsados
+    expect(queryByText('UnoA')).toBeNull(); // puestos ocultos
+    // Abrir una subcategoría → aparecen sus puestos; la otra sigue cerrada.
     fireEvent.press(getByText('Subcategoría 2'));
     await waitFor(() => expect(getByText('UnoB')).toBeTruthy());
-    expect(queryByText('UnoA')).toBeNull(); // la otra sub sigue cerrada
+    expect(queryByText('UnoA')).toBeNull();
+  });
+
+  test('subcategoría: un animal con premio null se muestra "Sin premio" (no "N° puesto")', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 318 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. Mixta',
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'Premiado', box: 'A-1' }, premio: { nombre: '1er Premio', tipo_nombre: 'Premios' }, puntaje: 80 },
+            { animal: { id: 'pdre:9', nombre: 'AsistioSinPremio', box: 'A-9' }, premio: null, puntaje: null },
+          ] }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 318 })} />,
+    );
+    fireEvent.press(await findByText('Cat. Mixta')); // abre la categoría
+    await waitFor(() => expect(getByText('AsistioSinPremio')).toBeTruthy());
+    expect(getByText('Sin premio')).toBeTruthy();       // el sin-premio va rotulado así
+    expect(queryByText(/puesto/)).toBeNull();           // no inventa "N° puesto"
+    expect(getByText('1er Premio')).toBeTruthy();        // el premiado conserva su premio
+  });
+
+  test('campeonato de morfología: títulos por categoría unificada (no por sexo)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 317 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        campeonato: [
+          { categoria: 'Categ. Potrillo - Mayor', resultados: [{ animal: { id: 'pdre:1', nombre: 'CampU' }, premio: { nombre: 'Campeón' } }] },
+          { categoria: 'Categ. Padrillo - 3 años', resultados: [{ animal: { id: 'pdre:2', nombre: 'CampD' }, premio: { nombre: 'Campeón' } }] },
+        ],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 317 })} />,
+    );
+    // Cada campeonato muestra su categoría (antes salían sin título por g.sexo undefined)
+    expect(await findByText('Categ. Potrillo - Mayor')).toBeTruthy();
+    expect(getByText('Categ. Padrillo - 3 años')).toBeTruthy();
   });
 
   test('botón Refrescar re-pide /resultados y actualiza el contenido', async () => {

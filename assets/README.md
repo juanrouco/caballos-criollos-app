@@ -607,7 +607,7 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
         "nombre": "Categ. 17 - Caballo Menor - Montado",
         "tipo_aptitud": false,
         "subcategorias": [
-          { "numero": 1, "premios": [ /* ≤6 entries, ordenados por box asc */ ] },
+          { "numero": 1, "premios": [ /* ≤6 entries, ordenados por premio */ ] },
           { "numero": 2, "premios": [ /* ... */ ] }
         ],
         "ausentes": [ { "animal": { /* ... */ } } ],
@@ -666,6 +666,8 @@ Cada **entry** (dentro de `subcategorias[].premios`, `gran_campeonato[].resultad
 }
 ```
 
+Dentro de `subcategorias[].premios` puede haber entries con **`premio` y `puntaje` en `null`**: son animales que asistieron y no fueron rechazados pero no tienen premio de categoría cargado (ej. su resultado se cargó sólo a nivel campeonato). Se incluyen igual en la subcategoría (ordenados al final, después de los premiados) y el `animal` viene completo.
+
 Un entry de **ausente/rechazado** no lleva `premio` ni `puntaje` — sólo `animal` (mismo shape que arriba). El rechazado agrega `rechazo` con `tipo` / `condicion` / `observaciones` (los códigos crudos del importador, cualquiera puede venir `null`).
 
 Mapeo de `premio.tipo_id`:
@@ -678,7 +680,7 @@ Mapeo de `premio.tipo_id`:
 | 4 | Menciones | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 | 5 | Sin Premio | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 
-**Subcategorías**: no se guardan, se calculan. Por cada categoría, los animales que asistieron y no fueron rechazados (los que tienen premio cargado: tipos 3/4/5) se ordenan por **box ascendente** y se parten en grupos de 6 (13 animales → subcategorías de 6, 6 y 1; 5 animales → una sola). Cada subcategoría lleva sus premios asignados. Los animales sin box quedan al final del orden. Si un animal tiene varios premios en la misma categoría, sólo se devuelve el de mayor jerarquía (menor `tipo_id` gana).
+**Subcategorías**: no se guardan, se calculan. Por cada categoría se toman **todos** los animales que asistieron y no fueron rechazados — tengan premio de categoría (tipos 3/4/5) o no (esos salen con `premio: null`) — se ordenan por **box ascendente** y se parten en subcategorías lo más **parejas** posible, con un máximo de 6 por subcategoría. La cantidad de subcategorías es `ceil(n/6)` y los animales se reparten equilibradamente; si no divide exacto, las primeras subcategorías tienen un animal más. Ej: 8 → `[4,4]`; 9 → `[5,4]`; 13 → `[5,4,4]`; 12 → `[6,6]`; 23 → `[6,6,6,5]`. Los animales sin box quedan al final. **La membresía de cada subcategoría se define por box, pero adentro los `premios` vienen ordenados por premio**: primero por tipo (Premios < Menciones < Sin Premio, y los sin premio al final), después por jerarquía dentro del tipo (1° < 2° < 3° < … vía `IdPremio`) y puntaje como desempate. Si un animal tiene el mismo resultado cargado más de una vez (fila duplicada) o varios premios en la misma categoría, sólo se devuelve uno (el de mayor jerarquía: menor `tipo_id` gana).
 
 **Campeonato de morfología** (`tipo_id` = 2): las categorías que sólo difieren en la modalidad (Montado/Cabestro) compiten **unificadas**. Se agrupan por (`Desde`, `Hasta`, `Sexo`, `RestaDesde`, `RestaHasta`) y se exponen como `{ categoria, resultados }`, donde `categoria` es el nombre unificado (sin el número ni la modalidad, ej. `"Categ. 4 - Padrillo - 3 años Montado"` + `"Categ. 5 - Padrillo - 3 años Cabestro"` → `"Categ. Padrillo - 3 años"`). El `gran_campeonato` queda agrupado por sexo (premio cross-categorías).
 

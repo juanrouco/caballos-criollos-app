@@ -606,11 +606,13 @@ function StandardSection({ t, data, navigation }) {
       )}
       {camp.length > 0 && (
         <ResultGroup t={t} label="Campeonato">
-          {camp.map((g) => (
+          {camp.map((g, i) => (
+            // Morfología: campeonato por categoría unificada ({ categoria }).
+            // Tipo y Aptitud: campeonato por sexo ({ sexo }).
             <ResultCard
-              key={`camp-${g.sexo}`}
+              key={`camp-${g.categoria || g.sexo || i}`}
               t={t}
-              title={SEX_LABEL[g.sexo] || g.sexo}
+              title={g.categoria || SEX_LABEL[g.sexo] || g.sexo || '—'}
               entries={g.resultados}
               navigation={navigation}
             />
@@ -629,10 +631,10 @@ function StandardSection({ t, data, navigation }) {
 }
 
 // Una categoría de morfología / TyA. Los premios vienen partidos en
-// `subcategorias[]` (de a 6, por box). Regla de presentación:
-//   - 1 subcategoría → se muestra la categoría directo (sin rótulo "Subcategoría 1").
-//   - >1 subcategoría → un acordeón por subcategoría ("Subcategoría N") bajo el
-//     nombre de la categoría.
+// `subcategorias[]` (de a 6, por box). Todas las categorías se ven igual (card
+// acordeón con nombre + conteo):
+//   - 1 subcategoría → al abrir muestra los puestos directo (sin "Subcategoría 1").
+//   - >1 subcategoría → al abrir muestra un acordeón por subcategoría (cerrados).
 // Compat: si no vienen `subcategorias`, se usa el `premios` plano (dato viejo).
 function CategoryResult({ t, categoria, navigation }) {
   const raw = Array.isArray(categoria.subcategorias) && categoria.subcategorias.length
@@ -641,17 +643,36 @@ function CategoryResult({ t, categoria, navigation }) {
   const subs = raw.filter((s) => (s.premios || []).length > 0);
   if (subs.length === 0) return null;
 
+  // 1 subcategoría → la categoría es directamente el acordeón de puestos.
   if (subs.length === 1) {
     return <ResultCard t={t} title={categoria.nombre} entries={subs[0].premios} navigation={navigation} />;
   }
+  // >1 → acordeón de categoría que, al abrir, revela un acordeón por subcategoría.
+  return <SubcategoryCard t={t} title={categoria.nombre} subs={subs} navigation={navigation} />;
+}
+
+// Acordeón de categoría con subcategorías: mismo header que ResultCard (nombre +
+// conteo total), y al abrir un ResultCard por subcategoría (cerrados), sobre el
+// fondo de la página para diferenciarlos de la card contenedora.
+function SubcategoryCard({ t, title, subs, navigation }) {
+  const [open, setOpen] = React.useState(false);
+  const total = subs.reduce((n, s) => n + (s.premios || []).length, 0);
   return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, paddingHorizontal: 2 }} numberOfLines={2}>{categoria.nombre}</Text>
-      <View style={{ gap: 8, paddingLeft: 12 }}>
-        {subs.map((s) => (
-          <ResultCard key={`sub-${s.numero}`} t={t} title={`Subcategoría ${s.numero}`} entries={s.premios} navigation={navigation} />
-        ))}
-      </View>
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: open ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{total} {total === 1 ? 'animal' : 'animales'}</Text>
+        </View>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.bg, padding: 12, gap: 8 }}>
+          {subs.map((s) => (
+            <ResultCard key={`sub-${s.numero}`} t={t} title={`Subcategoría ${s.numero}`} entries={s.premios} navigation={navigation} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -672,7 +693,9 @@ function groupEntriesByTipo(entries) {
   const main = [];
   const sinPremio = [];
   for (const e of entries) {
-    if (e.premio?.tipo_nombre === 'Sin Premio') sinPremio.push(e);
+    // "Sin premio" agrupa el premio tipo 5 (Sin Premio) y los que asistieron sin
+    // premio de categoría (premio null) — ambos van al bloque separado.
+    if (!e.premio || e.premio.tipo_nombre === 'Sin Premio') sinPremio.push(e);
     else main.push(e);
   }
   const out = [];
@@ -733,8 +756,11 @@ function ResultCard({ t, title, entries, featured, navigation }) {
 // divisor + datos del animal), con una línea extra arriba para premio + puntaje.
 function ResultEntry({ t, entry, rank, navigation }) {
   const a = entry.animal || {};
-  const premioName = entry.premio?.nombre || `${rank}° puesto`;
-  const top = rank === 1;
+  // Entry sin premio de categoría (premio null): asistió pero no premió — no
+  // inventamos "N° puesto" ni lo destacamos como 1°.
+  const hasPremio = !!entry.premio;
+  const premioName = hasPremio ? (entry.premio.nombre || `${rank}° puesto`) : 'Sin premio';
+  const top = hasPremio && rank === 1;
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
