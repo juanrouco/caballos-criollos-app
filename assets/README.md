@@ -582,7 +582,7 @@ Si el evento no tiene inscripciones, devuelve el shape vacío con arrays vacíos
 
 #### `GET /eventos/{id}/resultados`
 
-Premios y puntajes cargados para el evento, agrupados por disciplina (morfología, tipo y aptitud, rodeos) y dentro de cada una por nivel de premio o por prueba/categoría.
+Premios y puntajes cargados para el evento, agrupados por disciplina (morfología, tipo y aptitud, rodeos). Las categorías reportan además los animales que **no asistieron** (`ausentes`) y los que fueron **rechazados** (`rechazados`), y parten a los que compitieron en **subcategorías de 6** ordenadas por box.
 
 **Response**
 
@@ -595,12 +595,28 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
       { "sexo": "H", "resultados": [ /* ... */ ] },
       { "sexo": "C", "resultados": [ /* ... */ ] }
     ],
+    "campeonato": [
+      {
+        "categoria": "Categ. Padrillo - 3 años",
+        "resultados": [ /* entries — Campeón / Reservado, categorías unificadas */ ]
+      }
+    ],
     "categorias": [
       {
         "id": 95,
         "nombre": "Categ. 17 - Caballo Menor - Montado",
         "tipo_aptitud": false,
-        "premios": [ /* entries — Campeón / 1er Premio / Mención / etc. */ ]
+        "subcategorias": [
+          { "numero": 1, "premios": [ /* ≤6 entries, ordenados por box asc */ ] },
+          { "numero": 2, "premios": [ /* ... */ ] }
+        ],
+        "ausentes": [ { "animal": { /* ... */ } } ],
+        "rechazados": [
+          {
+            "animal": { /* ... */ },
+            "rechazo": { "tipo": "2", "condicion": "1", "observaciones": "Cojera" }
+          }
+        ]
       }
     ]
   },
@@ -608,7 +624,7 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
     "campeonato": [
       { "sexo": "H", "resultados": [ /* ... */ ] }
     ],
-    "categorias": [ /* idem morfología */ ]
+    "categorias": [ /* mismo shape: subcategorias / ausentes / rechazados */ ]
   },
   "rodeos": {
     "pruebas": [ /* ver shape más abajo */ ]
@@ -616,7 +632,7 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
 }
 ```
 
-Cada **entry** tiene este shape:
+Cada **entry** (dentro de `subcategorias[].premios`, `gran_campeonato[].resultados` y `campeonato[].resultados`) tiene este shape:
 
 ```json
 {
@@ -650,21 +666,25 @@ Cada **entry** tiene este shape:
 }
 ```
 
+Un entry de **ausente/rechazado** no lleva `premio` ni `puntaje` — sólo `animal` (mismo shape que arriba). El rechazado agrega `rechazo` con `tipo` / `condicion` / `observaciones` (los códigos crudos del importador, cualquiera puede venir `null`).
+
 Mapeo de `premio.tipo_id`:
 
 | `tipo_id` | `tipo_nombre` | Va a (morfología) | Va a (tipo y aptitud) |
 |---|---|---|---|
-| 1 | Gran Campeonato | `gran_campeonato` | — |
-| 2 | Campeonato | `categorias[].premios` | `campeonato` |
-| 3 | Premios | `categorias[].premios` | `categorias[].premios` |
-| 4 | Menciones | `categorias[].premios` | `categorias[].premios` |
-| 5 | Sin Premio | `categorias[].premios` | `categorias[].premios` |
+| 1 | Gran Campeonato | `gran_campeonato` (por sexo) | — |
+| 2 | Campeonato | `campeonato` (categorías unificadas) | `campeonato` (por sexo) |
+| 3 | Premios | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
+| 4 | Menciones | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
+| 5 | Sin Premio | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 
-**Importante (morfología)**: el "campeonato" (Campeón / Reservado Campeón) es en realidad un sub-resultado de la categoría a la que pertenece el animal, así que sale dentro de `categorias[].premios[]`, no como key aparte. Además, si un animal tiene varios premios en la misma categoría (ej. Campeón + 1er Premio), solo se devuelve el de mayor jerarquía (menor `tipo_id` gana: Campeón > 1er Premio > Mención > Sin Premio). El `tipo_id` / `tipo_nombre` del entry indica cuál de los premios ganó. `gran_campeonato` queda aparte porque es un premio cross-categorías (campeón entre todas las categorías de un sexo).
+**Subcategorías**: no se guardan, se calculan. Por cada categoría, los animales que asistieron y no fueron rechazados (los que tienen premio cargado: tipos 3/4/5) se ordenan por **box ascendente** y se parten en grupos de 6 (13 animales → subcategorías de 6, 6 y 1; 5 animales → una sola). Cada subcategoría lleva sus premios asignados. Los animales sin box quedan al final del orden. Si un animal tiene varios premios en la misma categoría, sólo se devuelve el de mayor jerarquía (menor `tipo_id` gana).
 
-En tipo y aptitud el campeonato sigue como key separada — ahí la lógica es distinta (la columna `Campeonato` de `tblInscripcionResultadosTipoAptitud` marca rows que son específicamente de campeonato cross-categoría).
+**Campeonato de morfología** (`tipo_id` = 2): las categorías que sólo difieren en la modalidad (Montado/Cabestro) compiten **unificadas**. Se agrupan por (`Desde`, `Hasta`, `Sexo`, `RestaDesde`, `RestaHasta`) y se exponen como `{ categoria, resultados }`, donde `categoria` es el nombre unificado (sin el número ni la modalidad, ej. `"Categ. 4 - Padrillo - 3 años Montado"` + `"Categ. 5 - Padrillo - 3 años Cabestro"` → `"Categ. Padrillo - 3 años"`). El `gran_campeonato` queda agrupado por sexo (premio cross-categorías).
 
-Dentro de cada grupo, los entries vienen ordenados por puntaje descendente. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`, después cualquier otro.
+**Campeonato de tipo y aptitud**: se agrupa por sexo (sin cambios). La columna `Campeonato` de `tblInscripcionResultadosTipoAptitud` marca las rows de campeonato cross-categoría. Sólo las `categorias` de TyA usan el tratamiento de subcategorías/ausentes/rechazados.
+
+Los ausentes/rechazados salen de una query aparte (`findAsistencia`, best-effort: si falla, las categorías salen igual sólo con sus premiados). Se rutean a morfología o TyA según el `TipoAptitud` de su categoría. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`.
 
 Si el evento no tiene resultados, devuelve el shape vacío con los arrays vacíos en cada disciplina.
 

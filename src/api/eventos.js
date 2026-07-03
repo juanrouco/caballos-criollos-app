@@ -18,6 +18,15 @@ export function isEmptyCatalog(c) {
   return !(pfHas || moHas);
 }
 
+// Premios de una categoría de morfología / TyA. Hoy vienen partidos en
+// `subcategorias[]` (de a 6, por box); antes venían planos en `premios`.
+// Devuelve el array aplanado (mantiene compat con datos viejos cacheados).
+export function categoriaEntries(c) {
+  const subs = c?.subcategorias;
+  if (Array.isArray(subs) && subs.length) return subs.flatMap((s) => s.premios || []);
+  return c?.premios || [];
+}
+
 // Resultados "vacíos" = ninguno de los grupos (morfología / tipo y aptitud,
 // y dentro: gran_campeonato / campeonato / categorias) trae entries, y rodeos
 // no tiene ninguna prueba con yuntas.
@@ -30,7 +39,7 @@ export function isEmptyResults(r) {
     const cats = g.categorias || [];
     if (gc.some((x) => (x.resultados || []).length > 0)) return false;
     if (cp.some((x) => (x.resultados || []).length > 0)) return false;
-    if (cats.some((x) => (x.premios || []).length > 0)) return false;
+    if (cats.some((x) => categoriaEntries(x).length > 0)) return false;
   }
   const pruebas = r.rodeos?.pruebas || [];
   if (pruebas.some((p) => (p.yuntas || []).length > 0)) return false;

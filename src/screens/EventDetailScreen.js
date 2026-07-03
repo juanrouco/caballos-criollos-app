@@ -7,7 +7,7 @@ import { withAlpha } from '../theme';
 import { formatDate, formatDateLong } from '../format';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
-  isEmptyCatalog, isEmptyResults, mapEvent, imgUrl,
+  isEmptyCatalog, isEmptyResults, mapEvent, imgUrl, categoriaEntries,
 } from '../api';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
@@ -579,14 +579,14 @@ function isSectionEmpty(s) {
   const cats = g.categorias || [];
   if (gc.some((x) => (x.resultados || []).length > 0)) return false;
   if (cp.some((x) => (x.resultados || []).length > 0)) return false;
-  if (cats.some((x) => (x.premios || []).length > 0)) return false;
+  if (cats.some((x) => categoriaEntries(x).length > 0)) return false;
   return true;
 }
 
 function StandardSection({ t, data, navigation }) {
   const gran = (data.gran_campeonato || []).filter((g) => (g.resultados || []).length > 0);
   const camp = (data.campeonato || []).filter((g) => (g.resultados || []).length > 0);
-  const cats = (data.categorias || []).filter((c) => (c.premios || []).length > 0);
+  const cats = (data.categorias || []).filter((c) => categoriaEntries(c).length > 0);
 
   return (
     <View style={{ gap: 18 }}>
@@ -620,16 +620,38 @@ function StandardSection({ t, data, navigation }) {
       {cats.length > 0 && (
         <ResultGroup t={t} label="Categorías">
           {cats.map((c) => (
-            <ResultCard
-              key={`cat-${c.id}`}
-              t={t}
-              title={c.nombre}
-              entries={c.premios}
-              navigation={navigation}
-            />
+            <CategoryResult key={`cat-${c.id}`} t={t} categoria={c} navigation={navigation} />
           ))}
         </ResultGroup>
       )}
+    </View>
+  );
+}
+
+// Una categoría de morfología / TyA. Los premios vienen partidos en
+// `subcategorias[]` (de a 6, por box). Regla de presentación:
+//   - 1 subcategoría → se muestra la categoría directo (sin rótulo "Subcategoría 1").
+//   - >1 subcategoría → un acordeón por subcategoría ("Subcategoría N") bajo el
+//     nombre de la categoría.
+// Compat: si no vienen `subcategorias`, se usa el `premios` plano (dato viejo).
+function CategoryResult({ t, categoria, navigation }) {
+  const raw = Array.isArray(categoria.subcategorias) && categoria.subcategorias.length
+    ? categoria.subcategorias
+    : [{ numero: 1, premios: categoria.premios || [] }];
+  const subs = raw.filter((s) => (s.premios || []).length > 0);
+  if (subs.length === 0) return null;
+
+  if (subs.length === 1) {
+    return <ResultCard t={t} title={categoria.nombre} entries={subs[0].premios} navigation={navigation} />;
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, paddingHorizontal: 2 }} numberOfLines={2}>{categoria.nombre}</Text>
+      <View style={{ gap: 8, paddingLeft: 12 }}>
+        {subs.map((s) => (
+          <ResultCard key={`sub-${s.numero}`} t={t} title={`Subcategoría ${s.numero}`} entries={s.premios} navigation={navigation} />
+        ))}
+      </View>
     </View>
   );
 }

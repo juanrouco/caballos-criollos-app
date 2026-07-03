@@ -9,6 +9,7 @@ jest.mock('../../src/api', () => {
     fetchEventoResultados: jest.fn(),
     isEmptyCatalog:        actual.isEmptyCatalog,
     isEmptyResults:        actual.isEmptyResults,
+    categoriaEntries:      actual.categoriaEntries,
     mapEvent:              actual.mapEvent,
     imgUrl:                jest.requireActual('../../src/api/images').imgUrl,
   };
@@ -474,6 +475,55 @@ describe('EventDetailScreen', () => {
     // Cerrar: se ocultan de nuevo.
     fireEvent.press(getByText('Cat. A'));
     await waitFor(() => expect(queryByText('Primero')).toBeNull());
+  });
+
+  test('subcategorías: una sola no rotula "Subcategoría 1" (se abre directo)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 315 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. Solo',
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'Uno', box: 'A-1' }, premio: { nombre: '1°' } },
+          ] }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 315 })} />,
+    );
+    expect(await findByText('Cat. Solo')).toBeTruthy();
+    expect(queryByText('Subcategoría 1')).toBeNull(); // no se rotula
+    fireEvent.press(getByText('Cat. Solo'));           // el acordeón es la categoría misma
+    await waitFor(() => expect(getByText('Uno')).toBeTruthy());
+  });
+
+  test('subcategorías: más de una arma un acordeón por subcategoría', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 316 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. Grande',
+          subcategorias: [
+            { numero: 1, premios: [{ animal: { id: 'pdre:1', nombre: 'UnoA', box: 'A-1' }, premio: { nombre: '1°' } }] },
+            { numero: 2, premios: [{ animal: { id: 'pdre:7', nombre: 'UnoB', box: 'A-7' }, premio: { nombre: '1°' } }] },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 316 })} />,
+    );
+    // El nombre de la categoría + un acordeón por subcategoría
+    expect(await findByText('Cat. Grande')).toBeTruthy();
+    expect(getByText('Subcategoría 1')).toBeTruthy();
+    expect(getByText('Subcategoría 2')).toBeTruthy();
+    expect(queryByText('UnoA')).toBeNull(); // colapsados
+    fireEvent.press(getByText('Subcategoría 2'));
+    await waitFor(() => expect(getByText('UnoB')).toBeTruthy());
+    expect(queryByText('UnoA')).toBeNull(); // la otra sub sigue cerrada
   });
 
   test('botón Refrescar re-pide /resultados y actualiza el contenido', async () => {

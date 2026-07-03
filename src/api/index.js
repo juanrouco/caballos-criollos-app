@@ -6,7 +6,7 @@ export { API_BASE, apiGet, apiPost } from './client';
 export { registerPushToken } from './push';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
-  mapEvent, isEmptyCatalog, isEmptyResults,
+  mapEvent, isEmptyCatalog, isEmptyResults, categoriaEntries,
 } from './eventos';
 export { fetchVivos } from './vivos';
 export {
