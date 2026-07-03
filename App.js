@@ -220,7 +220,7 @@ function CustomTabBar({ state, navigation }) {
             return (
               <TouchableOpacity key="center" onPress={onLivePress} style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: bg, borderWidth: 3, borderColor: t.bg, alignItems: 'center', justifyContent: 'center', top: -22 }}>
                 <Icon name="tv" size={20} color={fg} stroke={2} />
-                <Text style={{ fontSize: 8.5, fontFamily: 'Roboto_700Bold', color: fg, marginTop: 2, letterSpacing: 0.5 }}>EN VIVO</Text>
+                <Text style={{ fontSize: 8.5, fontFamily: 'Roboto_700Bold', color: fg, marginTop: 2, letterSpacing: 0.5 }}>AHORA</Text>
               </TouchableOpacity>
             );
           }
