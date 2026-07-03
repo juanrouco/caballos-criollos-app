@@ -58,7 +58,7 @@ const APARTE_ANA = {
 const RODEOS = {
   slug: 'rodeos', nombre: 'Rodeos — Ranking', familia: 'equipo',
   filtros: [
-    { param: 'calendario', default: 22, opciones: [{ value: 22, label: '2024 - 2025' }, { value: 8, label: '2012 - 2013' }] },
+    { param: 'calendario', default: 22, opciones: [{ value: 22, label: '2025 - 2026' }, { value: 21, label: '2024 - 2025' }] },
     { param: 'tipo', default: 1, opciones: [{ value: 1, label: 'General' }, { value: 2, label: 'Handicap' }, { value: 3, label: 'Ranking C' }] },
   ],
 };
@@ -152,14 +152,28 @@ describe('RankingsScreen', () => {
     });
   });
 
-  test('Rodeos: item único que abre los tipos (sin año, con calendario default)', async () => {
+  test('Rodeos: mapea el año al calendario (campeonato) + tipo', async () => {
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     expect(await findByText('Rodeos')).toBeTruthy(); // sin "— Ranking"
     fireEvent.press(getByText('Rodeos')); // expande → tipos
     fireEvent.press(getByText('Handicap'));
+    // año 2026 (default) → calendario "2025 - 2026" (value 22)
     expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
-      ranking: RODEOS_CLEAN, initialFilters: { tipo: 2 }, // rodeos no usa año
+      ranking: RODEOS_CLEAN, initialFilters: { calendario: 22, tipo: 2 },
+    });
+  });
+
+  test('Rodeos: cambiar el año cambia el calendario', async () => {
+    const nav = navStub();
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    await findByText('Rodeos');
+    fireEvent.press(getByText('2025')); // tab de año
+    fireEvent.press(getByText('Rodeos'));
+    fireEvent.press(getByText('General'));
+    // año 2025 → calendario "2024 - 2025" (value 21)
+    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+      ranking: RODEOS_CLEAN, initialFilters: { calendario: 21, tipo: 1 },
     });
   });
 

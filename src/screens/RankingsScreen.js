@@ -116,15 +116,19 @@ export default function RankingsScreen({ t, navigation }) {
 
   const catsOf = (r) => r.filtros?.find((f) => f.param === leafParam(r))?.opciones || [];
   const goTo = (r, value) => {
-    const hasAnio = (r.filtros || []).some((f) => f.param === 'anio');
+    const filtros = r.filtros || [];
     const leaf = leafParam(r);
-    navigation.navigate('RankingCat', {
-      ranking: r,
-      initialFilters: {
-        ...(hasAnio && year != null ? { anio: year } : {}),
-        ...(leaf && value != null ? { [leaf]: value } : {}),
-      },
-    });
+    const initialFilters = {};
+    if (filtros.some((f) => f.param === 'anio') && year != null) initialFilters.anio = year;
+    // Rodeos no usa `anio` sino `calendario` (campeonato): mapeamos el año al
+    // calendario que termina en él (2026 → "2025 - 2026"), como Solanet.
+    const calF = filtros.find((f) => f.param === 'calendario');
+    if (calF) {
+      const opt = premioForYear(calF, year);
+      if (opt) initialFilters.calendario = opt.value;
+    }
+    if (leaf && value != null) initialFilters[leaf] = value;
+    navigation.navigate('RankingCat', { ranking: r, initialFilters });
   };
   const renderCats = (r, color) => catsOf(r).map((c, i, arr) => (
     <View key={String(c.value)}>
