@@ -586,7 +586,7 @@ function isSectionEmpty(s) {
 function StandardSection({ t, data, navigation }) {
   const gran = (data.gran_campeonato || []).filter((g) => (g.resultados || []).length > 0);
   const camp = (data.campeonato || []).filter((g) => (g.resultados || []).length > 0);
-  const cats = (data.categorias || []).filter((c) => categoriaEntries(c).length > 0);
+  const cats = (data.categorias || []).filter((c) => categoriaEntries(c).length > 0 || (c.ausentes || []).length > 0 || (c.rechazados || []).length > 0);
 
   return (
     <View style={{ gap: 18 }}>
@@ -630,49 +630,79 @@ function StandardSection({ t, data, navigation }) {
   );
 }
 
-// Una categoría de morfología / TyA. Los premios vienen partidos en
-// `subcategorias[]` (de a 6, por box). Todas las categorías se ven igual (card
-// acordeón con nombre + conteo):
-//   - 1 subcategoría → al abrir muestra los puestos directo (sin "Subcategoría 1").
-//   - >1 subcategoría → al abrir muestra un acordeón por subcategoría (cerrados).
+// Una categoría de morfología / TyA. Card acordeón (nombre + conteo). Al abrir:
+//   - 1 subcategoría → los puestos directo (sin "Subcategoría 1").
+//   - >1 subcategoría → un acordeón por subcategoría (cerrados).
+//   - y debajo, si hay, las secciones "Ausentes" y "Rechazados".
 // Compat: si no vienen `subcategorias`, se usa el `premios` plano (dato viejo).
 function CategoryResult({ t, categoria, navigation }) {
+  const [open, setOpen] = React.useState(false);
   const raw = Array.isArray(categoria.subcategorias) && categoria.subcategorias.length
     ? categoria.subcategorias
-    : [{ numero: 1, premios: categoria.premios || [] }];
+    : (categoria.premios ? [{ numero: 1, premios: categoria.premios }] : []);
   const subs = raw.filter((s) => (s.premios || []).length > 0);
-  if (subs.length === 0) return null;
+  const ausentes   = categoria.ausentes || [];
+  const rechazados = categoria.rechazados || [];
+  const premiosTotal = subs.reduce((n, s) => n + s.premios.length, 0);
+  if (premiosTotal === 0 && ausentes.length === 0 && rechazados.length === 0) return null;
 
-  // 1 subcategoría → la categoría es directamente el acordeón de puestos.
-  if (subs.length === 1) {
-    return <ResultCard t={t} title={categoria.nombre} entries={subs[0].premios} navigation={navigation} />;
-  }
-  // >1 → acordeón de categoría que, al abrir, revela un acordeón por subcategoría.
-  return <SubcategoryCard t={t} title={categoria.nombre} subs={subs} navigation={navigation} />;
-}
+  const multi = subs.length > 1;
+  const count = premiosTotal || (ausentes.length + rechazados.length);
 
-// Acordeón de categoría con subcategorías: mismo header que ResultCard (nombre +
-// conteo total), y al abrir un ResultCard por subcategoría (cerrados), sobre el
-// fondo de la página para diferenciarlos de la card contenedora.
-function SubcategoryCard({ t, title, subs, navigation }) {
-  const [open, setOpen] = React.useState(false);
-  const total = subs.reduce((n, s) => n + (s.premios || []).length, 0);
   return (
     <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: open ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
       <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
-          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{total} {total === 1 ? 'animal' : 'animales'}</Text>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{categoria.nombre}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{count} {count === 1 ? 'animal' : 'animales'}</Text>
         </View>
         <Icon name="arrow" size={15} color={t.textMute} />
       </TouchableOpacity>
       {open && (
-        <View style={{ borderTopWidth: 1, borderTopColor: t.border, backgroundColor: t.bg, padding: 12, gap: 8 }}>
-          {subs.map((s) => (
-            <ResultCard key={`sub-${s.numero}`} t={t} title={`Subcategoría ${s.numero}`} entries={s.premios} navigation={navigation} />
-          ))}
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+          {multi ? (
+            <View style={{ backgroundColor: t.bg, padding: 12, gap: 8 }}>
+              {subs.map((s) => (
+                <ResultCard key={`sub-${s.numero}`} t={t} title={`Subcategoría ${s.numero}`} entries={s.premios} navigation={navigation} />
+              ))}
+            </View>
+          ) : subs.length === 1 ? (
+            <EntriesBody t={t} entries={subs[0].premios} navigation={navigation} />
+          ) : null}
+          <AbsenceSections t={t} ausentes={ausentes} rechazados={rechazados} navigation={navigation} />
         </View>
       )}
+    </View>
+  );
+}
+
+// Secciones "Ausentes" y "Rechazados" de una categoría, debajo de las
+// subcategorías. Son animales sin premio; el rechazado muestra el motivo.
+function AbsenceSections({ t, ausentes = [], rechazados = [], navigation }) {
+  return (
+    <>
+      {ausentes.length > 0 && <AbsenceGroup t={t} label="Ausentes" items={ausentes} navigation={navigation} />}
+      {rechazados.length > 0 && <AbsenceGroup t={t} label="Rechazados" items={rechazados} rejected navigation={navigation} />}
+    </>
+  );
+}
+
+function AbsenceGroup({ t, label, items, rejected, navigation }) {
+  return (
+    <View>
+      <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2, borderTopWidth: 1, borderTopColor: t.border }}>
+        <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{label}</Text>
+      </View>
+      {items.map((it, i) => {
+        const motivo = rejected ? (it.rechazo?.observaciones || '') : '';
+        const statusLabel = rejected ? `Rechazado${motivo ? ` · ${motivo}` : ''}` : 'Ausente';
+        return (
+          <View key={`${it.animal?.id || 'x'}-${i}`}>
+            <ResultEntry t={t} entry={{ animal: it.animal }} statusLabel={statusLabel} navigation={navigation} />
+            {i < items.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -711,7 +741,6 @@ function groupEntriesByTipo(entries) {
 function ResultCard({ t, title, entries, featured, navigation }) {
   const [open, setOpen] = React.useState(false);
   if (entries.length === 0) return null;
-  const groups = groupEntriesByTipo(entries);
   const count = entries.length;
   return (
     <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: (open || featured) ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
@@ -729,46 +758,58 @@ function ResultCard({ t, title, entries, featured, navigation }) {
       </TouchableOpacity>
       {open && (
         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
-          {groups.map((g, gi) => (
-            <View key={g.tipo || 'main'}>
-              {/* Sub-header solo para grupos con tipo definido (hoy: Sin Premio).
-                  El bloque principal va sin header — todos los puestos juntos. */}
-              {g.tipo && (
-                <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2, borderTopWidth: gi > 0 ? 1 : 0, borderTopColor: t.border }}>
-                  <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{g.tipo}</Text>
-                </View>
-              )}
-              {g.entries.map((e, i) => (
-                <View key={`${e.animal?.id || 'x'}-${gi}-${i}`}>
-                  <ResultEntry t={t} entry={e} rank={i + 1} navigation={navigation} />
-                  {i < g.entries.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
-                </View>
-              ))}
-            </View>
-          ))}
+          <EntriesBody t={t} entries={entries} navigation={navigation} />
         </View>
       )}
     </View>
   );
 }
 
+// Cuerpo de puestos de una categoría/subcategoría: agrupa por tipo (bloque
+// principal sin header + "Sin Premio" con su sub-header) y pinta cada fila.
+function EntriesBody({ t, entries, navigation }) {
+  const groups = groupEntriesByTipo(entries);
+  return (
+    <>
+      {groups.map((g, gi) => (
+        <View key={g.tipo || 'main'}>
+          {g.tipo && (
+            <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 2, borderTopWidth: gi > 0 ? 1 : 0, borderTopColor: t.border }}>
+              <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>{g.tipo}</Text>
+            </View>
+          )}
+          {g.entries.map((e, i) => (
+            <View key={`${e.animal?.id || 'x'}-${gi}-${i}`}>
+              <ResultEntry t={t} entry={e} rank={i + 1} navigation={navigation} />
+              {i < g.entries.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
+  );
+}
+
 // Fila plana de un puesto, mismo layout que AnimalRow del catálogo (gutter +
 // divisor + datos del animal), con una línea extra arriba para premio + puntaje.
-function ResultEntry({ t, entry, rank, navigation }) {
+function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
   const a = entry.animal || {};
-  // Entry sin premio de categoría (premio null): asistió pero no premió — no
-  // inventamos "N° puesto" ni lo destacamos como 1°.
+  // `statusLabel` (ausente/rechazado): reemplaza el premio y no muestra puntaje.
+  // Sin premio de categoría (premio null): asistió pero no premió — no inventamos
+  // "N° puesto" ni lo destacamos como 1°.
   const hasPremio = !!entry.premio;
-  const premioName = hasPremio ? (entry.premio.nombre || `${rank}° puesto`) : 'Sin premio';
-  const top = hasPremio && rank === 1;
+  const topLabel = statusLabel != null ? statusLabel
+    : hasPremio ? (entry.premio.nombre || `${rank}° puesto`) : 'Sin premio';
+  const top = statusLabel == null && hasPremio && rank === 1;
+  const showPuntaje = statusLabel == null && entry.puntaje != null;
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
       <View style={{ width: 1, height: 42, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ flex: 1, fontSize: 10.5, fontFamily: F.bodyBold, color: top ? t.accent : t.textMute, letterSpacing: 1.1, textTransform: 'uppercase' }} numberOfLines={1}>{premioName}</Text>
-          {entry.puntaje != null && (
+          <Text style={{ flex: 1, fontSize: 10.5, fontFamily: F.bodyBold, color: top ? t.accent : t.textMute, letterSpacing: 1.1, textTransform: 'uppercase' }} numberOfLines={1}>{topLabel}</Text>
+          {showPuntaje && (
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{entry.puntaje}</Text>
               <Text style={{ fontSize: 8.5, color: t.textMute, letterSpacing: 1, marginTop: 1 }}>PES</Text>

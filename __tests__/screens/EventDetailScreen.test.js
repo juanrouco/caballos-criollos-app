@@ -582,6 +582,35 @@ describe('EventDetailScreen', () => {
     expect(getByText('1er Premio')).toBeTruthy();        // el premiado conserva su premio
   });
 
+  test('categoría: muestra Ausentes y Rechazados debajo de las subcategorías', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 340 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Cat. Con Ausencias',
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'Premiado', box: 'A-1' }, premio: { nombre: '1er Premio', tipo_nombre: 'Premios' }, puntaje: 80 },
+          ] }],
+          ausentes: [{ animal: { id: 'pdre:2', nombre: 'FaltoUno', box: 'A-2' } }],
+          rechazados: [{ animal: { id: 'pdre:3', nombre: 'RechazadoUno', box: 'A-3' }, rechazo: { observaciones: 'Cojera' } }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 340 })} />,
+    );
+    expect(queryByText('Ausentes')).toBeNull(); // colapsado
+    fireEvent.press(await findByText('Cat. Con Ausencias'));
+    await waitFor(() => expect(getByText('Premiado')).toBeTruthy());
+    // Secciones debajo de la subcategoría
+    expect(getByText('Ausentes')).toBeTruthy();
+    expect(getByText('FaltoUno')).toBeTruthy();
+    expect(getByText('Rechazados')).toBeTruthy();
+    expect(getByText('RechazadoUno')).toBeTruthy();
+    expect(getByText(/Cojera/)).toBeTruthy(); // motivo del rechazo
+  });
+
   test('campeonato de morfología: títulos por categoría unificada (no por sexo)', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 317 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
