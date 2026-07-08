@@ -145,7 +145,7 @@ export default function RankingsScreen({ t, navigation }) {
   ));
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 16 }}>
         <Text style={{ fontSize: 11, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Temporada</Text>
         <Text style={{ fontFamily: F.display, fontSize: 38, color: t.text }}>Rankings</Text>

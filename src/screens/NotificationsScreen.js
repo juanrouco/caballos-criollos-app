@@ -121,7 +121,7 @@ export default function NotificationsScreen({ t, navigation }) {
           data={items}
           keyExtractor={(n) => String(n.id)}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 10 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130, gap: 10 }}
           showsVerticalScrollIndicator={false}
         />
       )}

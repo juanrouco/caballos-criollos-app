@@ -185,7 +185,7 @@ function EventsList({ t, navigation, filter }) {
       data={rows}
       keyExtractor={(row) => row.key}
       renderItem={renderRow}
-      contentContainerStyle={{ paddingBottom: 110 }}
+      contentContainerStyle={{ paddingBottom: 130 }}
       showsVerticalScrollIndicator={false}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
@@ -288,7 +288,7 @@ function RematesList({ t, navigation }) {
       data={items}
       keyExtractor={(n) => String(n.id)}
       renderItem={renderRow}
-      contentContainerStyle={{ paddingBottom: 110 }}
+      contentContainerStyle={{ paddingBottom: 130 }}
       showsVerticalScrollIndicator={false}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}

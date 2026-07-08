@@ -65,7 +65,7 @@ export default function PedigreeScreen({ t, navigation }) {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20 }}>
         <Text style={{ fontSize: 11, color: t.textMute, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>Genealogía</Text>
         <Text style={{ fontFamily: F.display, fontSize: 38, color: t.text }}>Buscar pedigree</Text>

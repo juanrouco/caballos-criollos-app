@@ -135,7 +135,7 @@ export default function NewsScreen({ t, navigation, route }) {
           data={items}
           keyExtractor={(n) => String(n.id)}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 10 }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130, gap: 10 }}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
           ListFooterComponent={Footer}

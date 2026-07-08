@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, StatusBar, Platform } 
 import { NavigationContainer, DefaultTheme, DarkTheme, CommonActions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
 import { InterTight_600SemiBold, InterTight_700Bold } from '@expo-google-fonts/inter-tight';
 import * as SplashScreen from 'expo-splash-screen';
@@ -141,6 +141,7 @@ function RankingsStack() {
 
 function CustomTabBar({ state, navigation }) {
   const t = useT();
+  const insets = useSafeAreaInsets();
   const { live } = useLive();
   const hasLive = !!live;
   const tabs = [
@@ -211,7 +212,7 @@ function CustomTabBar({ state, navigation }) {
   };
 
   return (
-    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 22, paddingTop: 8, backgroundColor: t.bg }}>
+    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Math.max(22, insets.bottom + 8), paddingTop: 8, backgroundColor: t.bg }}>
       <View style={{ marginHorizontal: 12, height: 64, borderRadius: 22, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' }}>
         {tabs.map((tab, i) => {
           if (tab.center) {

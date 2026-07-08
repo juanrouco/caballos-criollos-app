@@ -82,7 +82,7 @@ export default function NewsDetailScreen({ t, navigation, route }) {
   const tag = item.categoria?.nombre || route.params?.tag || '';
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
       {/* Hero — mismo tratamiento que EventDetail: foto + fade al pie + back. */}
       <View style={{ height: 220 }}>
         <Image source={heroUrl ? { uri: heroUrl } : NEWS_PHOTO} style={{ width: '100%', height: 220 }} resizeMode="cover" />

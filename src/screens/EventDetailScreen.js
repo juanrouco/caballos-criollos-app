@@ -154,7 +154,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
   const videoId = youtubeId(vivo?.link_youtube);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <View style={{ height: 200 }}>
         <Image source={mapped.image ? { uri: imgUrl(mapped.image, 1080) } : EVENT_PHOTO} style={{ width: '100%', height: 200 }} resizeMode="cover" />

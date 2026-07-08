@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Crest, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
@@ -64,6 +65,10 @@ function BackButton({ t, onPress }) {
 }
 
 export default function HorseDetailScreen({ t, navigation, route }) {
+  const insets = useSafeAreaInsets();
+  // Padding inferior para que el pedigree no quede tapado por la botonera
+  // flotante (que respeta el inset del nav bar en Android / home indicator).
+  const bottomPad = 80 + Math.max(22, insets.bottom + 8);
   const id = route.params?.id;
   const [horse, setHorse] = React.useState(null);
   const [error, setError] = React.useState(null);
@@ -121,7 +126,7 @@ export default function HorseDetailScreen({ t, navigation, route }) {
   ].filter(([, v]) => v);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 }}>
         <BackButton t={t} onPress={onBack} />
 
