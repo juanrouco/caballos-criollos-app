@@ -228,6 +228,32 @@ describe('EventDetailScreen', () => {
     expect(getAllByText('Catálogo').length).toBe(1);
   });
 
+  test('cache corto: re-entrar dentro del TTL usa cache; vencido re-fetchea', async () => {
+    let now = 1_700_000_000_000;
+    const dateSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    fetchEvento.mockResolvedValue(evento({ id: 400, titulo: 'EvTTL' }));
+    fetchEventoCatalogo.mockResolvedValue({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValue({ morfologia: null, tipo_aptitud: null });
+
+    const r1 = render(<EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 400 })} />);
+    expect(await r1.findByText('EvTTL')).toBeTruthy();
+    expect(fetchEvento).toHaveBeenCalledTimes(1);
+    r1.unmount();
+
+    // Re-entrar dentro del TTL → usa cache, no vuelve a pedir.
+    const r2 = render(<EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 400 })} />);
+    expect(await r2.findByText('EvTTL')).toBeTruthy();
+    expect(fetchEvento).toHaveBeenCalledTimes(1);
+    r2.unmount();
+
+    // Pasado el TTL (60s) → re-fetchea.
+    now += 61_000;
+    const r3 = render(<EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 400 })} />);
+    expect(await r3.findByText('EvTTL')).toBeTruthy();
+    expect(fetchEvento).toHaveBeenCalledTimes(2);
+    dateSpy.mockRestore();
+  });
+
   test('resultados con rodeos: abre el acordeón y muestra la yunta', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 300 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
@@ -609,6 +635,35 @@ describe('EventDetailScreen', () => {
     expect(getByText('Rechazados')).toBeTruthy();
     expect(getByText('RechazadoUno')).toBeTruthy();
     expect(getByText(/Cojera/)).toBeTruthy(); // motivo del rechazo
+  });
+
+  test('gran campeonato: ordena por jerarquía de premio (Gran, Reservado, Tercer, Cuarto)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 342 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        gran_campeonato: [{
+          sexo: 'M',
+          resultados: [ // desordenados a propósito (como los manda la API)
+            { animal: { id: 'pdre:3', nombre: 'Tercero' }, premio: { id: 3, nombre: 'Tercer Mejor', tipo_id: 1 }, puntaje: 24 },
+            { animal: { id: 'pdre:2', nombre: 'Reservado' }, premio: { id: 2, nombre: 'Reservado Gran Campeón', tipo_id: 1 }, puntaje: 26 },
+            { animal: { id: 'pdre:1', nombre: 'Campeon' }, premio: { id: 1, nombre: 'Gran Campeón', tipo_id: 1 }, puntaje: 28 },
+            { animal: { id: 'pdre:4', nombre: 'Cuarto' }, premio: { id: 4, nombre: 'Cuarto Mejor', tipo_id: 1 }, puntaje: 23 },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, UNSAFE_getAllByType } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 342 })} />,
+    );
+    fireEvent.press(await findByText('Machos')); // abre el gran campeonato
+    await waitFor(() => expect(getByText('Gran Campeón')).toBeTruthy());
+    // Orden por premio.id: los nombres de premio deben salir en jerarquía
+    const Text = require('react-native').Text;
+    const labels = UNSAFE_getAllByType(Text)
+      .map((n) => (typeof n.props.children === 'string' ? n.props.children : ''))
+      .filter((s) => ['Gran Campeón', 'Reservado Gran Campeón', 'Tercer Mejor', 'Cuarto Mejor'].includes(s));
+    expect(labels).toEqual(['Gran Campeón', 'Reservado Gran Campeón', 'Tercer Mejor', 'Cuarto Mejor']);
   });
 
   test('campeonato de morfología: títulos por categoría unificada (no por sexo)', async () => {

@@ -19,14 +19,22 @@ function youtubeId(url) {
   return m ? m[1] : null;
 }
 
-// Cache en memoria por id de evento. Evita re-fetch (y spinner) cuando volvés
-// del HorseDetail al detail — sobre todo importante porque el catálogo puede
-// pesar bastante. Vive en el módulo, se limpia con el reload de la app.
+// Cache en memoria por id de evento, con TTL corto. Su valor es evitar el
+// spinner y el re-fetch en el ida-y-vuelta rápido a HorseDetail; pero los
+// eventos son dinámicos (resultados, vivo, catálogo cambian), así que expira
+// pronto — al re-entrar pasado el TTL se vuelve a pedir todo fresco.
+const CACHE_TTL = 60 * 1000; // 60s
 const eventCache = new Map();
-const cacheGet = (id) => eventCache.get(String(id)) || {};
+const cacheGet = (id) => {
+  const entry = eventCache.get(String(id));
+  if (!entry) return {};
+  if (Date.now() - entry.ts > CACHE_TTL) { eventCache.delete(String(id)); return {}; }
+  return entry.data;
+};
 const cachePut = (id, partial) => {
-  const prev = eventCache.get(String(id)) || {};
-  eventCache.set(String(id), { ...prev, ...partial });
+  const key = String(id);
+  const prev = eventCache.get(key);
+  eventCache.set(key, { ts: Date.now(), data: { ...(prev?.data || {}), ...partial } });
 };
 
 export default function EventDetailScreen({ t, navigation, route }) {
@@ -583,6 +591,19 @@ function isSectionEmpty(s) {
   return true;
 }
 
+// Gran campeonato / campeonato: la API los manda sin ordenar. Se ordenan por
+// jerarquía de premio (`premio.id` asc: Gran Campeón < Reservado < Tercer <
+// Cuarto), con puntaje descendente como desempate. Los sin premio.id van al final.
+function sortByPremio(entries) {
+  return [...(entries || [])].sort((a, b) => {
+    const ai = a.premio?.id, bi = b.premio?.id;
+    if (ai != null && bi != null && ai !== bi) return ai - bi;
+    if (ai == null && bi != null) return 1;
+    if (bi == null && ai != null) return -1;
+    return (b.puntaje ?? -Infinity) - (a.puntaje ?? -Infinity);
+  });
+}
+
 function StandardSection({ t, data, navigation }) {
   const gran = (data.gran_campeonato || []).filter((g) => (g.resultados || []).length > 0);
   const camp = (data.campeonato || []).filter((g) => (g.resultados || []).length > 0);
@@ -597,7 +618,7 @@ function StandardSection({ t, data, navigation }) {
               key={`gran-${g.sexo}`}
               t={t}
               title={SEX_LABEL[g.sexo] || g.sexo}
-              entries={g.resultados}
+              entries={sortByPremio(g.resultados)}
               navigation={navigation}
               featured
             />
@@ -613,7 +634,7 @@ function StandardSection({ t, data, navigation }) {
               key={`camp-${g.categoria || g.sexo || i}`}
               t={t}
               title={g.categoria || SEX_LABEL[g.sexo] || g.sexo || '—'}
-              entries={g.resultados}
+              entries={sortByPremio(g.resultados)}
               navigation={navigation}
             />
           ))}
@@ -812,7 +833,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
           {showPuntaje && (
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{entry.puntaje}</Text>
-              <Text style={{ fontSize: 8.5, color: t.textMute, letterSpacing: 1, marginTop: 1 }}>PES</Text>
+              <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>PES</Text>
             </View>
           )}
         </View>

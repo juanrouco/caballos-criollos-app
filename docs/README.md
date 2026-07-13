@@ -654,6 +654,7 @@ Cada **entry** (dentro de `subcategorias[].premios`, `gran_campeonato[].resultad
     "fecha_nacimiento": "2018-08-10",
     "pelaje": "Tordillo",
     "cabania": "...",
+    "medidas": { "talla": 1.52, "torax": 1.80, "cania": 0.19 },
     "propietario": { "numero": "...", "nombre": "..." },
     "jinete": { "id": 123, "nombre": "Juan", "apellido": "Pérez" }
   },
@@ -669,6 +670,8 @@ Cada **entry** (dentro de `subcategorias[].premios`, `gran_campeonato[].resultad
 Dentro de `subcategorias[].premios` puede haber entries con **`premio` y `puntaje` en `null`**: son animales que asistieron y no fueron rechazados pero no tienen premio de categoría cargado (ej. su resultado se cargó sólo a nivel campeonato). Se incluyen igual en la subcategoría (ordenados al final, después de los premiados) y el `animal` viene completo.
 
 Un entry de **ausente/rechazado** no lleva `premio` ni `puntaje` — sólo `animal` (mismo shape que arriba). El rechazado agrega `rechazo` con `tipo` / `condicion` / `observaciones` (los códigos crudos del importador, cualquiera puede venir `null`).
+
+**`animal.medidas`** (talla / tórax / caña, tal como se cargan — normalmente en metros, ej. `1.52`) son las de la **inspección** del animal (`tblInspecciones`, la que cargan los importadores de morfología y tipo y aptitud). Es por animal, no por evento; se resuelve por `(Tabla, IdAnimal)` tomando la última inspección aprobada. Si el animal no tiene inspección, los tres campos vienen en `null`. Presente tanto en morfología como en tipo y aptitud (y en los ausentes/rechazados).
 
 Mapeo de `premio.tipo_id`:
 
