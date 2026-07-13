@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 jest.mock('../../src/api', () => ({
   fetchRanking: jest.fn(),
@@ -268,5 +269,20 @@ describe('RankingCatScreen', () => {
     fetchRanking.mockResolvedValue({ columnas: [], filas: [] });
     const { findByText } = renderCat();
     expect(await findByText(/No hay datos/)).toBeTruthy();
+  });
+
+  test('modo pdf: muestra el botón "Ver ranking (PDF)" y abre el pdf_url', async () => {
+    fetchRanking.mockResolvedValue({ modo: 'pdf', pdf_url: 'https://drive.google.com/file/d/XXX/view', columnas: [], filas: [] });
+    const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    const { findByText } = renderCat();
+    fireEvent.press(await findByText('Ver ranking (PDF)'));
+    expect(spy).toHaveBeenCalledWith('https://drive.google.com/file/d/XXX/view');
+    spy.mockRestore();
+  });
+
+  test('modo not_available: muestra "Próximamente"', async () => {
+    fetchRanking.mockResolvedValue({ modo: 'not_available', pdf_url: null, columnas: [], filas: [] });
+    const { findByText } = renderCat();
+    expect(await findByText('Próximamente')).toBeTruthy();
   });
 });

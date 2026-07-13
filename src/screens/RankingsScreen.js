@@ -14,6 +14,7 @@ const RANK_DISC = {
   apartes_analitico: 'aparte',
   apartes_general: 'aparte',
   rodeos: 'rodeos',
+  paleteada: 'paleteada',
 };
 
 // La temporada de Solanet que corresponde a un año = la que termina en ese año
@@ -56,22 +57,34 @@ export default function RankingsScreen({ t, navigation }) {
   const [year, setYear] = React.useState(null);       // año seleccionado (filtro anio de los individuales)
   const [open, setOpen] = React.useState(null);       // item de disciplina abierto (slug o key de grupo)
   const [openSub, setOpenSub] = React.useState(null); // sub-ranking abierto dentro de un grupo
+  const [probe, setProbe] = React.useState({});       // slug → modo, para rankings sin filtros (ej. Paleteada)
 
+  // `silent` (re-fetch al re-enfocar la tab): no muestra spinner ni limpia la
+  // lista, sólo actualiza si el catálogo cambió (ej. el backend agregó un ranking
+  // nuevo). El catálogo se pide una sola vez al montar y el tab no se desmonta,
+  // así que sin esto no se enteraría de cambios hasta reiniciar la app.
+  const loadedRef = React.useRef(false);
   const load = React.useCallback(() => {
     let cancelled = false;
-    setCatalog(null); setError(false); setSolanetTop(undefined);
+    const silent = loadedRef.current;
+    if (!silent) { setCatalog(null); setError(false); setSolanetTop(undefined); }
     fetchRankings()
       .then((r) => {
         if (cancelled) return;
+        loadedRef.current = true;
         const items = r.data || [];
         setCatalog(items);
         const anioF = items.find((x) => x.familia === 'individual')?.filtros?.find((f) => f.param === 'anio');
         setYear((prev) => prev ?? (anioF ? anioF.default : null));
       })
-      .catch(() => { if (!cancelled) { setError(true); setCatalog([]); setSolanetTop(null); } });
+      .catch(() => { if (!cancelled && !silent) { setError(true); setCatalog([]); setSolanetTop(null); } });
     return () => { cancelled = true; };
   }, []);
-  React.useEffect(() => load(), [load]);
+  React.useEffect(() => {
+    const cleanup = load();
+    const unsub = navigation.addListener ? navigation.addListener('focus', () => load()) : undefined;
+    return () => { cleanup(); if (unsub) unsub(); };
+  }, [navigation, load]);
 
   const solanet = (catalog || []).find((x) => x.slug === 'solanet');
   const solanetPremioF = solanet ? curateRankingFiltros(solanet).filtros?.find((f) => f.param === 'premio') : null;
@@ -90,6 +103,27 @@ export default function RankingsScreen({ t, navigation }) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, year]);
+  // Rankings sin filtros (ej. Paleteada): su `modo` (ranking / pdf / not_available)
+  // sólo se sabe pidiendo el detalle. Lo consultamos para poder mostrar el badge
+  // "Próximamente" directo en el listado, sin que el usuario tenga que entrar.
+  React.useEffect(() => {
+    const noFilter = (catalog || []).filter((x) =>
+      (x.familia === 'individual' || x.familia === 'equipo') && (x.filtros || []).length === 0);
+    if (noFilter.length === 0) return;
+    let cancelled = false;
+    Promise.all(noFilter.map((x) =>
+      fetchRanking(x.slug, {}).then((d) => [x.slug, d?.modo || 'ranking']).catch(() => [x.slug, null])
+    )).then((pairs) => {
+      if (cancelled) return;
+      setProbe((prev) => {
+        const next = { ...prev };
+        pairs.forEach(([slug, modo]) => { if (modo) next[slug] = modo; });
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [catalog]);
+
   const individuals = (catalog || []).filter((x) => x.familia === 'individual');
   const anioOpciones = individuals.find((x) => x.filtros?.some((f) => f.param === 'anio'))
     ?.filtros?.find((f) => f.param === 'anio')?.opciones || [];
@@ -225,21 +259,30 @@ export default function RankingsScreen({ t, navigation }) {
                   const color = (item.disc && DISCIPLINE_COLORS[item.disc]) || t.accent;
                   const icon = item.disc && DISCIPLINE_ICONS[item.disc];
                   const canOpen = item.type === 'group' || catsOf(item.ranking).length > 0;
+                  // Ranking sin datos (not_available): se muestra "Próximamente" y no es clickeable.
+                  const soon = item.type === 'ranking' && probe[item.ranking.slug] === 'not_available';
                   const onHeader = () => {
                     if (item.type === 'ranking' && !canOpen) { goTo(item.ranking, null); return; }
                     setOpen(isOpen ? null : item.key); setOpenSub(null);
                   };
+                  const Header = soon ? View : TouchableOpacity;
                   return (
-                    <View key={item.key} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden' }}>
-                      <TouchableOpacity onPress={onHeader} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
+                    <View key={item.key} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden', opacity: soon ? 0.9 : 1 }}>
+                      <Header {...(soon ? {} : { onPress: onHeader })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
                         <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
                           {icon ? <Image source={icon} style={{ width: 26, height: 26, tintColor: '#fff' }} resizeMode="contain" /> : <Icon name="trophy" size={20} color="#fff" />}
                         </View>
                         <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{item.type === 'group' ? item.label : decodeEntities(item.ranking.nombre)}</Text>
-                        <View style={{ transform: [{ rotate: canOpen && isOpen ? '90deg' : '0deg' }] }}>
-                          <Icon name="arrow" size={16} color={t.textMute} />
-                        </View>
-                      </TouchableOpacity>
+                        {soon ? (
+                          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: withAlpha(t.accent, 0.14) }}>
+                            <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>Próximamente</Text>
+                          </View>
+                        ) : (
+                          <View style={{ transform: [{ rotate: canOpen && isOpen ? '90deg' : '0deg' }] }}>
+                            <Icon name="arrow" size={16} color={t.textMute} />
+                          </View>
+                        )}
+                      </Header>
 
                       {/* Ranking suelto → categorías */}
                       {item.type === 'ranking' && isOpen && catsOf(item.ranking).length > 0 && (
@@ -270,9 +313,6 @@ export default function RankingsScreen({ t, navigation }) {
                     </View>
                   );
                 })}
-
-                {/* Anuncio: ranking que se habilitará más adelante */}
-                <ComingSoonCard t={t} label="Paleteada campera" disc="paleteada" />
               </View>
             </>
           )}
@@ -282,22 +322,3 @@ export default function RankingsScreen({ t, navigation }) {
   );
 }
 
-// Card de disciplina en estado "Próximamente" (no clickeable): anuncia un
-// ranking que todavía no está habilitado.
-function ComingSoonCard({ t, label, disc }) {
-  const color = (disc && DISCIPLINE_COLORS[disc]) || t.accent;
-  const icon = disc && DISCIPLINE_ICONS[disc];
-  return (
-    <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, overflow: 'hidden', opacity: 0.8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
-        <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
-          {icon ? <Image source={icon} style={{ width: 26, height: 26, tintColor: '#fff' }} resizeMode="contain" /> : <Icon name="trophy" size={20} color="#fff" />}
-        </View>
-        <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{label}</Text>
-        <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: withAlpha(t.accent, 0.14) }}>
-          <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>Próximamente</Text>
-        </View>
-      </View>
-    </View>
-  );
-}

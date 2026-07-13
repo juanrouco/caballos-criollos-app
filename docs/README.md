@@ -1081,6 +1081,8 @@ Hay dos familias de rankings:
 - **Individuales / propietario** (una fila por animal o propietario): `solanet`, `freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`. La fila es plana.
 - **De equipo** (`familia: "equipo"`): `rodeos`, `apartes_analitico`, `apartes_general`. Además de las `columnas` escalares, cada fila trae un array `animales` con los miembros del equipo (cada uno con su `animalId` para el pedigree). Ver [Rankings de equipo](#rankings-de-equipo).
 
+Además, `paleteada` (Paleteada Campera) figura en el catálogo pero **todavía no tiene datos**: `GET /rankings/paleteada` siempre responde `modo: "not_available"` (sin filtros, sin `filas`).
+
 #### `GET /rankings`
 
 Catálogo: qué rankings hay y qué filtros acepta cada uno (con sus opciones, para poblar los selects). **Cache**: `3600`.
@@ -1119,6 +1121,8 @@ Ej: `GET /rankings/freno?anio=2026&categoria=23`
   "titulo": "Freno de Oro — Ranking General",
   "subtitulo": "Adultos Montado",
   "familia": "individual",
+  "modo": "ranking",
+  "pdf_url": null,
   "columnas": [
     { "key": "position", "label": "#" },
     { "key": "sba", "label": "SBA" },
@@ -1143,6 +1147,32 @@ Ej: `GET /rankings/freno?anio=2026&categoria=23`
 - **Pedigree**: en los rankings por animal (`freno`, `cio`, `fzb`, `corral_analitico`, `corral_general`), cada fila trae además `idAnimal`, `tabla` y `animalId` (id compuesto ya armado, ej. `"pdre:1000"`). Estos campos **no** están en `columnas` (no se muestran); son para linkear a `GET /animales/{animalId}/pedigree`. El ranking `solanet` es por propietario (sin animal por fila); su detalle está abajo.
 - `subtitulo` es la categoría/premio resuelto (o `null`).
 - `404` si el `slug` no existe.
+
+**`modo`** indica qué trae la respuesta (según la config `src/api/config/rankings_pdf.json`, por ranking + filtros):
+
+| `modo` | Qué mostrar | Campos relevantes |
+|---|---|---|
+| `ranking` | La tabla calculada (comportamiento normal) | `columnas` + `filas` |
+| `pdf` | Un botón/enlace "Ver ranking" que abre el PDF | `pdf_url` (string) |
+| `not_available` | Un aviso "no disponible" para esa combinación de filtros | — (`filas` vacío, `pdf_url` null) |
+
+El `modo` depende de la combinación de filtros elegida (mismos filtros de siempre: año, categoría, etc.), así que un mismo ranking puede devolver `ranking` para un año/categoría y `pdf` o `not_available` para otro. Cuando `modo` ≠ `ranking`, `filas` viene vacío y no se consulta el cálculo. La app debe rutear por `modo` (mostrar tabla / botón de PDF / aviso).
+
+Los overrides se configuran en **`src/api/config/rankings_pdf.json`**:
+
+```json
+{
+  "freno": {
+    "2026|23": { "pdf": "https://drive.google.com/file/d/XXX/view" },
+    "2026|24": { "not_available": true }
+  },
+  "rodeos": {
+    "22|1": { "pdf": "https://..." }
+  }
+}
+```
+
+La clave de primer nivel es el `slug` del ranking; la de segundo nivel son los valores de **todos los filtros en orden unidos por `|`** (incluye el año — ej. freno `"año|categoria"`, rodeos `"calendario|tipo"`). Lo que no esté en el archivo devuelve el ranking calculado. Si el archivo falta o el JSON es inválido, no se aplica ningún override (best-effort).
 
 #### `GET /rankings/solanet/detalle`
 

@@ -12,6 +12,7 @@ export function navStub(overrides = {}) {
     getParent: jest.fn(() => null),
     getState: jest.fn(() => ({ routes: [], index: 0 })),
     dispatch: jest.fn(),
+    addListener: jest.fn(() => jest.fn()),
     ...overrides,
   };
 }

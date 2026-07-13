@@ -2,7 +2,10 @@ import { apiGet } from './client';
 
 // Catálogo de rankings (qué hay + filtros con sus opciones) y datos de un
 // ranking como tabla genérica (columnas + filas). Ver README (sección Rankings).
-export const fetchRankings = ()             => apiGet('/rankings');
+// El catálogo trae Cache-Control: max-age=3600; para que un ranking nuevo (o un
+// cambio de disponibilidad) aparezca sin esperar la hora ni reinstalar, le
+// agregamos un cache-bust por request (RN cachea a nivel nativo por URL).
+export const fetchRankings = ()             => apiGet('/rankings', { _: Date.now() });
 export const fetchRanking  = (slug, params) => apiGet(`/rankings/${encodeURIComponent(slug)}`, params);
 // Detalle de un propietario en Solanet (méritos por animal). `propietario` es
 // el NumeroPropietario (columna propertyNumber de una fila de /rankings/solanet).

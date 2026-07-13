@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Icon, F } from '../components';
+import { withAlpha } from '../theme';
 import { fetchRanking, decodeEntities, curateRankingFiltros } from '../api';
 import RankingTable from './RankingTable';
 
@@ -43,6 +44,10 @@ export default function RankingCatScreen({ t, navigation, route }) {
   }, [slug, filters]);
 
   const filas    = data?.filas || [];
+  // `modo` (según los filtros): 'ranking' (tabla), 'pdf' (botón que abre pdf_url)
+  // o 'not_available' (aviso "próximamente"). Default 'ranking' por compat.
+  const modo   = data?.modo || 'ranking';
+  const pdfUrl = data?.pdf_url || null;
   const isSolanet = slug === 'solanet';
   const isTeam    = ranking.familia === 'equipo';
   const isRodeos  = slug === 'rodeos';
@@ -141,9 +146,30 @@ export default function RankingCatScreen({ t, navigation, route }) {
         )}
       </View>
 
-      {/* Tabla */}
+      {/* Contenido: según `modo` → PDF, próximamente o tabla */}
       {data === null ? (
         <View style={{ paddingTop: 30, alignItems: 'center' }}><ActivityIndicator color={t.accent} /></View>
+      ) : modo === 'pdf' && pdfUrl ? (
+        <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
+          <TouchableOpacity onPress={() => Linking.openURL(pdfUrl).catch(() => {})} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(t.accent, 0.4), flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: withAlpha(t.accent, 0.12), alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="pdf" size={20} color={t.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text }}>Ver ranking (PDF)</Text>
+              <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 2 }}>Se abre en el visor del teléfono</Text>
+            </View>
+            <Icon name="arrowUR" size={16} color={t.textDim} />
+          </TouchableOpacity>
+        </View>
+      ) : modo === 'not_available' ? (
+        <View style={{ paddingHorizontal: 40, paddingTop: 34, alignItems: 'center' }}>
+          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Icon name="trophy" size={26} color={t.textMute} stroke={1.8} />
+          </View>
+          <Text style={{ fontFamily: F.display, fontSize: 19, color: t.text }}>Próximamente</Text>
+          <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>Este ranking va a estar disponible pronto.</Text>
+        </View>
       ) : filas.length === 0 ? (
         <View style={{ paddingHorizontal: 40, paddingTop: 20, alignItems: 'center' }}>
           <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center' }}>{error ? 'No se pudo cargar el ranking.' : 'No hay datos para este filtro.'}</Text>

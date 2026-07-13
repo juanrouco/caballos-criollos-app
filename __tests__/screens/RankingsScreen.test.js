@@ -62,9 +62,12 @@ const RODEOS = {
     { param: 'tipo', default: 1, opciones: [{ value: 1, label: 'General' }, { value: 2, label: 'Handicap' }, { value: 3, label: 'Ranking C' }] },
   ],
 };
-const CATALOG = [SOLANET, FRENO, CORRAL_GEN, CORRAL_ANA, RODEOS, APARTE_ANA, APARTE_GEN];
+// Paleteada: viene en el catálogo pero sin filtros; su detalle responde not_available.
+const PALETEADA = { slug: 'paleteada', nombre: 'Paleteada Campera — Ranking', familia: 'equipo', filtros: [] };
+const CATALOG = [SOLANET, FRENO, CORRAL_GEN, CORRAL_ANA, RODEOS, APARTE_ANA, APARTE_GEN, PALETEADA];
 const FRENO_CLEAN = { ...FRENO, nombre: 'Freno de Oro' }; // sin "— Ranking General" en el landing
 const RODEOS_CLEAN = { ...RODEOS, nombre: 'Rodeos' };      // sin "— Ranking"
+const PALETEADA_CLEAN = { ...PALETEADA, nombre: 'Paleteada Campera' };
 
 beforeEach(() => {
   fetchRankings.mockReset(); fetchRanking.mockReset();
@@ -186,10 +189,17 @@ describe('RankingsScreen', () => {
     expect(fetchRanking).toHaveBeenLastCalledWith('solanet', { premio: 1 });
   });
 
-  test('anuncia "Paleteada campera" como Próximamente', async () => {
-    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
-    expect(await findByText('Paleteada campera')).toBeTruthy();
-    expect(getByText('Próximamente')).toBeTruthy();
+  test('Paleteada Campera (not_available) muestra "Próximamente" en el listado y no navega', async () => {
+    // El detalle de paleteada responde not_available; el resto (solanet) normal.
+    fetchRanking.mockImplementation((slug) => (slug === 'paleteada'
+      ? Promise.resolve({ modo: 'not_available', filas: [] })
+      : Promise.resolve({ filas: [{ position: 1, name: 'MATHO GARAT, RICARDO D.', cabin: 'X', points: '109.50' }] })));
+    const nav = navStub();
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    expect(await findByText('Paleteada Campera')).toBeTruthy();
+    await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
+    fireEvent.press(getByText('Paleteada Campera')); // no es clickeable
+    expect(nav.navigate).not.toHaveBeenCalled();
   });
 
   test('error muestra reintentar', async () => {
