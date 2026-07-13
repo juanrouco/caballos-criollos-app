@@ -823,6 +823,8 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
     : hasPremio ? (entry.premio.nombre || `${rank}° puesto`) : 'Sin premio';
   const top = statusLabel == null && hasPremio && rank === 1;
   const showPuntaje = statusLabel == null && entry.puntaje != null;
+  // Unidad del puntaje: morfología usa "PES"; tipo y aptitud, "PUNTOS".
+  const unitLabel = entry.categoria_morfologica?.tipo_aptitud ? 'PUNTOS' : 'PES';
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
@@ -833,7 +835,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
           {showPuntaje && (
             <View style={{ alignItems: 'center' }}>
               <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{entry.puntaje}</Text>
-              <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>PES</Text>
+              <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>{unitLabel}</Text>
             </View>
           )}
         </View>

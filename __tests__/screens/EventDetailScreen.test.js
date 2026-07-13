@@ -471,6 +471,29 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Menciones')).toBeNull();
   });
 
+  test('tipo y aptitud: la unidad del puntaje dice "puntos" (no "PES")', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 343 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      tipo_aptitud: {
+        categorias: [{
+          id: 1, nombre: 'Cat. TyA', tipo_aptitud: true,
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'AnimalTyA', box: 'A-1' }, premio: { nombre: '1er Premio', tipo_nombre: 'Premios' }, puntaje: 60.5, categoria_morfologica: { id: 1, nombre: 'Cat. TyA', tipo_aptitud: true } },
+          ] }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 343 })} />,
+    );
+    fireEvent.press(await findByText('Cat. TyA'));
+    await waitFor(() => expect(getByText('AnimalTyA')).toBeTruthy());
+    expect(getByText('60.5')).toBeTruthy();
+    expect(getByText('PUNTOS')).toBeTruthy();   // TyA → "PUNTOS"
+    expect(queryByText('PES')).toBeNull();
+  });
+
   test('morfología: "Sin Premio" sí sale en un sub-grupo aparte con su sub-header', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 313 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
