@@ -74,7 +74,11 @@ beforeEach(() => {
   fetchRankings.mockReset(); fetchRanking.mockReset();
   fetchRankings.mockResolvedValue({ data: CATALOG });
   fetchRanking.mockResolvedValue({ filas: [{ position: 1, name: 'MATHO GARAT, RICARDO D.', cabin: 'CABA&Ntilde;A LA ESTRELLA', points: '109.50' }] });
+  // Año "actual" fijo = 2026, para que "Próximamente" vs "No disponible" no
+  // dependa de cuándo se corra la suite. `new Date(Date.now())` lee este mock.
+  jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 6, 14));
 });
+afterEach(() => { Date.now.mockRestore?.(); });
 
 describe('RankingsScreen', () => {
   test('card de Solanet + tabs de año + disciplina (acordeón cerrado)', async () => {
@@ -132,7 +136,9 @@ describe('RankingsScreen', () => {
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     await findByText('Freno de Oro');
     fireEvent.press(getByText('2025')); // tab de año
-    fireEvent.press(getByText('Freno de Oro')); // expande
+    // Tras cambiar de año el accordion queda deshabilitado hasta que resuelve el
+    // sondeo del nuevo año; reintentamos el press hasta que expande.
+    await waitFor(() => { fireEvent.press(getByText('Freno de Oro')); expect(getByText('Machos')).toBeTruthy(); });
     fireEvent.press(getByText('Machos'));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2025, categoria: 24 },
@@ -203,7 +209,8 @@ describe('RankingsScreen', () => {
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     await findByText('Rodeos');
     fireEvent.press(getByText('2025')); // tab de año
-    fireEvent.press(getByText('Rodeos'));
+    // El accordion queda deshabilitado hasta que resuelve el sondeo del nuevo año.
+    await waitFor(() => { fireEvent.press(getByText('Rodeos')); expect(getByText('General')).toBeTruthy(); });
     fireEvent.press(getByText('General'));
     // año 2025 → calendario "2024 - 2025" (value 21)
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
@@ -244,6 +251,32 @@ describe('RankingsScreen', () => {
     await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
     fireEvent.press(getByText('Corral de Aparte')); // no es clickeable → no expande
     expect(queryByText('Ranking General')).toBeNull();
+  });
+
+  test('not_available en un año anterior al actual muestra "No disponible" en vez de "Próximamente"', async () => {
+    // Año actual mockeado a 2026 → 2025 es un año pasado.
+    fetchRanking.mockImplementation((slug) => (String(slug).startsWith('corral')
+      ? Promise.resolve({ modo: 'not_available', filas: [] })
+      : Promise.resolve({ filas: [{ position: 1, name: 'X', cabin: 'Y', points: '1' }] })));
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
+    await findByText('Corral de Aparte');
+    await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // 2026 (actual) → Próximamente
+    fireEvent.press(getByText('2025')); // año pasado
+    await waitFor(() => expect(getByText('No disponible')).toBeTruthy());
+    expect(queryByText('Próximamente')).toBeNull();
+  });
+
+  test('los accordions no son clickeables hasta que resuelve el sondeo de disponibilidad', async () => {
+    // Sondeo (fetchRanking) pendiente hasta que soltemos la compuerta.
+    let releaseProbe;
+    const gate = new Promise((res) => { releaseProbe = res; });
+    fetchRanking.mockImplementation(() => gate.then(() => ({ filas: [] })));
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
+    await findByText('Freno de Oro'); // catálogo cargó, pero el sondeo sigue pendiente
+    fireEvent.press(getByText('Freno de Oro')); // deshabilitado → no expande
+    expect(queryByText('Machos')).toBeNull();
+    releaseProbe(); // el sondeo resuelve → se habilita
+    await waitFor(() => { fireEvent.press(getByText('Freno de Oro')); expect(getByText('Machos')).toBeTruthy(); });
   });
 
   test('tocar una categoría PDF abre el PDF directo, sin entrar al detalle', async () => {

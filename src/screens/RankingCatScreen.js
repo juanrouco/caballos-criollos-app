@@ -48,6 +48,9 @@ export default function RankingCatScreen({ t, navigation, route }) {
   // o 'not_available' (aviso "próximamente"). Default 'ranking' por compat.
   const modo   = data?.modo || 'ranking';
   const pdfUrl = data?.pdf_url || null;
+  // Año seleccionado (los rankings con `anio` lo traen en los filtros). Si es un
+  // año anterior al actual, un not_available es "No disponible" (no "Próximamente").
+  const isPastYear = filters.anio != null && Number(filters.anio) < new Date(Date.now()).getFullYear();
   const isSolanet = slug === 'solanet';
   const isTeam    = ranking.familia === 'equipo';
   const isRodeos  = slug === 'rodeos';
@@ -163,12 +166,14 @@ export default function RankingCatScreen({ t, navigation, route }) {
           </TouchableOpacity>
         </View>
       ) : modo === 'not_available' ? (
+        // Un año ya pasado que viene not_available no va a llegar → "No disponible";
+        // el año actual/futuro → "Próximamente".
         <View style={{ paddingHorizontal: 40, paddingTop: 34, alignItems: 'center' }}>
           <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: t.surface2, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Icon name="trophy" size={26} color={t.textMute} stroke={1.8} />
           </View>
-          <Text style={{ fontFamily: F.display, fontSize: 19, color: t.text }}>Próximamente</Text>
-          <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>Este ranking va a estar disponible pronto.</Text>
+          <Text style={{ fontFamily: F.display, fontSize: 19, color: t.text }}>{isPastYear ? 'No disponible' : 'Próximamente'}</Text>
+          <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>{isPastYear ? 'Este ranking no está disponible para el año seleccionado.' : 'Este ranking va a estar disponible pronto.'}</Text>
         </View>
       ) : filas.length === 0 ? (
         <View style={{ paddingHorizontal: 40, paddingTop: 20, alignItems: 'center' }}>

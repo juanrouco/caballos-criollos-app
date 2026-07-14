@@ -27,7 +27,13 @@ const RESP = {
   filas: [{ position: 1, animalId: 'pdre:1000', sba: '3501 D', animal: 'CARDAL X', points: 87.5 }],
 };
 
-beforeEach(() => { fetchRanking.mockReset(); fetchRanking.mockResolvedValue(RESP); });
+beforeEach(() => {
+  fetchRanking.mockReset(); fetchRanking.mockResolvedValue(RESP);
+  // Año "actual" fijo = 2026, para que "Próximamente" vs "No disponible" no
+  // dependa de cuándo se corra la suite. `new Date(Date.now())` lee este mock.
+  jest.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 6, 14));
+});
+afterEach(() => { Date.now.mockRestore?.(); });
 
 const renderCat = (nav = navStub()) =>
   render(<RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: FRENO })} />);
@@ -281,9 +287,19 @@ describe('RankingCatScreen', () => {
     spy.mockRestore();
   });
 
-  test('modo not_available: muestra "Próximamente"', async () => {
+  test('modo not_available en el año actual: muestra "Próximamente"', async () => {
+    // renderCat usa FRENO con anio default 2026 (= año actual mockeado).
     fetchRanking.mockResolvedValue({ modo: 'not_available', pdf_url: null, columnas: [], filas: [] });
     const { findByText } = renderCat();
     expect(await findByText('Próximamente')).toBeTruthy();
+  });
+
+  test('modo not_available en un año anterior al actual: muestra "No disponible"', async () => {
+    fetchRanking.mockResolvedValue({ modo: 'not_available', pdf_url: null, columnas: [], filas: [] });
+    const { findByText, queryByText } = render(
+      <RankingCatScreen t={T} navigation={navStub()} route={routeStub({ ranking: FRENO, initialFilters: { anio: 2025, categoria: 24 } })} />,
+    );
+    expect(await findByText('No disponible')).toBeTruthy();
+    expect(queryByText('Próximamente')).toBeNull();
   });
 });

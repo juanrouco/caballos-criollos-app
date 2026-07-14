@@ -58,6 +58,7 @@ export default function RankingsScreen({ t, navigation }) {
   const [open, setOpen] = React.useState(null);       // item de disciplina abierto (slug o key de grupo)
   const [openSub, setOpenSub] = React.useState(null); // sub-ranking abierto dentro de un grupo
   const [probe, setProbe] = React.useState({});       // slug → modo, para rankings sin filtros (ej. Paleteada)
+  const [probeReadyYear, setProbeReadyYear] = React.useState(null); // año cuyo sondeo de disponibilidad ya resolvió
   const [resolving, setResolving] = React.useState(null); // `slug:value` en curso al tocar una categoría PDF
 
   // `silent` (re-fetch al re-enfocar la tab): no muestra spinner ni limpia la
@@ -131,6 +132,7 @@ export default function RankingsScreen({ t, navigation }) {
         pairs.forEach(([slug, modo]) => { if (modo) next[`${slug}:${year}`] = modo; });
         return next;
       });
+      setProbeReadyYear(year); // el sondeo del año terminó → habilita los accordions
     });
     return () => { cancelled = true; };
   }, [catalog, year]);
@@ -138,6 +140,9 @@ export default function RankingsScreen({ t, navigation }) {
   const individuals = (catalog || []).filter((x) => x.familia === 'individual');
   const anioOpciones = individuals.find((x) => x.filtros?.some((f) => f.param === 'anio'))
     ?.filtros?.find((f) => f.param === 'anio')?.opciones || [];
+  // "Próximamente" sólo para el año actual o futuro; un ranking not_available de
+  // un año ya pasado no va a llegar → "No disponible".
+  const currentYear = new Date(Date.now()).getFullYear();
 
   // Items de "Por disciplina": rankings por animal (individuales) y de equipo
   // (apartes, rodeos). Los de un grupo (Corral, Aparte Campero) se muestran como
@@ -309,23 +314,30 @@ export default function RankingsScreen({ t, navigation }) {
                   const soon = item.type === 'group'
                     ? item.rankings.length > 0 && item.rankings.every((sub) => modoOf(sub.slug) === 'not_available')
                     : modoOf(item.ranking.slug) === 'not_available';
+                  const soonLabel = year != null && year < currentYear ? 'No disponible' : 'Próximamente';
                   // Ranking sin categorías (se abre directo): spinner mientras resuelve si es PDF.
                   const busyHeader = item.type === 'ranking' && resolving === `${item.ranking.slug}:null`;
+                  // Hasta que el sondeo de disponibilidad del año no resuelve, no
+                  // sabemos si el item va a estar disponible → no clickeable + spinner.
+                  const loading = probeReadyYear !== year;
+                  const disabled = soon || loading;
                   const onHeader = () => {
                     if (item.type === 'ranking' && !canOpen) { goTo(item.ranking, null); return; }
                     setOpen(isOpen ? null : item.key); setOpenSub(null);
                   };
-                  const Header = soon ? View : TouchableOpacity;
+                  const Header = disabled ? View : TouchableOpacity;
                   return (
-                    <View key={item.key} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden', opacity: soon ? 0.9 : 1 }}>
-                      <Header {...(soon ? {} : { onPress: onHeader })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
+                    <View key={item.key} style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: isOpen ? withAlpha(color, 0.7) : t.border, overflow: 'hidden', opacity: soon ? 0.9 : loading ? 0.55 : 1 }}>
+                      <Header {...(disabled ? {} : { onPress: onHeader })} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 }}>
                         <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: color, alignItems: 'center', justifyContent: 'center' }}>
                           {icon ? <Image source={icon} style={{ width: 26, height: 26, tintColor: '#fff' }} resizeMode="contain" /> : <Icon name="trophy" size={20} color="#fff" />}
                         </View>
                         <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: t.text }} numberOfLines={2}>{item.type === 'group' ? item.label : decodeEntities(item.ranking.nombre)}</Text>
-                        {soon ? (
+                        {loading ? (
+                          <ActivityIndicator size="small" color={t.textMute} />
+                        ) : soon ? (
                           <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: withAlpha(t.accent, 0.14) }}>
-                            <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>Próximamente</Text>
+                            <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>{soonLabel}</Text>
                           </View>
                         ) : busyHeader ? (
                           <ActivityIndicator size="small" color={t.textMute} />
