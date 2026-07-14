@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 jest.mock('../../src/api', () => {
   const actual = jest.requireActual('../../src/api/rankings');
@@ -100,9 +101,9 @@ describe('RankingsScreen', () => {
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     fireEvent.press(await findByText('Freno de Oro')); // expande
     fireEvent.press(getByText('Machos')); // categoría
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2026, categoria: 24 },
-    });
+    }));
   });
 
   test('cambiar el año se propaga a la categoría abierta', async () => {
@@ -112,9 +113,9 @@ describe('RankingsScreen', () => {
     fireEvent.press(getByText('2025')); // tab de año
     fireEvent.press(getByText('Freno de Oro')); // expande
     fireEvent.press(getByText('Machos'));
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2025, categoria: 24 },
-    });
+    }));
   });
 
   test('Corral de Aparte es un solo item que agrupa General y Analítico', async () => {
@@ -134,9 +135,9 @@ describe('RankingsScreen', () => {
     // Abrir un sub-ranking → aparecen sus categorías
     fireEvent.press(getByText('Ranking General'));
     fireEvent.press(getByText('Libre'));
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: CORRAL_GEN, initialFilters: { anio: 2026, categoria: 5 },
-    });
+    }));
   });
 
   test('Aparte Campero (equipo) también se agrupa en General y Analítico', async () => {
@@ -150,9 +151,9 @@ describe('RankingsScreen', () => {
     expect(generales).toBeTruthy();
     fireEvent.press(getByText('Ranking Analítico'));
     fireEvent.press(getByText('B'));
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: APARTE_ANA, initialFilters: { anio: 2026, categoria: 29 },
-    });
+    }));
   });
 
   test('Rodeos: mapea el año al calendario (campeonato) + tipo', async () => {
@@ -162,9 +163,9 @@ describe('RankingsScreen', () => {
     fireEvent.press(getByText('Rodeos')); // expande → tipos
     fireEvent.press(getByText('Handicap'));
     // año 2026 (default) → calendario "2025 - 2026" (value 22)
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: RODEOS_CLEAN, initialFilters: { calendario: 22, tipo: 2 },
-    });
+    }));
   });
 
   test('Rodeos: cambiar el año cambia el calendario', async () => {
@@ -175,9 +176,9 @@ describe('RankingsScreen', () => {
     fireEvent.press(getByText('Rodeos'));
     fireEvent.press(getByText('General'));
     // año 2025 → calendario "2024 - 2025" (value 21)
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: RODEOS_CLEAN, initialFilters: { calendario: 21, tipo: 1 },
-    });
+    }));
   });
 
   test('cambiar el año actualiza la temporada de Solanet y re-pide su 1°', async () => {
@@ -200,6 +201,21 @@ describe('RankingsScreen', () => {
     await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
     fireEvent.press(getByText('Paleteada Campera')); // no es clickeable
     expect(nav.navigate).not.toHaveBeenCalled();
+  });
+
+  test('tocar una categoría PDF abre el PDF directo, sin entrar al detalle', async () => {
+    // El detalle de freno responde modo pdf; el resto (solanet) normal.
+    fetchRanking.mockImplementation((slug) => (slug === 'freno'
+      ? Promise.resolve({ modo: 'pdf', pdf_url: 'https://caballoscriollos.com/r/freno-machos.pdf', filas: [] })
+      : Promise.resolve({ filas: [{ position: 1, name: 'X', cabin: 'Y', points: '1' }] })));
+    const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    const nav = navStub();
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    fireEvent.press(await findByText('Freno de Oro')); // expande
+    fireEvent.press(getByText('Machos')); // categoría PDF
+    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://caballoscriollos.com/r/freno-machos.pdf'));
+    expect(nav.navigate).not.toHaveBeenCalledWith('RankingCat', expect.anything());
+    openSpy.mockRestore();
   });
 
   test('error muestra reintentar', async () => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Linking } from 'react-native';
 import { Icon, Divider, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_ICONS, DISCIPLINE_COLORS } from '../theme';
 import { fetchRankings, fetchRanking, decodeEntities, curateRankingFiltros } from '../api';
@@ -58,6 +58,7 @@ export default function RankingsScreen({ t, navigation }) {
   const [open, setOpen] = React.useState(null);       // item de disciplina abierto (slug o key de grupo)
   const [openSub, setOpenSub] = React.useState(null); // sub-ranking abierto dentro de un grupo
   const [probe, setProbe] = React.useState({});       // slug → modo, para rankings sin filtros (ej. Paleteada)
+  const [resolving, setResolving] = React.useState(null); // `slug:value` en curso al tocar una categoría PDF
 
   // `silent` (re-fetch al re-enfocar la tab): no muestra spinner ni limpia la
   // lista, sólo actualiza si el catálogo cambió (ej. el backend agregó un ranking
@@ -149,7 +150,7 @@ export default function RankingsScreen({ t, navigation }) {
   });
 
   const catsOf = (r) => r.filtros?.find((f) => f.param === leafParam(r))?.opciones || [];
-  const goTo = (r, value) => {
+  const goTo = async (r, value) => {
     const filtros = r.filtros || [];
     const leaf = leafParam(r);
     const initialFilters = {};
@@ -162,21 +163,48 @@ export default function RankingsScreen({ t, navigation }) {
       if (opt) initialFilters.calendario = opt.value;
     }
     if (leaf && value != null) initialFilters[leaf] = value;
-    navigation.navigate('RankingCat', { ranking: r, initialFilters });
+    // Si esta categoría (con estos filtros) se publica como PDF, la abrimos
+    // directo en el visor del teléfono en vez de entrar al detalle con un botón.
+    // El modo/pdf_url sólo se sabe pidiendo el detalle (y cada categoría puede
+    // tener su propio PDF), así que lo resolvemos acá; tabla/no-disponible →
+    // navegación normal (RankingCat re-pide, cache nativo de por medio).
+    const key = `${r.slug}:${value}`;
+    if (resolving) return;
+    setResolving(key);
+    try {
+      const d = await fetchRanking(r.slug, initialFilters);
+      if (d?.modo === 'pdf' && d?.pdf_url) {
+        Linking.openURL(d.pdf_url).catch(() => {});
+      } else {
+        navigation.navigate('RankingCat', { ranking: r, initialFilters });
+      }
+    } catch (e) {
+      navigation.navigate('RankingCat', { ranking: r, initialFilters });
+    } finally {
+      setResolving(null);
+    }
   };
-  const renderCats = (r, color) => catsOf(r).map((c, i, arr) => (
-    <View key={String(c.value)}>
-      <TouchableOpacity onPress={() => goTo(r, c.value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 18, paddingRight: 14 }}>
-        <View style={{ width: 3, height: 22, backgroundColor: color, borderRadius: 2 }} />
-        <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13.5, color: t.text }}>{decodeEntities(c.label)}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6, backgroundColor: withAlpha(color, 0.15) }}>
-          <Text style={{ color: color === '#0d121f' ? t.text : color, fontSize: 10.5, fontFamily: F.bodyBold, textTransform: 'uppercase' }}>Ver</Text>
-          <Icon name="arrow" size={11} color={color === '#0d121f' ? t.text : color} />
-        </View>
-      </TouchableOpacity>
-      {i < arr.length - 1 && <Divider t={t} style={{ marginLeft: 18 }} />}
-    </View>
-  ));
+  const renderCats = (r, color) => catsOf(r).map((c, i, arr) => {
+    const chipColor = color === '#0d121f' ? t.text : color;
+    const busy = resolving === `${r.slug}:${c.value}`;
+    return (
+      <View key={String(c.value)}>
+        <TouchableOpacity onPress={() => goTo(r, c.value)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 18, paddingRight: 14 }}>
+          <View style={{ width: 3, height: 22, backgroundColor: color, borderRadius: 2 }} />
+          <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13.5, color: t.text }}>{decodeEntities(c.label)}</Text>
+          {busy ? (
+            <ActivityIndicator size="small" color={chipColor} style={{ paddingHorizontal: 6 }} />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 6, backgroundColor: withAlpha(color, 0.15) }}>
+              <Text style={{ color: chipColor, fontSize: 10.5, fontFamily: F.bodyBold, textTransform: 'uppercase' }}>Ver</Text>
+              <Icon name="arrow" size={11} color={chipColor} />
+            </View>
+          )}
+        </TouchableOpacity>
+        {i < arr.length - 1 && <Divider t={t} style={{ marginLeft: 18 }} />}
+      </View>
+    );
+  });
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
@@ -261,6 +289,8 @@ export default function RankingsScreen({ t, navigation }) {
                   const canOpen = item.type === 'group' || catsOf(item.ranking).length > 0;
                   // Ranking sin datos (not_available): se muestra "Próximamente" y no es clickeable.
                   const soon = item.type === 'ranking' && probe[item.ranking.slug] === 'not_available';
+                  // Ranking sin categorías (se abre directo): spinner mientras resuelve si es PDF.
+                  const busyHeader = item.type === 'ranking' && resolving === `${item.ranking.slug}:null`;
                   const onHeader = () => {
                     if (item.type === 'ranking' && !canOpen) { goTo(item.ranking, null); return; }
                     setOpen(isOpen ? null : item.key); setOpenSub(null);
@@ -277,6 +307,8 @@ export default function RankingsScreen({ t, navigation }) {
                           <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: withAlpha(t.accent, 0.14) }}>
                             <Text style={{ fontSize: 10.5, color: t.accent, fontFamily: F.bodyBold, textTransform: 'uppercase', letterSpacing: 0.5 }}>Próximamente</Text>
                           </View>
+                        ) : busyHeader ? (
+                          <ActivityIndicator size="small" color={t.textMute} />
                         ) : (
                           <View style={{ transform: [{ rotate: canOpen && isOpen ? '90deg' : '0deg' }] }}>
                             <Icon name="arrow" size={16} color={t.textMute} />
