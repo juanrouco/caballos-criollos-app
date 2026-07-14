@@ -89,11 +89,32 @@ describe('RankingsScreen', () => {
     expect(queryByText('Machos')).toBeNull(); // categorías ocultas hasta expandir
   });
 
-  test('tocar la card de Solanet navega a su ranking', async () => {
+  test('tocar la card de Solanet navega con la temporada del año elegido', async () => {
     const nav = navStub();
-    const { findByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    // Año 2026 (default) → temporada "2025 - 2026" (value 2, la más nueva tras curar)
     fireEvent.press(await findByText('Premio E. Solanet'));
-    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', { ranking: SOLANET });
+    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', { ranking: SOLANET, initialFilters: { premio: 2 } });
+    // Cambiar a 2025 → temporada "2024 - 2025" (value 1)
+    fireEvent.press(getByText('2025'));
+    fireEvent.press(getByText('Premio E. Solanet'));
+    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', { ranking: SOLANET, initialFilters: { premio: 1 } });
+  });
+
+  test('Solanet 2027 abre su temporada (2026-2027), no pisa el detalle de 2026', async () => {
+    // Con un tab de año 2027 presente, 2027 debe mapear a su temporada (value 3),
+    // no caer al default y mostrar lo mismo que 2026 (value 2).
+    const FRENO_2027 = { ...FRENO, filtros: [
+      { param: 'anio', default: 2026, opciones: [{ value: 2027, label: '2027' }, { value: 2026, label: '2026' }, { value: 2025, label: '2025' }] },
+      FRENO.filtros[1],
+    ] };
+    fetchRankings.mockResolvedValue({ data: [SOLANET, FRENO_2027] });
+    const nav = navStub();
+    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    await findByText('Premio E. Solanet');
+    fireEvent.press(getByText('2027')); // tab de año 2027
+    fireEvent.press(getByText('Premio E. Solanet'));
+    expect(nav.navigate).toHaveBeenCalledWith('RankingCat', { ranking: SOLANET, initialFilters: { premio: 3 } });
   });
 
   test('expandir una disciplina y tocar una categoría navega con año + categoría', async () => {
@@ -116,6 +137,15 @@ describe('RankingsScreen', () => {
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2025, categoria: 24 },
     }));
+  });
+
+  test('cambiar el año cierra los accordions abiertos', async () => {
+    const nav = navStub();
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    fireEvent.press(await findByText('Freno de Oro')); // expande → categorías visibles
+    expect(getByText('Machos')).toBeTruthy();
+    fireEvent.press(getByText('2025')); // cambia de año
+    expect(queryByText('Machos')).toBeNull(); // el accordion se cerró
   });
 
   test('Corral de Aparte es un solo item que agrupa General y Analítico', async () => {
@@ -187,7 +217,7 @@ describe('RankingsScreen', () => {
     expect(getByText('Edición 2025 - 2026')).toBeTruthy(); // año 2026 → temporada 2025-2026
     fireEvent.press(getByText('2025')); // tab de año
     await waitFor(() => expect(getByText('Edición 2024 - 2025')).toBeTruthy());
-    expect(fetchRanking).toHaveBeenLastCalledWith('solanet', { premio: 1 });
+    expect(fetchRanking).toHaveBeenCalledWith('solanet', { premio: 1 });
   });
 
   test('Paleteada Campera (not_available) muestra "Próximamente" en el listado y no navega', async () => {
@@ -201,6 +231,19 @@ describe('RankingsScreen', () => {
     await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
     fireEvent.press(getByText('Paleteada Campera')); // no es clickeable
     expect(nav.navigate).not.toHaveBeenCalled();
+  });
+
+  test('Corral (grupo con todos los sub-rankings not_available) figura como Próximamente y no expande', async () => {
+    // El detalle de ambos corral responde not_available para el año; el resto normal.
+    fetchRanking.mockImplementation((slug) => (String(slug).startsWith('corral')
+      ? Promise.resolve({ modo: 'not_available', filas: [] })
+      : Promise.resolve({ filas: [{ position: 1, name: 'X', cabin: 'Y', points: '1' }] })));
+    const nav = navStub();
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    expect(await findByText('Corral de Aparte')).toBeTruthy();
+    await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
+    fireEvent.press(getByText('Corral de Aparte')); // no es clickeable → no expande
+    expect(queryByText('Ranking General')).toBeNull();
   });
 
   test('tocar una categoría PDF abre el PDF directo, sin entrar al detalle', async () => {

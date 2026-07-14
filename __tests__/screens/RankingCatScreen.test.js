@@ -88,7 +88,8 @@ describe('RankingCatScreen', () => {
     const nav = navStub();
     const { findByText } = render(<RankingCatScreen t={T} navigation={nav} route={routeStub({ ranking: SOLANET })} />);
     fireEvent.press(await findByText('MATHO GARAT, RICARDO D.'));
-    expect(nav.navigate).toHaveBeenCalledWith('SolanetDetalle', { premio: 2, propietario: '221', nombre: 'MATHO GARAT, RICARDO D.', points: '109.50' });
+    // Sin initialFilters usa el default curado = temporada más nueva (2026-2027, value 3).
+    expect(nav.navigate).toHaveBeenCalledWith('SolanetDetalle', { premio: 3, propietario: '221', nombre: 'MATHO GARAT, RICARDO D.', points: '109.50' });
   });
 
   test('apartes: total como puntaje, acordeón con tabla Evento/Tiempo y animales al pedigree', async () => {

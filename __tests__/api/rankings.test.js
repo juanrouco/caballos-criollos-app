@@ -32,11 +32,13 @@ describe('curateRankingFiltros', () => {
     }],
   });
 
-  test('solanet: temporadas más nueva primero, oculta 2026-2027, default a la primera', () => {
+  test('solanet: temporadas más nueva primero, sin ocultar ninguna, default a la primera', () => {
+    // No se oculta 2026-2027: hay tab de año 2027 y cada año debe mapear a su
+    // temporada; ocultarla haría que 2027 caiga al default y pise el detalle de 2026.
     const { filtros } = curateRankingFiltros(solanet());
     const premio = filtros[0];
-    expect(premio.opciones.map((o) => o.label)).toEqual(['2025 - 2026', '2024 - 2025']);
-    expect(premio.default).toBe(2); // 2025-2026
+    expect(premio.opciones.map((o) => o.label)).toEqual(['2026 - 2027', '2025 - 2026', '2024 - 2025']);
+    expect(premio.default).toBe(3); // 2026-2027 (la más nueva)
   });
 
   test('fzb: fuerza default año 2026 y categoría "A" (por label)', () => {

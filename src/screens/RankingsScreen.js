@@ -104,26 +104,36 @@ export default function RankingsScreen({ t, navigation }) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, year]);
-  // Rankings sin filtros (ej. Paleteada): su `modo` (ranking / pdf / not_available)
-  // sólo se sabe pidiendo el detalle. Lo consultamos para poder mostrar el badge
-  // "Próximamente" directo en el listado, sin que el usuario tenga que entrar.
+  // Disponibilidad por año: el `modo` (ranking / pdf / not_available) de cada
+  // ranking depende del año elegido (ej. Corral 2026 es not_available, pero 2025
+  // es pdf). Se sabe pidiendo el detalle con sólo el año/calendario (sin
+  // categoría, que el backend responde a nivel ranking). Con eso mostramos el
+  // badge "Próximamente" directo en el listado, sin que el usuario entre. Se
+  // cachea por `slug:anio` y se re-consulta al cambiar el año.
   React.useEffect(() => {
-    const noFilter = (catalog || []).filter((x) =>
-      (x.familia === 'individual' || x.familia === 'equipo') && (x.filtros || []).length === 0);
-    if (noFilter.length === 0) return;
+    const items = (catalog || []).filter((x) => x.familia === 'individual' || x.familia === 'equipo');
+    if (items.length === 0) return;
     let cancelled = false;
-    Promise.all(noFilter.map((x) =>
-      fetchRanking(x.slug, {}).then((d) => [x.slug, d?.modo || 'ranking']).catch(() => [x.slug, null])
+    const probeParams = (x) => {
+      const filtros = x.filtros || [];
+      const p = {};
+      if (filtros.some((f) => f.param === 'anio') && year != null) p.anio = year;
+      const calF = filtros.find((f) => f.param === 'calendario');
+      if (calF) { const opt = premioForYear(calF, year); if (opt) p.calendario = opt.value; }
+      return p;
+    };
+    Promise.all(items.map((x) =>
+      fetchRanking(x.slug, probeParams(x)).then((d) => [x.slug, d?.modo || 'ranking']).catch(() => [x.slug, null])
     )).then((pairs) => {
       if (cancelled) return;
       setProbe((prev) => {
         const next = { ...prev };
-        pairs.forEach(([slug, modo]) => { if (modo) next[slug] = modo; });
+        pairs.forEach(([slug, modo]) => { if (modo) next[`${slug}:${year}`] = modo; });
         return next;
       });
     });
     return () => { cancelled = true; };
-  }, [catalog]);
+  }, [catalog, year]);
 
   const individuals = (catalog || []).filter((x) => x.familia === 'individual');
   const anioOpciones = individuals.find((x) => x.filtros?.some((f) => f.param === 'anio'))
@@ -219,7 +229,7 @@ export default function RankingsScreen({ t, navigation }) {
           {anioOpciones.map((o) => {
             const on = year === o.value;
             return (
-              <TouchableOpacity key={String(o.value)} onPress={() => setYear(o.value)} style={{ paddingVertical: 6, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
+              <TouchableOpacity key={String(o.value)} onPress={() => { setYear(o.value); setOpen(null); setOpenSub(null); }} style={{ paddingVertical: 6, borderBottomWidth: 2, borderBottomColor: on ? t.accent : 'transparent', marginBottom: -1 }}>
                 <Text style={{ fontFamily: F.display, fontSize: 18, color: on ? t.accent : t.textMute }}>{o.label}</Text>
               </TouchableOpacity>
             );
@@ -241,7 +251,12 @@ export default function RankingsScreen({ t, navigation }) {
           {/* Premio Solanet destacado */}
           {solanet && (
             <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-              <TouchableOpacity onPress={() => navigation.navigate('RankingCat', { ranking: solanet })}>
+              <TouchableOpacity onPress={() => {
+                // La card muestra la edición del año elegido (año → temporada); al
+                // entrar hay que abrir esa misma temporada, no el default del filtro.
+                const premio = premioForYear(solanetPremioF, year);
+                navigation.navigate('RankingCat', { ranking: solanet, initialFilters: premio ? { premio: premio.value } : {} });
+              }}>
                 <View style={{ backgroundColor: t.surface2, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(t.accent, 0.4), overflow: 'hidden' }}>
                   <View style={{ padding: 18 }}>
                     <View style={{ flexDirection: 'row', gap: 14, marginBottom: 16 }}>
@@ -287,8 +302,13 @@ export default function RankingsScreen({ t, navigation }) {
                   const color = (item.disc && DISCIPLINE_COLORS[item.disc]) || t.accent;
                   const icon = item.disc && DISCIPLINE_ICONS[item.disc];
                   const canOpen = item.type === 'group' || catsOf(item.ranking).length > 0;
-                  // Ranking sin datos (not_available): se muestra "Próximamente" y no es clickeable.
-                  const soon = item.type === 'ranking' && probe[item.ranking.slug] === 'not_available';
+                  // Ranking sin datos (not_available) para el año elegido: se muestra
+                  // "Próximamente" y no es clickeable. En un grupo (Corral, Aparte),
+                  // sólo si TODOS sus sub-rankings están not_available.
+                  const modoOf = (slug) => probe[`${slug}:${year}`];
+                  const soon = item.type === 'group'
+                    ? item.rankings.length > 0 && item.rankings.every((sub) => modoOf(sub.slug) === 'not_available')
+                    : modoOf(item.ranking.slug) === 'not_available';
                   // Ranking sin categorías (se abre directo): spinner mientras resuelve si es PDF.
                   const busyHeader = item.type === 'ranking' && resolving === `${item.ranking.slug}:null`;
                   const onHeader = () => {

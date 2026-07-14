@@ -36,12 +36,16 @@ export function decodeEntities(s) {
 
 // Curación client-side de los filtros de algunos rankings (mientras el backend
 // no lo maneje).
-//   - Solanet: temporadas de más nueva a más vieja, ocultando la 2026-2027
-//     (todavía sin datos). Quitar de SOLANET_HIDE_PREMIO cuando tenga datos.
+//   - Solanet: temporadas de más nueva a más vieja. No ocultamos ninguna: el
+//     año se elige con los tabs compartidos (que ya incluyen 2027) y cada año
+//     mapea a su temporada por label. Ocultar una temporada haría que su año
+//     caiga al default y muestre datos de OTRA temporada (ej. 2027 pisando el
+//     detalle de 2026). Una temporada sin datos aún se ve como "Sin datos", que
+//     es lo correcto.
 //   - fzb: su default de `categoria` (15) no existe en las opciones, así que
 //     no quedaba nada seleccionado; forzamos año 2026 y categoría "A".
 // Los overrides de default se resuelven por LABEL (robusto ante renumeraciones).
-const SOLANET_HIDE_PREMIO = ['2026 - 2027'];
+const SOLANET_HIDE_PREMIO = [];
 const DEFAULT_OVERRIDES = {
   fzb: { anio: '2026', categoria: 'A' },
 };
