@@ -949,7 +949,11 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
         <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
         <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
         {total != null && (
-          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.textMute }}>{fmtPts(total)} pts</Text>
+          // Mismo formato que Tipo y Aptitud: valor + unidad "PUNTOS" debajo.
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(total)}</Text>
+            <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>PUNTOS</Text>
+          </View>
         )}
       </View>
       <View>

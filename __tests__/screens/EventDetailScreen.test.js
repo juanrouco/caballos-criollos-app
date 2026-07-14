@@ -283,7 +283,8 @@ describe('EventDetailScreen', () => {
     fireEvent.press(getByText('Categ. 19 - Final Adulta · Final'));
     await waitFor(() => expect(getByText('Animal Uno')).toBeTruthy());
     expect(getByText('Animal Dos')).toBeTruthy();
-    expect(getByText('174 pts')).toBeTruthy();
+    expect(getByText('174')).toBeTruthy();       // total con formato TyA: valor…
+    expect(getByText('PUNTOS')).toBeTruthy();    // …+ unidad "PUNTOS" debajo
     expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
   });
 
@@ -309,7 +310,8 @@ describe('EventDetailScreen', () => {
     );
     fireEvent.press(await findByText('Categ. Dec · Final'));
     await waitFor(() => expect(getByText('AnimalD')).toBeTruthy());
-    expect(getByText('174.75 pts')).toBeTruthy(); // 88.5 + 86.25, sin ruido flotante
+    expect(getByText('174.75')).toBeTruthy();      // total (88.5 + 86.25) sin ruido flotante
+    expect(getByText('PUNTOS')).toBeTruthy();      // unidad con formato TyA
     expect(getByText('88.5')).toBeTruthy();        // Día 1
     expect(getByText('86.25')).toBeTruthy();       // Día 2
   });
@@ -339,7 +341,8 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Copa Solanet')).toBeNull();
     fireEvent.press(getByText('Copa Especial'));
     await waitFor(() => expect(getByText('Ganador Copa')).toBeTruthy());
-    expect(getByText('92 pts')).toBeTruthy();
+    expect(getByText('92')).toBeTruthy();        // total con formato TyA
+    expect(getByText('PUNTOS')).toBeTruthy();
     expect(queryByText('Día 1')).toBeNull();
     expect(queryByText('Día 2')).toBeNull();
   });
