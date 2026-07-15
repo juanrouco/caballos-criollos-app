@@ -156,7 +156,17 @@ export default function HorseDetailScreen({ t, navigation, route }) {
             <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Propietario</Text>
             <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{horse.propietario}</Text>
             {!!horse.propietarioNum && (
-              <Text style={{ fontSize: 12, color: t.accent, marginTop: 4, fontFamily: F.bodyMed }}>N° {horse.propietarioNum}</Text>
+              <Text style={{ fontSize: 12, color: t.accent, marginTop: 1, fontFamily: F.bodyMed }}>N° {horse.propietarioNum}</Text>
+            )}
+          </View>
+        )}
+
+        {!!horse.criador && (
+          <View style={{ marginTop: 14, padding: 14, backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.border }}>
+            <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Criador</Text>
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text }}>{horse.criador}</Text>
+            {!!horse.criadorNum && (
+              <Text style={{ fontSize: 12, color: t.accent, marginTop: 1, fontFamily: F.bodyMed }}>N° {horse.criadorNum}</Text>
             )}
           </View>
         )}

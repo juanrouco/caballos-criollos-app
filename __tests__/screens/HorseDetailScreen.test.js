@@ -31,6 +31,7 @@ describe('HorseDetailScreen', () => {
       animal: {
         id: 'pdre:cache-1', nombre: 'MALACARA REGENTE', sexo: 'M', rp: '847291', sba: 108837,
         propietario: { numero: '301', nombre: 'SOLANET, CARLOS A.' },
+        criador: { numero: '1963', nombre: 'LOS POTRERITOS' },
       },
       pedigree: {
         padre: { id: 'pdre:2', nombre: 'MALACARA SOBERANO', sexo: 'M' },
@@ -44,6 +45,9 @@ describe('HorseDetailScreen', () => {
     expect(getByText(/R\.P\. 847291 · S\.B\.A\. 108837/)).toBeTruthy();
     expect(getByText('SOLANET, CARLOS A.')).toBeTruthy();
     expect(getByText(/N° 301/)).toBeTruthy();
+    expect(getByText('Criador')).toBeTruthy();
+    expect(getByText('LOS POTRERITOS')).toBeTruthy();
+    expect(getByText(/N° 1963/)).toBeTruthy();
     expect(getByText('MALACARA SOBERANO')).toBeTruthy();
     expect(getByText('CARDAL AURORA')).toBeTruthy();
   });

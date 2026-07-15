@@ -149,7 +149,8 @@ Devuelve el animal raíz y su árbol de ancestros (4 generaciones: padre, abuelo
     "rp": "3",
     "sexo": "M",
     "raza": 200,
-    "propietario": { "numero": "376", "nombre": "HERMANAS BUSQUET" }
+    "propietario": { "numero": "376", "nombre": "HERMANAS BUSQUET" },
+    "criador": { "numero": "1963", "nombre": "LOS POTRERITOS" }
   },
   "pedigree": {
     "padre": null,
@@ -168,6 +169,7 @@ Devuelve el animal raíz y su árbol de ancestros (4 generaciones: padre, abuelo
 }
 ```
 
+- El `animal` raíz trae `propietario` **y** `criador` (`{numero, nombre}` o `null`). El criador sale del campo `CRIA` del stud book, resuelto contra `tblPropietarios` (criadores y propietarios son socios de la misma tabla). Sólo va en el raíz, no en los ancestros.
 - Cada nodo del árbol (`padre` / `madre`) tiene shape mínimo: `id`, `fuente`, `nombre`, `sba`, `rp`, `sexo`, `raza` + sus propios `padre`/`madre`.
 - Ancestros desconocidos: `null`.
 - Los nodos del último nivel (tatarabuelos) traen `padre: null` y `madre: null` sin recurse más profundo.
@@ -1173,6 +1175,8 @@ Los overrides se configuran en **`src/api/config/rankings_pdf.json`**:
 ```
 
 La clave de primer nivel es el `slug` del ranking; la de segundo nivel son los valores de **todos los filtros en orden unidos por `|`** (incluye el año — ej. freno `"año|categoria"`, rodeos `"calendario|tipo"`). Lo que no esté en el archivo devuelve el ranking calculado. Si el archivo falta o el JSON es inválido, no se aplica ningún override (best-effort).
+
+Además, la clave global `"_anios_not_available": [2027]` marca años enteros como `not_available` para **todos** los rankings que tengan filtro de año (freno/cio/fzb/corral/apartes), salvo que haya un override específico para esa (ranking, año, categoría). No afecta a rodeos (filtro por calendario) ni a solanet (por premio). Sirve para "abrir" un año nuevo sin datos. Los años ofrecidos van de `ANIO_MIN` hasta `max(año del sistema, ANIO_MAX)` (constantes del `RankingHandler`), así que un año futuro se puede ofrecer antes de que corra el calendario.
 
 #### `GET /rankings/solanet/detalle`
 

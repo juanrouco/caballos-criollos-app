@@ -21,6 +21,8 @@ export function mapAnimalPedigree(payload) {
     sba:  a.sba != null ? String(a.sba) : '',
     propietario:    a.propietario?.nombre || '',
     propietarioNum: a.propietario?.numero || '',
+    criador:    a.criador?.nombre || '',
+    criadorNum: a.criador?.numero || '',
     sire: mapNode(p.padre),
     dam:  mapNode(p.madre),
   };

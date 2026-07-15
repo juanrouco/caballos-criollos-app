@@ -10,6 +10,7 @@ describe('mapAnimalPedigree', () => {
         rp: '3',
         sexo: 'M',
         propietario: { numero: '376', nombre: 'HERMANAS BUSQUET' },
+        criador: { numero: '1963', nombre: 'LOS POTRERITOS' },
       },
       pedigree: { padre: null, madre: null },
     };
@@ -21,6 +22,8 @@ describe('mapAnimalPedigree', () => {
     expect(h.sba).toBe('6598');
     expect(h.propietario).toBe('HERMANAS BUSQUET');
     expect(h.propietarioNum).toBe('376');
+    expect(h.criador).toBe('LOS POTRERITOS');
+    expect(h.criadorNum).toBe('1963');
     expect(h.sire).toBe(null);
     expect(h.dam).toBe(null);
   });
@@ -58,10 +61,12 @@ describe('mapAnimalPedigree', () => {
     expect(h.dam.dam).toBe(null);
   });
 
-  test('propietario null no rompe', () => {
+  test('propietario / criador null no rompen', () => {
     const h = mapAnimalPedigree({ animal: { id: 'pdre:1', nombre: 'X' }, pedigree: {} });
     expect(h.propietario).toBe('');
     expect(h.propietarioNum).toBe('');
+    expect(h.criador).toBe('');
+    expect(h.criadorNum).toBe('');
   });
 
   test('rp/sba ausentes quedan como string vacío', () => {
