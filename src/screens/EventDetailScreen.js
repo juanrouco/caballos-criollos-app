@@ -460,6 +460,19 @@ function AnimalRow({ t, a, navigation }) {
   );
 }
 
+// Medidas de la inspección del animal (talla / tórax / caña, normalmente en
+// metros). Cada campo puede venir null; devolvemos "" si no hay ninguno. Ver
+// docs/README.md §animal.medidas.
+function fmtMedidas(m) {
+  if (!m) return '';
+  const parts = [
+    m.talla != null && `Talla ${Number(m.talla).toFixed(2)}`,
+    m.torax != null && `Tórax ${Number(m.torax).toFixed(2)}`,
+    m.cania != null && `Caña ${Number(m.cania).toFixed(2)}`,
+  ].filter(Boolean);
+  return parts.length ? `${parts.join(' · ')} m` : '';
+}
+
 // Líneas de meta-info del animal para el catálogo: primero la identificación
 // registral (S.B.A. · R.P.) y después la meta general (sexo · nac · pelaje).
 function AnimalMetaLines({ t, a }) {
@@ -825,6 +838,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
   const showPuntaje = statusLabel == null && entry.puntaje != null;
   // Unidad del puntaje: morfología usa "PES"; tipo y aptitud, "PUNTOS".
   const unitLabel = entry.categoria_morfologica?.tipo_aptitud ? 'PUNTOS' : 'PES';
+  const medidas = fmtMedidas(a.medidas);
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
@@ -841,6 +855,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
         </View>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, marginTop: 2 }} numberOfLines={1}>{a.nombre || '—'}</Text>
         <AnimalMetaLines t={t} a={a} />
+        {!!medidas && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>{medidas}</Text>}
       </View>
       <Icon name="arrow" size={15} color={t.textDim} />
     </TouchableOpacity>

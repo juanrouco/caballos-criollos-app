@@ -474,6 +474,37 @@ describe('EventDetailScreen', () => {
     expect(queryByText('Menciones')).toBeNull();
   });
 
+  test('morfología: muestra las medidas de la inspección (talla · tórax · caña), omitiendo las null', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 319 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Categ. Medidas',
+          premios: [
+            // Animal con las tres medidas cargadas.
+            { animal: { id: 'pdre:1', nombre: 'ConMedidas', box: 'A-1', medidas: { talla: 1.52, torax: 1.8, cania: 0.19 } }, premio: { nombre: '1er Premio', tipo_id: 3, tipo_nombre: 'Premios' }, puntaje: 80 },
+            // Animal con torax null → sólo talla y caña.
+            { animal: { id: 'pdre:2', nombre: 'MedidasParciales', box: 'A-2', medidas: { talla: 1.45, torax: null, cania: 0.18 } }, premio: { nombre: '2do Premio', tipo_id: 3, tipo_nombre: 'Premios' }, puntaje: 78 },
+            // Animal sin inspección → no muestra línea de medidas.
+            { animal: { id: 'pdre:3', nombre: 'SinMedidas', box: 'A-3', medidas: { talla: null, torax: null, cania: null } }, premio: { nombre: '3er Premio', tipo_id: 3, tipo_nombre: 'Premios' }, puntaje: 76 },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 319 })} />,
+    );
+    fireEvent.press(await findByText('Categ. Medidas'));
+    await waitFor(() => expect(getByText('ConMedidas')).toBeTruthy());
+    // Tres medidas → línea completa con unidad "m" y 2 decimales.
+    expect(getByText('Talla 1.52 · Tórax 1.80 · Caña 0.19 m')).toBeTruthy();
+    // Con tórax null se omite ese campo, el resto se mantiene.
+    expect(getByText('Talla 1.45 · Caña 0.18 m')).toBeTruthy();
+    // Sin ninguna medida no se renderiza línea alguna.
+    expect(queryByText('Talla 0.00 · Tórax 0.00 · Caña 0.00 m')).toBeNull();
+  });
+
   test('tipo y aptitud: la unidad del puntaje dice "puntos" (no "PES")', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 343 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
