@@ -460,7 +460,12 @@ describe('EventDetailScreen', () => {
     fireEvent.press(getByText('Categ. 17'));
     await waitFor(() => expect(getByText('CampeonMacho')).toBeTruthy());
     // El gutter muestra el box del animal (no el puesto "1°").
-    expect(getByText('A-15')).toBeTruthy();
+    const boxCell = getByText('A-15');
+    expect(boxCell).toBeTruthy();
+    // El box nunca se parte en dos líneas ni escala con la fuente del sistema
+    // (en devices con fuente agrandada, un box de 4 dígitos se cortaba en 2 renglones).
+    expect(boxCell.props.numberOfLines).toBe(1);
+    expect(boxCell.props.allowFontScaling).toBe(false);
     expect(queryByText('1°')).toBeNull();
     // El puntaje va con la etiqueta PES debajo.
     expect(getByText('87.5')).toBeTruthy();

@@ -434,7 +434,7 @@ function CatalogYuntaAnimalRow({ t, a, navigation }) {
   const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-      <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
       <View style={{ width: 1, height: 36, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
@@ -449,7 +449,7 @@ function CatalogYuntaAnimalRow({ t, a, navigation }) {
 function AnimalRow({ t, a, navigation }) {
   return (
     <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-      <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
       <View style={{ width: 1, height: 36, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre}</Text>
@@ -841,7 +841,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
   const medidas = fmtMedidas(a.medidas);
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
-      <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
       <View style={{ width: 1, height: 42, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -1023,7 +1023,7 @@ function RodeoAnimalRow({ t, a, navigation }) {
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       {a.box != null && (
-        <Text style={{ width: 38, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box}</Text>
+        <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box}</Text>
       )}
       {a.box != null && <View style={{ width: 1, height: 28, backgroundColor: t.border }} />}
       <View style={{ flex: 1 }}>
