@@ -503,7 +503,13 @@ describe('EventDetailScreen', () => {
     fireEvent.press(await findByText('Categ. Medidas'));
     await waitFor(() => expect(getByText('ConMedidas')).toBeTruthy());
     // Tres medidas → línea completa con unidad "m" y 2 decimales.
-    expect(getByText('Talla 1.52 · Tórax 1.80 · Caña 0.19 m')).toBeTruthy();
+    const medidasLine = getByText('Talla 1.52 · Tórax 1.80 · Caña 0.19 m');
+    expect(medidasLine).toBeTruthy();
+    // Va en una sola línea, pero se auto-encoge para no truncar: en pantallas
+    // angostas (Android) la caña se cortaba ("Caña 0.…"). adjustsFontSizeToFit
+    // reduce la fuente lo justo en vez de recortar el texto.
+    expect(medidasLine.props.numberOfLines).toBe(1);
+    expect(medidasLine.props.adjustsFontSizeToFit).toBe(true);
     // Con tórax null se omite ese campo, el resto se mantiene.
     expect(getByText('Talla 1.45 · Caña 0.18 m')).toBeTruthy();
     // Sin ninguna medida no se renderiza línea alguna.

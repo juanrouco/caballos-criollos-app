@@ -855,7 +855,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
         </View>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text, marginTop: 2 }} numberOfLines={1}>{a.nombre || '—'}</Text>
         <AnimalMetaLines t={t} a={a} />
-        {!!medidas && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>{medidas}</Text>}
+        {!!medidas && <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ fontSize: 10.5, color: t.textMute, marginTop: 2 }}>{medidas}</Text>}
       </View>
       <Icon name="arrow" size={15} color={t.textDim} />
     </TouchableOpacity>
