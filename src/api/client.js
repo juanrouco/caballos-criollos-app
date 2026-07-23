@@ -16,6 +16,24 @@ export const API_BASE = __DEV__
   ? (process.env.EXPO_PUBLIC_API_BASE_DEV  || DEV_DEFAULT)
   : (process.env.EXPO_PUBLIC_API_BASE_PROD || PROD_DEFAULT);
 
+// Mensaje único para fallas de red (sin internet, DNS caído, timeout). `fetch`
+// tira un TypeError ("Network request failed") que no sirve mostrarle al
+// usuario; lo traducimos a algo accionable en español. Las pantallas ya pintan
+// e.message en sus cards de error, así que con esto muestran algo entendible.
+export const OFFLINE_MSG = 'Sin conexión. Revisá tu internet e intentá de nuevo.';
+
+// Envuelve fetch para que un fallo de red se propague como OFFLINE_MSG en vez
+// del TypeError crudo. Los errores HTTP (4xx/5xx) NO pasan por acá — esos son
+// respuestas válidas y se manejan abajo con el status.
+async function safeFetch(url, opts) {
+  try {
+    // Sin opts (GET) llamamos fetch(url) a secas — mismo shape que antes.
+    return await (opts ? fetch(url, opts) : fetch(url));
+  } catch {
+    throw new Error(OFFLINE_MSG);
+  }
+}
+
 export async function apiGet(path, params) {
   const qs = params
     ? '?' + new URLSearchParams(
@@ -24,7 +42,7 @@ export async function apiGet(path, params) {
           .map(([k, v]) => [k, String(v)])
       ).toString()
     : '';
-  const res = await fetch(`${API_BASE}${path}${qs}`);
+  const res = await safeFetch(`${API_BASE}${path}${qs}`);
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json())?.message || ''; } catch {}
@@ -34,7 +52,7 @@ export async function apiGet(path, params) {
 }
 
 export async function apiPost(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await safeFetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: body != null ? JSON.stringify(body) : undefined,

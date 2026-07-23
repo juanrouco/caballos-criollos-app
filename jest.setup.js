@@ -108,6 +108,17 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// @react-native-community/netinfo: por default reportamos "online" en test
+// (isConnected true, isInternetReachable true) para que el banner no aparezca.
+// Los tests del banner override `useNetInfo` con jest.spyOn / mockReturnValue.
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  useNetInfo: jest.fn(() => ({ isConnected: true, isInternetReachable: true })),
+  addEventListener: jest.fn(() => jest.fn()),
+  fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true })),
+  default: { addEventListener: jest.fn(() => jest.fn()), fetch: jest.fn() },
+}));
+
 // AsyncStorage: el mock oficial expone una in-memory store que reinicia
 // solo entre tests si llamás AsyncStorage.clear(). Suficiente para el
 // NotificationsContext (lee/escribe la key `notifs:lastSeenAt`).

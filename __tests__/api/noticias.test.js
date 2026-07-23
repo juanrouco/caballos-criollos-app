@@ -83,8 +83,10 @@ describe('fetchNoticiaCategorias (cache a nivel módulo)', () => {
   });
 
   test('si la primera falla, deja reintentar en la siguiente llamada', async () => {
-    fetch.mockRejectedValueOnce(new Error('boom'));
-    await expect(fetchNoticiaCategorias()).rejects.toThrow('boom');
+    // Un rechazo de fetch = falla de red; el cliente lo traduce a OFFLINE_MSG.
+    // Lo que importa acá es que el cache se limpia y la 2da llamada reintenta.
+    fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await expect(fetchNoticiaCategorias()).rejects.toThrow(/Sin conexión/);
     fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
     const r = await fetchNoticiaCategorias();
     expect(r).toEqual({ data: [] });

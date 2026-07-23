@@ -20,6 +20,7 @@ import { LiveProvider, useLive } from './src/LiveContext';
 import { NotificationsProvider } from './src/NotificationsContext';
 import { MenuProvider } from './src/MenuContext';
 import { MenuLayer } from './src/SideMenu';
+import ConnectionBanner from './src/ConnectionBanner';
 import { navigationRef } from './src/navigation';
 import { usePushNotifications } from './src/usePushNotifications';
 import HomeScreen from './src/screens/HomeScreen';
@@ -275,6 +276,9 @@ export default function App() {
             <NotificationsProvider>
               <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
               <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+                {/* Banner global de conectividad: al tope, debajo del status
+                    bar y arriba de toda la navegación. Aparece/desaparece solo. */}
+                <ConnectionBanner t={t} />
                 <NavigationContainer
                   ref={navigationRef}
                   theme={navTheme}

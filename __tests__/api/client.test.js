@@ -1,4 +1,4 @@
-import { apiGet, API_BASE } from '../../src/api/client';
+import { apiGet, apiPost, API_BASE, OFFLINE_MSG } from '../../src/api/client';
 
 const okJson = (body) => ({ ok: true, json: async () => body });
 const errJson = (status, body) => ({
@@ -64,5 +64,23 @@ describe('apiGet', () => {
       json: async () => { throw new Error('not json'); },
     });
     await expect(apiGet('/eventos')).rejects.toThrow(/HTTP 500/);
+  });
+
+  test('falla de red (fetch rechaza): traduce el TypeError a OFFLINE_MSG', async () => {
+    // Sin internet, fetch tira TypeError('Network request failed').
+    fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await expect(apiGet('/eventos')).rejects.toThrow(OFFLINE_MSG);
+  });
+
+  test('un HTTP 500 NO se confunde con offline (sigue mostrando el status, no OFFLINE_MSG)', async () => {
+    fetch.mockResolvedValueOnce(errJson(500, {}));
+    await expect(apiGet('/eventos')).rejects.toThrow(/HTTP 500/);
+  });
+});
+
+describe('apiPost', () => {
+  test('falla de red: también traduce a OFFLINE_MSG', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await expect(apiPost('/push/register', { token: 'x' })).rejects.toThrow(OFFLINE_MSG);
   });
 });
