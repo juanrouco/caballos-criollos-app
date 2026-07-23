@@ -30,6 +30,7 @@ describe('HorseDetailScreen', () => {
     fetchAnimalPedigree.mockResolvedValueOnce({
       animal: {
         id: 'pdre:cache-1', nombre: 'MALACARA REGENTE', sexo: 'M', rp: '847291', sba: 108837,
+        fecha_nacimiento: '1985-09-12', pelaje: 'Gateado',
         propietario: { numero: '301', nombre: 'SOLANET, CARLOS A.' },
         criador: { numero: '1963', nombre: 'LOS POTRERITOS' },
       },
@@ -43,6 +44,11 @@ describe('HorseDetailScreen', () => {
     );
     expect(await findByText('MALACARA REGENTE')).toBeTruthy();
     expect(getByText(/R\.P\. 847291 · S\.B\.A\. 108837/)).toBeTruthy();
+    // Fecha de nacimiento: celda "Nacimiento" con la fecha en formato DD/MM/YYYY.
+    expect(getByText('Nacimiento')).toBeTruthy();
+    expect(getByText('12/09/1985')).toBeTruthy();
+    expect(getByText('Pelaje')).toBeTruthy();
+    expect(getByText('Gateado')).toBeTruthy();
     expect(getByText('SOLANET, CARLOS A.')).toBeTruthy();
     expect(getByText(/N° 301/)).toBeTruthy();
     expect(getByText('Criador')).toBeTruthy();

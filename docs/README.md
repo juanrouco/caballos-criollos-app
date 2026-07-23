@@ -149,6 +149,8 @@ Devuelve el animal raíz y su árbol de ancestros (4 generaciones: padre, abuelo
     "rp": "3",
     "sexo": "M",
     "raza": 200,
+    "fecha_nacimiento": "1985-09-12",
+    "pelaje": "Gateado",
     "propietario": { "numero": "376", "nombre": "HERMANAS BUSQUET" },
     "criador": { "numero": "1963", "nombre": "LOS POTRERITOS" }
   },
@@ -170,6 +172,7 @@ Devuelve el animal raíz y su árbol de ancestros (4 generaciones: padre, abuelo
 ```
 
 - El `animal` raíz trae `propietario` **y** `criador` (`{numero, nombre}` o `null`). El criador sale del campo `CRIA` del stud book, resuelto contra `tblPropietarios` (criadores y propietarios son socios de la misma tabla). Sólo va en el raíz, no en los ancestros.
+- El `animal` raíz también trae `fecha_nacimiento` (`YYYY-MM-DD` o `null`, desde `FNAC`) y `pelaje` (nombre del color o `null`, resuelto contra `tblPelos` por el código `CPEL`). Sólo van en el raíz, no en los ancestros.
 - Cada nodo del árbol (`padre` / `madre`) tiene shape mínimo: `id`, `fuente`, `nombre`, `sba`, `rp`, `sexo`, `raza` + sus propios `padre`/`madre`.
 - Ancestros desconocidos: `null`.
 - Los nodos del último nivel (tatarabuelos) traen `padre: null` y `madre: null` sin recurse más profundo.
@@ -685,13 +688,13 @@ Mapeo de `premio.tipo_id`:
 | 4 | Menciones | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 | 5 | Sin Premio | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 
-**Subcategorías**: no se guardan, se calculan. Por cada categoría se toman **todos** los animales que asistieron y no fueron rechazados — tengan premio de categoría (tipos 3/4/5) o no (esos salen con `premio: null`) — se ordenan por **box ascendente** y se parten en subcategorías lo más **parejas** posible, con un máximo de 6 por subcategoría. La cantidad de subcategorías es `ceil(n/6)` y los animales se reparten equilibradamente; si no divide exacto, las primeras subcategorías tienen un animal más. Ej: 8 → `[4,4]`; 9 → `[5,4]`; 13 → `[5,4,4]`; 12 → `[6,6]`; 23 → `[6,6,6,5]`. Los animales sin box quedan al final. **La membresía de cada subcategoría se define por box, pero adentro los `premios` vienen ordenados por premio**: primero por tipo (Premios < Menciones < Sin Premio, y los sin premio al final), después por jerarquía dentro del tipo (1° < 2° < 3° < … vía `IdPremio`) y puntaje como desempate. Si un animal tiene el mismo resultado cargado más de una vez (fila duplicada) o varios premios en la misma categoría, sólo se devuelve uno (el de mayor jerarquía: menor `tipo_id` gana).
+**Subcategorías**: no se guardan, se calculan. Por cada categoría se toman **todos** los animales que asistieron y no fueron rechazados — tengan premio de categoría (tipos 3/4/5) o no (esos salen con `premio: null`) — se ordenan por **box ascendente** y se parten en subcategorías lo más **parejas** posible, con un máximo de 6 por subcategoría. La cantidad de subcategorías es `ceil(n/6)` y los animales se reparten equilibradamente; si no divide exacto, las primeras subcategorías tienen un animal más. Ej: 8 → `[4,4]`; 9 → `[5,4]`; 13 → `[5,4,4]`; 12 → `[6,6]`; 23 → `[6,6,6,5]`. Los animales sin box quedan al final. **La membresía de cada subcategoría se define por box, pero adentro los `premios` vienen ordenados por premio**: primero por tipo (Premios < Menciones < Sin Premio, y los sin premio al final), después por jerarquía dentro del tipo (1° < 2° < 3° < … vía `IdPremio`), puntaje, y a igual logro el **número de box ascendente** como desempate final. Si un animal tiene el mismo resultado cargado más de una vez (fila duplicada) o varios premios en la misma categoría, sólo se devuelve uno (el de mayor jerarquía: menor `tipo_id` gana).
 
 **Campeonato de morfología** (`tipo_id` = 2): las categorías que sólo difieren en la modalidad (Montado/Cabestro) compiten **unificadas**. Se agrupan por (`Desde`, `Hasta`, `Sexo`, `RestaDesde`, `RestaHasta`) y se exponen como `{ categoria, resultados }`, donde `categoria` es el nombre unificado (sin el número ni la modalidad, ej. `"Categ. 4 - Padrillo - 3 años Montado"` + `"Categ. 5 - Padrillo - 3 años Cabestro"` → `"Categ. Padrillo - 3 años"`). El `gran_campeonato` queda agrupado por sexo (premio cross-categorías).
 
 **Campeonato de tipo y aptitud**: se agrupa por sexo (sin cambios). La columna `Campeonato` de `tblInscripcionResultadosTipoAptitud` marca las rows de campeonato cross-categoría. Sólo las `categorias` de TyA usan el tratamiento de subcategorías/ausentes/rechazados.
 
-Los ausentes/rechazados salen de una query aparte (`findAsistencia`, best-effort: si falla, las categorías salen igual sólo con sus premiados). Se rutean a morfología o TyA según el `TipoAptitud` de su categoría. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`.
+Los ausentes/rechazados salen de una query aparte (`findAsistencia`, best-effort: si falla, las categorías salen igual sólo con sus premiados). Se rutean a morfología o TyA según el `TipoAptitud` de su categoría. El orden de sexos dentro de `campeonato` / `gran_campeonato` es estable: primero `M`, luego `H`, luego `C`. Dentro de cada grupo los resultados van por logro (premio/puntaje) y, **a igual logro, por número de box ascendente** (los sin box, al final).
 
 Si el evento no tiene resultados, devuelve el shape vacío con los arrays vacíos en cada disciplina.
 

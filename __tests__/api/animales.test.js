@@ -9,6 +9,8 @@ describe('mapAnimalPedigree', () => {
         sba: 6598,
         rp: '3',
         sexo: 'M',
+        fecha_nacimiento: '1985-09-12',
+        pelaje: 'Gateado',
         propietario: { numero: '376', nombre: 'HERMANAS BUSQUET' },
         criador: { numero: '1963', nombre: 'LOS POTRERITOS' },
       },
@@ -18,6 +20,8 @@ describe('mapAnimalPedigree', () => {
     expect(h.id).toBe('pdre:1000');
     expect(h.name).toBe('FERMIN REMOLON');
     expect(h.sex).toBe('Macho');
+    expect(h.born).toBe('1985-09-12');
+    expect(h.pelaje).toBe('Gateado');
     expect(h.rp).toBe('3');
     expect(h.sba).toBe('6598');
     expect(h.propietario).toBe('HERMANAS BUSQUET');
@@ -73,5 +77,11 @@ describe('mapAnimalPedigree', () => {
     const h = mapAnimalPedigree({ animal: {}, pedigree: {} });
     expect(h.rp).toBe('');
     expect(h.sba).toBe('');
+  });
+
+  test('fecha_nacimiento / pelaje null quedan como string vacío (celdas ocultas)', () => {
+    const h = mapAnimalPedigree({ animal: { fecha_nacimiento: null, pelaje: null }, pedigree: {} });
+    expect(h.born).toBe('');
+    expect(h.pelaje).toBe('');
   });
 });
