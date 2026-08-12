@@ -1132,7 +1132,6 @@ Ej: `GET /rankings/freno?anio=2026&categoria=23`
     { "key": "position", "label": "#" },
     { "key": "sba", "label": "SBA" },
     { "key": "animal", "label": "Animal" },
-    { "key": "inspection", "label": "AF" },
     { "key": "rider", "label": "Jinete" },
     { "key": "ownet", "label": "Propietario" },
     { "key": "event", "label": "Evento" },
@@ -1141,7 +1140,7 @@ Ej: `GET /rankings/freno?anio=2026&categoria=23`
   ],
   "filas": [
     { "position": 1, "idAnimal": 1000, "tabla": "IdPdre", "animalId": "pdre:1000",
-      "sba": "3501 D", "animal": "CARDAL X", "inspection": "Si",
+      "sba": "3501 D", "animal": "CARDAL X",
       "rider": "Juan", "ownet": "Cabaña Z", "event": "Expo Nacional", "date": "01/03/2026", "points": 87.5 }
   ],
   "meta": { "count": 1, "filtros": { "anio": 2026, "categoria": 23 } }

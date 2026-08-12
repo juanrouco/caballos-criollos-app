@@ -97,13 +97,12 @@ export default function RankingCatScreen({ t, navigation, route }) {
     ].filter(Boolean).join('  ·  ');
     return [l1, clean(fila.propietario) && `Propietario: ${clean(fila.propietario)}`, clean(fila.evento)].filter(Boolean);
   };
-  // Freno de Oro: 1ª línea SBA · RP · AF, 2ª jinete, 3ª propietario. El puntaje
-  // va arriba a la derecha (points).
+  // Freno de Oro: 1ª línea SBA · RP, 2ª jinete, 3ª propietario. El puntaje
+  // va arriba a la derecha (points). Sin AF: la API dejó de exponerlo.
   const frenoLines = (fila) => {
     const l1 = [
       clean(fila.sba) && `SBA ${clean(fila.sba)}`,
       clean(fila.rp) && `RP ${clean(fila.rp)}`,
-      clean(fila.inspection) && `AF ${clean(fila.inspection)}`,
     ].filter(Boolean).join('  ·  ');
     return [
       l1,
