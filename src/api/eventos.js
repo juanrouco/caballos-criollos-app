@@ -4,6 +4,11 @@ export const fetchEventos           = (params) => apiGet('/eventos', params);
 export const fetchEvento            = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}`);
 export const fetchEventoCatalogo    = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/catalogo`);
 export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/resultados`);
+// Desagregado de UN resultado (los sub-puntajes que suman el total).
+// prueba: 'fzb' | 'corral_aparte' | 'rodeos'. target: id de animal compuesto
+// (fzb/corral) o IdEquipo (rodeos). Ver docs/README.md.
+export const fetchResultadoDetalle  = (id, prueba, target) =>
+  apiGet(`/eventos/${encodeURIComponent(id)}/resultados/${encodeURIComponent(prueba)}/${encodeURIComponent(target)}`);
 
 // Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales
 // (o yuntas para rodeos / equipos para aparte campero, que usan esos shapes

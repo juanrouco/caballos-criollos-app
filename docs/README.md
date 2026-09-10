@@ -890,6 +890,100 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - `animales`: los animales del equipo (`IdEquipo`), cada uno con su `jinete` dentro (igual que en rodeos/corral).
 - Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 6`).
 
+#### `GET /eventos/{id}/resultados/{prueba}/{target}`
+
+Desagregado (detalle) de **un** resultado: muestra los sub-puntajes que suman el
+`total`. Pensado para el detalle al hacer clic en un resultado del endpoint de
+resultados. `Cache-Control: public`.
+
+- `{prueba}`: `fzb` | `corral_aparte` | `rodeos`.
+- `{target}`:
+  - para `fzb` y `corral_aparte` → **id de animal** (mismo formato compuesto que
+    el resto de la API: `pdre:12345`, `exis:9999`, `extr:777`).
+  - para `rodeos` → **`IdEquipo`** (entero).
+
+Errores: `400` si la prueba no está soportada o el `target` tiene formato
+inválido; `404` si el evento no tiene inscripciones o no hay resultado para ese
+animal/equipo.
+
+**`fzb`** — los 9 rubros del reglamento suman el `total`:
+
+```json
+{
+  "prueba":    { "id": 1, "nombre": "F.Z.B." },
+  "categoria": { "id": 7, "nombre": "B" },
+  "clasificacion": "Final",
+  "cantidad_clasificatoria": null,
+  "animal": { "id": "pdre:121734", "nombre": "...", "jinete": { "...": "..." }, "...": "..." },
+  "total": 43.5,
+  "puesto": null,
+  "detalle": {
+    "rubros": {
+      "morfologia": 0, "andares": 6, "rayada": 8, "troya": 6, "ocho": 5.5,
+      "volapie": 8.5, "vuelta": 0, "desmontar": 4, "retroceso": 5.5
+    },
+    "total": 43.5
+  }
+}
+```
+
+**`corral_aparte`** — dos rondas; cada ronda con sus 3 apartes (`aparte` + 2
+`apretadas` = `subtotal`), la `morfologia` y el `total` de ronda. La suma de los
+`total` de ronda da el `total` general:
+
+```json
+{
+  "prueba":    { "id": 3, "nombre": "Corral de aparte" },
+  "categoria": { "id": 10, "nombre": "B" },
+  "animal": { "id": "pdre:88846", "...": "..." },
+  "total": 31, "puesto": null,
+  "detalle": {
+    "rondas": [
+      {
+        "ronda": 1,
+        "apartes": [
+          { "aparte": 8,   "apretadas": [2.5, 1.5], "subtotal": 12 },
+          { "aparte": 7.5, "apretadas": [0.5, 0.5], "subtotal": 8.5 },
+          { "aparte": 9,   "apretadas": [0.5, 1],   "subtotal": 10.5 }
+        ],
+        "morfologia": 0, "total": 31, "puesto": null
+      },
+      { "ronda": 2, "apartes": [ /* ... */ ], "morfologia": null, "total": 0, "puesto": null }
+    ],
+    "total": 31
+  }
+}
+```
+
+**`rodeos`** — devuelve la yunta donde participa el equipo, con el desagregado
+**vaca por vaca** por día, handicaps, morfología y totales. El `detalle` es el
+mismo objeto `yunta` del shape de `rodeos` del endpoint de resultados (`vacas`,
+`handicaps`, `totales`, `puesto`, `animales`, `equipo`/`equipo2`):
+
+```json
+{
+  "prueba":    { "id": 2, "nombre": "Rodeos" },
+  "categoria": { "id": 1, "nombre": "A" },
+  "clasificacion": "CopaEspecial",
+  "equipo": { "id": 223, "animales": [ /* ... */ ] },
+  "detalle": {
+    "totales":   { "dia1": 50.5, "dia2": null, "total_handicap_1": null, "...": "..." },
+    "puesto":    { "general": 8, "handicap": null, "c": null },
+    "handicaps": { "morfologia_1": 6, "morfologia_2": 8.5, "...": "..." },
+    "vacas":     { "dia1": [0, 0, 15, 10, 3, 8, 0, 0, null, null, null, null], "dia2": null, "extras": { "...": "..." } },
+    "animales":  [ /* ... */ ],
+    "equipo": { "...": "..." }, "equipo2": { "...": "..." }
+  }
+}
+```
+
+Notas:
+- El match del equipo se hace contra el `IdEquipo`/`IdEquipo2` **crudo** de las
+  filas; si `tblEquiposRodeosAnimales` no tiene los animales cargados,
+  `equipo.animales` sale vacío pero el resto del desagregado igual se informa.
+- Solo yuntas con `IdEquipo` cargado son consultables por este endpoint (las que
+  se parean por `YuntaIdAnimal` sin equipo no tienen id de equipo).
+
 ---
 
 ### Imágenes optimizadas

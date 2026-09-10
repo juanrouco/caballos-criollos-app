@@ -386,6 +386,66 @@ describe('EventDetailScreen', () => {
     expect(getByText('18.841')).toBeTruthy(); // freno puntúa con 3 decimales
   });
 
+  test('fzb y corral: tocar la fila abre el detalle del resultado; freno sigue al pedigree', async () => {
+    const nav = navStub();
+    fetchEvento.mockResolvedValueOnce(evento({ id: 350 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      corral_aparte: {
+        pruebas: [{
+          prueba: { id: 3, nombre: 'Corral de aparte' },
+          categoria: { id: 9, nombre: 'A' },
+          clasificacion: 'Clasificatoria',
+          resultados: [{ puesto: 1, total: 30, animal: { id: 'exis:9', nombre: 'Corral Animal' } }],
+        }],
+      },
+      fzb: {
+        pruebas: [{
+          prueba: { id: 1, nombre: 'F.Z.B.' },
+          categoria: { id: 6, nombre: 'A' },
+          clasificacion: 'Clasificatoria',
+          resultados: [{ puesto: 2, total: 40, animal: { id: 'exis:2', nombre: 'Fzb Animal' } }],
+        }],
+      },
+      freno_oro: {
+        pruebas: [{
+          prueba: { id: 5, nombre: 'Freno de Oro' },
+          categoria: { id: 23, nombre: 'Hembras' },
+          clasificacion: 'Clasificatoria',
+          resultados: [{ puesto: 1, total: 18.841, animal: { id: 'exis:5', nombre: 'Freno Animal' } }],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={nav} route={routeStub({ id: 350 })} />,
+    );
+    // Corral (sub-tab default): la fila abre el detalle del resultado.
+    fireEvent.press(await findByText('Categoría A · Clasificatoria'));
+    fireEvent.press(await findByText('Corral Animal'));
+    expect(nav.navigate).toHaveBeenCalledWith('ResultDetail', {
+      eventoId: 350,
+      prueba: 'corral_aparte',
+      pruebaNombre: 'Corral de aparte',
+      categoriaTitle: 'Categoría A · Clasificatoria',
+      clasificacion: 'Clasificatoria',
+      resultado: { puesto: 1, total: 30, animal: { id: 'exis:9', nombre: 'Corral Animal' } },
+    });
+    // F.Z.B.: ídem con su prueba.
+    fireEvent.press(getByText('F.Z.B.'));
+    fireEvent.press(await findByText('Categoría A · Clasificatoria'));
+    fireEvent.press(await findByText('Fzb Animal'));
+    expect(nav.navigate).toHaveBeenCalledWith('ResultDetail', expect.objectContaining({
+      eventoId: 350,
+      prueba: 'fzb',
+      pruebaNombre: 'F.Z.B.',
+    }));
+    // Freno de Oro: sin desagregado en la API → sigue al pedigree.
+    fireEvent.press(getByText('Freno de Oro'));
+    fireEvent.press(await findByText('Categoría Hembras · Clasificatoria'));
+    fireEvent.press(await findByText('Freno Animal'));
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:5' });
+  });
+
   test('resultados con aparte campero: acordeón por categoría y equipos con rondas', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 347 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
@@ -421,7 +481,8 @@ describe('EventDetailScreen', () => {
     const { findByText, getByText, queryByText } = render(
       <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 347 })} />,
     );
-    // Única sección → sin sub-tabs; card acordeón colapsado con conteo de equipos.
+    // Aun con una única sección se muestra la sub-tab (hace de título).
+    expect(await findByText('Aparte Campero')).toBeTruthy();
     expect(await findByText('Categoría A · Clasificatoria')).toBeTruthy();
     expect(getByText('2 equipos')).toBeTruthy();
     expect(queryByText('Aparte Uno')).toBeNull();

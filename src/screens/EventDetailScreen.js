@@ -236,6 +236,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
             {activeTab === 'resultados' && (
               <ResultsTab
                 t={t}
+                eventoId={id}
                 resultados={resultados}
                 navigation={navigation}
                 onRefresh={refreshResultados}
@@ -531,7 +532,7 @@ function AnimalMetaLines({ t, a }) {
 // "Prepotranca" (no se mezclan con los campeones de su sexo).
 const SEX_LABEL = { M: 'Machos', H: 'Hembras', C: 'Castrados', Prepotrillo: 'Prepotrillos', Prepotranca: 'Prepotrancas' };
 
-function ResultsTab({ t, resultados, navigation, onRefresh, refreshing }) {
+function ResultsTab({ t, eventoId, resultados, navigation, onRefresh, refreshing }) {
   if (resultados === null) return <TabLoading t={t} />;
   if (isEmptyResults(resultados)) {
     return (
@@ -546,6 +547,7 @@ function ResultsTab({ t, resultados, navigation, onRefresh, refreshing }) {
   return (
     <ResultsContent
       t={t}
+      eventoId={eventoId}
       resultados={resultados}
       navigation={navigation}
       onRefresh={onRefresh}
@@ -572,7 +574,7 @@ function RefreshButton({ t, onPress, loading }) {
 
 // Separamos el contenido del tab del wrapper de loading/empty para no llamar
 // hooks condicionalmente cuando los resultados todavía no llegaron.
-function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
+function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refreshing }) {
   const sections = React.useMemo(() => {
     const all = [
       { key: 'morfologia',    label: 'Morfología',     kind: 'std',    data: resultados.morfologia },
@@ -603,22 +605,22 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
 
   return (
     <View style={{ marginTop: 18 }}>
-      {sections.length > 1 && (
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-          {sections.map((s) => {
-            const on = current.key === s.key;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                onPress={() => setActive(s.key)}
-                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
-              >
-                <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{s.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+      {/* Las sub-tabs se muestran siempre (aun con una sola prueba): sirven
+          de título de la sección que se está viendo. */}
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {sections.map((s) => {
+          const on = current.key === s.key;
+          return (
+            <TouchableOpacity
+              key={s.key}
+              onPress={() => setActive(s.key)}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: on ? t.accent : 'transparent', borderWidth: 1, borderColor: on ? t.accent : t.border }}
+            >
+              <Text style={{ color: on ? t.bg : t.textMute, fontFamily: F.bodyBold, fontSize: 12 }}>{s.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
       {/* Refrescar debajo de las sub-tabs, alineado a la derecha, para no
           robarles ancho. */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -636,6 +638,13 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
             ? <CorralSection
                 t={t}
                 pruebas={(current.data.pruebas || []).filter((p) => (p.resultados || []).length > 0)}
+                // F.Z.B. y corral de aparte abren el detalle del resultado al
+                // tocar la fila (freno sigue al pedigree: su endpoint de
+                // desagregado no existe todavía). El objeto lleva lo que
+                // ResultDetail necesita para pedir el desagregado.
+                openDetail={current.key === 'fzb' || current.key === 'corral_aparte'
+                  ? { eventoId, prueba: current.key === 'fzb' ? 'fzb' : 'corral_aparte' }
+                  : undefined}
                 navigation={navigation}
               />
             : <AparteSection
@@ -1105,7 +1114,7 @@ function RodeoAnimalRow({ t, a, navigation }) {
 // A diferencia de rodeos es individual (un animal/jinete por resultado, sin
 // yuntas ni equipos). Un card acordeón por prueba+categoría; adentro, una fila
 // por resultado con puesto, animal, jinete y total.
-function CorralSection({ t, pruebas, navigation }) {
+function CorralSection({ t, pruebas, openDetail, navigation }) {
   return (
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
@@ -1124,6 +1133,15 @@ function CorralSection({ t, pruebas, navigation }) {
             title={title}
             prueba={p}
             featured={featured}
+            // Tocar una fila abre el detalle del resultado en vez del pedigree.
+            onPressResult={openDetail ? (r) => navigation.navigate('ResultDetail', {
+              eventoId: openDetail.eventoId,
+              prueba: openDetail.prueba,
+              pruebaNombre: p.prueba?.nombre,
+              categoriaTitle: title,
+              clasificacion: p.clasificacion,
+              resultado: r,
+            }) : undefined}
             navigation={navigation}
           />
         );
@@ -1132,7 +1150,7 @@ function CorralSection({ t, pruebas, navigation }) {
   );
 }
 
-function CorralCard({ t, title, prueba, featured, navigation }) {
+function CorralCard({ t, title, prueba, featured, onPressResult, navigation }) {
   const [open, setOpen] = React.useState(false);
   const resultados = prueba.resultados || [];
   if (resultados.length === 0) return null;
@@ -1154,7 +1172,7 @@ function CorralCard({ t, title, prueba, featured, navigation }) {
         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
           {resultados.map((r, i) => (
             <View key={`r-${r.animal?.id ?? i}`}>
-              <CorralResultRow t={t} r={r} fallbackRank={i + 1} navigation={navigation} />
+              <CorralResultRow t={t} r={r} fallbackRank={i + 1} onPressResult={onPressResult} navigation={navigation} />
               {i < resultados.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
             </View>
           ))}
@@ -1164,14 +1182,17 @@ function CorralCard({ t, title, prueba, featured, navigation }) {
   );
 }
 
-function CorralResultRow({ t, r, fallbackRank, navigation }) {
+function CorralResultRow({ t, r, fallbackRank, onPressResult, navigation }) {
   const a = r.animal || {};
   const rank = r.puesto ?? fallbackRank;
   const top = rank === 1;
   const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
   const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
+  // Con onPressResult la fila abre el detalle del resultado (y el pedigree se
+  // ve desde ahí); sin él, va directo al pedigree como antes.
+  const onPress = onPressResult ? () => onPressResult(r) : () => a.id && navigation.navigate('HorseDetail', { id: a.id });
   return (
-    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text numberOfLines={1} allowFontScaling={false} style={{ width: 38, fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text, textAlign: 'center' }}>{rank}°</Text>
       <View style={{ width: 1, height: 28, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
