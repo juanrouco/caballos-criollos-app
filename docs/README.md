@@ -676,6 +676,9 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
   },
   "freno_oro": {
     "pruebas": [ /* mismo shape que corral_aparte (individual) */ ]
+  },
+  "copa_incentivo": {
+    "pruebas": [ /* mismo shape que corral_aparte (individual) */ ]
   }
 }
 ```
@@ -855,6 +858,8 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - `total`: `(float|null)`. El jinete va dentro de `animal.jinete` (igual que en rodeos).
 - Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3` para corral, `= 1` para fzb, `= 5` para freno_oro). `fzb` y `freno_oro` usan el mismo objeto por resultado (`{ puesto, total, animal }`).
 
+**Shape de `copa_incentivo`** (Copa Incentivo de Oro, "CIO"): es una **categoría de la prueba Freno de Oro** (`IdEventosFuncionalesPrueba = 5`, categorías 30/31/32/34/35/36) pero con **carga de resultados propia**, en `tblInscripcionResultadosCio` (no en la tabla del freno clásico). Por eso va en una clave aparte, aunque comparte exactamente el mismo shape individual que `freno_oro` (`{ puesto, total, animal }`, agrupado por categoría, ordenado por `total` descendente). No hay solapamiento con `freno_oro`: cada uno lee su propia tabla, así que las categorías CIO **no** aparecen en `freno_oro` ni viceversa.
+
 **Shape de `aparte_campero`** (prueba funcional `IdEventosFuncionalesPrueba = 6`): es **por equipo** (una tropilla de animales que aparta junta; la tabla guarda una fila por animal con los datos del equipo copiados). El puntaje es **TIEMPO** (segundos), no puntos: gana el de **menor** tiempo. Agrupa por prueba + categoría, y dentro de cada categoría los equipos vienen ordenados por `tiempo` ascendente (los que no corrieron van al final).
 
 ```json
@@ -899,10 +904,11 @@ Desagregado (detalle) de **un** resultado: muestra los sub-puntajes que suman el
 `total`. Pensado para el detalle al hacer clic en un resultado del endpoint de
 resultados. `Cache-Control: public`.
 
-- `{prueba}`: `fzb` | `corral_aparte` | `rodeos`.
+- `{prueba}`: `fzb` | `corral_aparte` | `copa_incentivo` | `rodeos`.
 - `{target}`:
-  - para `fzb` y `corral_aparte` → **id de animal** (mismo formato compuesto que
-    el resto de la API: `pdre:12345`, `exis:9999`, `extr:777`).
+  - para `fzb`, `corral_aparte` y `copa_incentivo` → **id de animal** (mismo
+    formato compuesto que el resto de la API: `pdre:12345`, `exis:9999`,
+    `extr:777`).
   - para `rodeos` → **`IdEquipo`** (entero).
 
 Errores: `400` si la prueba no está soportada o el `target` tiene formato
@@ -957,6 +963,55 @@ animal/equipo.
   }
 }
 ```
+
+**`copa_incentivo`** (Copa Incentivo de Oro) — la planilla se organiza en
+**bloques**; cada rubro tiene sus dos vueltas (`v1`, `v2`) y un `total`
+ponderado. Los `parciales` (`total1..4`) son los promedios acumulados que se van
+sumando bloque a bloque, y `total` es el promedio final (÷7):
+
+```json
+{
+  "prueba":    { "id": 5, "nombre": "Freno de Oro" },
+  "categoria": { "id": 35, "nombre": "Copa Incentivo de Oro – Jinetes amateur" },
+  "clasificacion": "Clasificatoria",
+  "animal": { "id": "pdre:120174", "...": "..." },
+  "total": 10.55, "puesto": null,
+  "detalle": {
+    "bloques": {
+      "morfologia": { "v1": 8, "v2": null, "total": 8 },
+      "andares": {
+        "tranco": { "v1": 7,   "v2": null, "total": 2.8 },
+        "trote":  { "v1": 6.5, "v2": null, "total": 4.55 },
+        "galope": { "v1": 7.5, "v2": null, "total": 3 },
+        "total": 10.35
+      },
+      "figura": { "v1": 8, "v2": null, "total": 12 },
+      "esb": {
+        "vsp":     { "v1": 7,   "v2": null, "total": 3.5 },
+        "rayada1": { "v1": 6,   "v2": null, "total": 3 },
+        "rayada2": { "v1": 6.5, "v2": null, "total": 3.25 },
+        "total": 9.75
+      },
+      "escaramuza": { "v1": 8.5, "v2": null, "total": 12.75 },
+      "bayard":     { "v1": 7.5, "v2": null, "total": 11.25 },
+      "campo": {
+        "paleteada1": { "v1": 6, "v2": null, "total": 4.5 },
+        "paleteada2": { "v1": 7, "v2": null, "total": 5.25 },
+        "total": 9.75
+      }
+    },
+    "parciales": { "total1": 10.117, "total2": 10.025, "total3": 10.57, "total4": 10.68 },
+    "total": 10.55
+  }
+}
+```
+
+- `v2` trae la segunda vuelta solo en instancias `Final` (en clasificatoria queda
+  en `null`). Cada `total` de rubro ya viene ponderado (los coeficientes del
+  reglamento) y los de bloque (`andares`, `esb`, `campo`) son la suma de sus
+  rubros. Los `parciales` acumulan Morfología+Andares+Figura (`total1`, ÷3), +ESB
+  (`total2`, ÷4), +Escaramuza (`total3`, ÷5), +Bayard (`total4`, ÷6), y `total`
+  suma Campo (÷7).
 
 **`rodeos`** — devuelve la yunta donde participa el equipo, con el desagregado
 **vaca por vaca** por día, handicaps, morfología y totales. El `detalle` es el

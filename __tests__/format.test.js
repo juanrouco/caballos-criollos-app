@@ -1,4 +1,18 @@
-import { formatDate, formatDateLong } from '../src/format';
+import { formatDate, formatDateLong, fixCp1252 } from '../src/format';
+
+describe('fixCp1252', () => {
+  test('mapea los bytes de control cp1252 a su caracter Unicode', () => {
+    expect(fixCp1252('Copa Incentivo de Oro \u0096 Jinetes amateur'))
+      .toBe('Copa Incentivo de Oro \u2013 Jinetes amateur');
+    expect(fixCp1252('dijo \u0093hola\u0094\u0085')).toBe('dijo \u201Chola\u201D\u2026');
+  });
+
+  test('controles sin mapeo se eliminan; texto normal queda igual', () => {
+    expect(fixCp1252('a\u0081b')).toBe('ab');
+    expect(fixCp1252('Categoria A · Clasificatoria')).toBe('Categoria A · Clasificatoria');
+    expect(fixCp1252(null)).toBe('');
+  });
+});
 
 describe('formatDate', () => {
   test('YYYY-MM-DD → DD/MM/YYYY', () => {

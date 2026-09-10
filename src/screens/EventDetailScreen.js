@@ -4,7 +4,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
-import { formatDate, formatDateLong } from '../format';
+import { formatDate, formatDateLong, fixCp1252 } from '../format';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   isEmptyCatalog, isEmptyResults, mapEvent, imgUrl, categoriaEntries,
@@ -586,6 +586,8 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
       // shape de corral (pruebas individuales).
       { key: 'fzb', label: 'F.Z.B.', kind: 'corral', data: resultados.fzb },
       { key: 'freno_oro', label: 'Freno de Oro', kind: 'corral', data: resultados.freno_oro },
+      // CIO: categoría del Freno de Oro con carga de resultados propia.
+      { key: 'copa_incentivo', label: 'Copa Incentivo', kind: 'corral', data: resultados.copa_incentivo },
     ];
     return all.filter((s) => s.data && !isSectionEmpty(s));
   }, [resultados]);
@@ -641,12 +643,12 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
             ? <CorralSection
                 t={t}
                 pruebas={(current.data.pruebas || []).filter((p) => (p.resultados || []).length > 0)}
-                // F.Z.B. y corral de aparte abren el detalle del resultado al
-                // tocar la fila (freno sigue al pedigree: su endpoint de
-                // desagregado no existe todavía). El objeto lleva lo que
-                // ResultDetail necesita para pedir el desagregado.
-                openDetail={current.key === 'fzb' || current.key === 'corral_aparte'
-                  ? { eventoId, prueba: current.key === 'fzb' ? 'fzb' : 'corral_aparte' }
+                // F.Z.B., corral de aparte y Copa Incentivo abren el detalle
+                // del resultado al tocar la fila (freno sigue al pedigree: su
+                // endpoint de desagregado no existe todavía). El objeto lleva
+                // lo que ResultDetail necesita para pedir el desagregado.
+                openDetail={['fzb', 'corral_aparte', 'copa_incentivo'].includes(current.key)
+                  ? { eventoId, prueba: current.key }
                   : undefined}
                 navigation={navigation}
               />
@@ -1150,10 +1152,16 @@ function CorralSection({ t, pruebas, openDetail, navigation }) {
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
         // Las categorías del corral suelen llamarse "A" / "B" / "C" a secas;
-        // les anteponemos "Categoría" salvo que ya vengan con un nombre largo.
-        const nom = p.categoria?.nombre;
+        // les anteponemos "Categoría" salvo que ya vengan con nombre propio
+        // (ej. "Categ. ..."). fixCp1252 limpia los guiones mal codificados que
+        // trae el backend en los nombres CIO. En CIO el nombre repite la
+        // prueba ("Copa Incentivo de Oro – ..."): se recorta y queda solo la
+        // subcategoría ("Jinetes menores"), sin el prefijo "Categoría".
+        let nom = p.categoria?.nombre != null ? fixCp1252(p.categoria.nombre) : null;
+        const esCio = !!nom && /^copa incentivo de oro/i.test(nom);
+        if (esCio) nom = nom.replace(/^copa incentivo de oro\s*[–—-]\s*/i, '').trim() || nom;
         const catName = nom
-          ? (/^categ/i.test(String(nom)) ? String(nom) : `Categoría ${nom}`)
+          ? ((esCio || /^categ/i.test(nom)) ? nom : `Categoría ${nom}`)
           : (p.prueba?.nombre || 'Corral de aparte');
         const title = p.clasificacion ? `${catName} · ${p.clasificacion}` : catName;
         const featured = p.clasificacion === 'Final';

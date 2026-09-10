@@ -177,6 +177,47 @@ describe('ResultDetailScreen', () => {
     expect(queryByText('Morfología')).toBeNull();
   });
 
+  test('copa incentivo: planilla con las medias por sección y el total', async () => {
+    fetchResultadoDetalle.mockResolvedValueOnce({
+      prueba: { id: 5, nombre: 'Freno de Oro' },
+      categoria: { id: 35, nombre: 'Copa Incentivo de Oro – Jinetes amateur' },
+      clasificacion: 'Clasificatoria',
+      total: 10.55,
+      detalle: {
+        bloques: {
+          morfologia: { v1: 8, v2: null, total: 8 },
+          andares: { tranco: { v1: 7, v2: null, total: 2.8 }, total: 10.35 },
+          figura: { v1: 8, v2: null, total: 12 },
+          esb: { vsp: { v1: 7, v2: null, total: 3.5 }, total: 9.75 },
+          escaramuza: { v1: 8.5, v2: null, total: 12.75 },
+          bayard: { v1: 7.5, v2: null, total: 11.25 },
+          campo: { paleteada1: { v1: 6, v2: null, total: 4.5 }, total: 9.8 },
+        },
+        parciales: { total1: 10.117 },
+        total: 10.55,
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <ResultDetailScreen t={T} navigation={navStub()} route={routeStub({ ...PARAMS, prueba: 'copa_incentivo' })} />,
+    );
+    expect(await findByText('Planilla')).toBeTruthy();
+    expect(fetchResultadoDetalle).toHaveBeenCalledWith(2159, 'copa_incentivo', 'exis:117453');
+    // Sólo las medias por sección + Total; los rubros/vueltas no se muestran.
+    expect(getByText('Media Morfología')).toBeTruthy();
+    expect(getByText('8')).toBeTruthy();
+    expect(getByText('Media Andares')).toBeTruthy();
+    expect(getByText('10.35')).toBeTruthy();
+    expect(getByText('Media esb / vsp')).toBeTruthy();
+    expect(getByText('9.75')).toBeTruthy();
+    expect(getByText('Media Campo')).toBeTruthy();
+    expect(getByText('9.8')).toBeTruthy();
+    expect(getByText('Total')).toBeTruthy();
+    expect(getByText('10.55')).toBeTruthy();
+    expect(queryByText('Figura')).toBeNull();
+    expect(queryByText('Escaramuza')).toBeNull();
+    expect(queryByText('12.75')).toBeNull();
+  });
+
   const YUNTA = {
     puesto: { general: 2, handicap: null, c: null },
     totales: { dia1: 50.5, dia2: 46 },

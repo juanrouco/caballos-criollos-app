@@ -177,6 +177,13 @@ describe('isEmptyResults', () => {
     })).toBe(false);
   });
 
+  test('copa_incentivo comparte el shape de corral: un resultado alcanza para no estar vacío', () => {
+    expect(isEmptyResults({ copa_incentivo: { pruebas: [{ resultados: [] }] } })).toBe(true);
+    expect(isEmptyResults({
+      copa_incentivo: { pruebas: [{ clasificacion: 'Clasificatoria', resultados: [{ puesto: 1, total: 8.493, animal: { id: 'x' } }] }] },
+    })).toBe(false);
+  });
+
   test('aparte campero sin pruebas o con pruebas sin equipos cuenta como vacío', () => {
     expect(isEmptyResults({ aparte_campero: { pruebas: [] } })).toBe(true);
     expect(isEmptyResults({ aparte_campero: { pruebas: [{ equipos: [] }] } })).toBe(true);

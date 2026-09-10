@@ -186,6 +186,38 @@ export default function ResultDetailScreen({ t, navigation, route }) {
           </>
         )}
 
+        {/* Planilla: medias por sección (Copa Incentivo de Oro). Sólo se
+            muestran los totales de cada bloque, no las vueltas por rubro. */}
+        {prueba === 'copa_incentivo' && detalle?.bloques && (() => {
+          const b = detalle.bloques;
+          const rows = [
+            ['Media Morfología', b.morfologia?.total],
+            ['Media Andares', b.andares?.total],
+            ['Media esb / vsp', b.esb?.total],
+            ['Media Campo', b.campo?.total],
+          ].filter(([, v]) => v != null);
+          if (rows.length === 0 && detalle.total == null) return null;
+          return (
+            <>
+              <Text style={{ fontSize: 10.5, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: 22, marginBottom: 8 }}>Planilla</Text>
+              <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, paddingHorizontal: 4 }}>
+                {rows.map(([k, v], i) => (
+                  <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 12, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.border, gap: 12 }}>
+                    <Text style={{ fontSize: 12, color: t.textMute }}>{k}</Text>
+                    <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(v)}</Text>
+                  </View>
+                ))}
+                {detalle.total != null && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: t.border, gap: 12 }}>
+                    <Text style={{ fontSize: 12, color: t.text, fontFamily: F.bodyBold }}>Total</Text>
+                    <Text style={{ fontFamily: F.mono, fontSize: 14, color: t.accent }}>{fmtPts(detalle.total)}</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          );
+        })()}
+
         {/* Planilla: desagregado por rondas (corral de aparte) */}
         {prueba === 'corral_aparte' && Array.isArray(detalle?.rondas) && (
           <>

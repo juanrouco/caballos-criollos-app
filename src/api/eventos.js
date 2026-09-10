@@ -55,6 +55,8 @@ export function isEmptyResults(r) {
   if (fzb.some((p) => (p.resultados || []).length > 0)) return false;
   const freno = r.freno_oro?.pruebas || [];
   if (freno.some((p) => (p.resultados || []).length > 0)) return false;
+  const cio = r.copa_incentivo?.pruebas || [];
+  if (cio.some((p) => (p.resultados || []).length > 0)) return false;
   const aparte = r.aparte_campero?.pruebas || [];
   if (aparte.some((p) => (p.equipos || []).length > 0)) return false;
   return true;

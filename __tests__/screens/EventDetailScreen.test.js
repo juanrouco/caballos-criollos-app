@@ -446,6 +446,29 @@ describe('EventDetailScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:5' });
   });
 
+  test('copa incentivo: la card recorta el prefijo "Copa Incentivo de Oro –"', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 353 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      copa_incentivo: {
+        pruebas: [{
+          prueba: { id: 5, nombre: 'Freno de Oro' },
+          // El backend manda el guion como  (cp1252); fixCp1252 lo limpia.
+          categoria: { id: 34, nombre: 'Copa Incentivo de Oro \u0096 Jinetes menores' },
+          clasificacion: 'Clasificatoria',
+          resultados: [{ puesto: 1, total: 8.493, animal: { id: 'exis:1', nombre: 'Cio Animal' } }],
+        }],
+      },
+    });
+    const { findByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 353 })} />,
+    );
+    // Solo la subcategoría, sin el nombre de la copa ni el prefijo "Categoría".
+    expect(await findByText('Jinetes menores · Clasificatoria')).toBeTruthy();
+    expect(queryByText(/Copa Incentivo de Oro/)).toBeNull();
+    expect(queryByText(/Categoría Jinetes/)).toBeNull();
+  });
+
   test('rodeos: tocar un animal de la yunta abre el detalle del resultado', async () => {
     const nav = navStub();
     fetchEvento.mockResolvedValueOnce(evento({ id: 351 }));
