@@ -488,7 +488,9 @@ function AnimalMetaLines({ t, a }) {
 
 // ── Resultados ───────────────────────────────────────────────────
 
-const SEX_LABEL = { M: 'Machos', H: 'Hembras', C: 'Castrados' };
+// En eventos B/C/D/Pasaporte el campeonato además trae grupos "Prepotrillo" /
+// "Prepotranca" (no se mezclan con los campeones de su sexo).
+const SEX_LABEL = { M: 'Machos', H: 'Hembras', C: 'Castrados', Prepotrillo: 'Prepotrillos', Prepotranca: 'Prepotrancas' };
 
 function ResultsTab({ t, resultados, navigation, onRefresh, refreshing }) {
   if (resultados === null) return <TabLoading t={t} />;
@@ -641,8 +643,8 @@ function StandardSection({ t, data, navigation }) {
       {camp.length > 0 && (
         <ResultGroup t={t} label="Campeonato">
           {camp.map((g, i) => (
-            // Morfología: campeonato por categoría unificada ({ categoria }).
-            // Tipo y Aptitud: campeonato por sexo ({ sexo }).
+            // Morfología en eventos cat. A: por categoría unificada ({ categoria }).
+            // Morfología en eventos cat. B/C/D/Pasaporte y Tipo y Aptitud: por sexo ({ sexo }).
             <ResultCard
               key={`camp-${g.categoria || g.sexo || i}`}
               t={t}

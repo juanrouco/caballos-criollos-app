@@ -111,6 +111,7 @@ Listado paginado con filtros.
       "rp": "3",
       "sexo": "M",
       "raza": 200,
+      "de_baja": false,
       "propietario": {
         "numero": "376",
         "nombre": "HERMANAS BUSQUET"
@@ -122,6 +123,8 @@ Listado paginado con filtros.
 ```
 
 `propietario` puede ser `null` si el animal no tiene número de criador. `propietario.nombre` puede ser `null` si el número no encuentra match en `tblPropietarios`.
+
+**Dados de baja** (`de_baja`): los animales con `CBAJ` seteado en el stud book se marcan con `de_baja: true`. Se **ocultan en el listado general** (sin filtros) pero se **incluyen cuando hay un filtro selectivo** (`nombre`, `sba`, `rp` o `numero_criador`) — o sea, aparecen si los buscás puntualmente. En `GET /animales/{id}` y en el raíz del pedigree el flag sale siempre (esos endpoints nunca ocultaron las bajas). Los extranjeros (`extr`) no tienen baja: siempre `de_baja: false`.
 
 #### `GET /animales/{id}`
 
@@ -606,6 +609,9 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
         "resultados": [ /* entries — Campeón / Reservado, categorías unificadas */ ]
       }
     ],
+    // NOTA: en eventos de categoría B/C/D el "campeonato" no viene por
+    // categoría sino por sexo, con el mismo shape que "gran_campeonato":
+    //   "campeonato": [ { "sexo": "M", "resultados": [...] }, { "sexo": "H", ... } ]
     "categorias": [
       {
         "id": 95,
@@ -632,6 +638,9 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
     "categorias": [ /* mismo shape: subcategorias / ausentes / rechazados */ ]
   },
   "rodeos": {
+    "pruebas": [ /* ver shape más abajo */ ]
+  },
+  "corral_aparte": {
     "pruebas": [ /* ver shape más abajo */ ]
   }
 }
@@ -683,14 +692,19 @@ Mapeo de `premio.tipo_id`:
 | `tipo_id` | `tipo_nombre` | Va a (morfología) | Va a (tipo y aptitud) |
 |---|---|---|---|
 | 1 | Gran Campeonato | `gran_campeonato` (por sexo) | — |
-| 2 | Campeonato | `campeonato` (categorías unificadas) | `campeonato` (por sexo) |
+| 2 | Campeonato | `campeonato` (cat. A: categorías unificadas / cat. B,C,D: por sexo) | `campeonato` (por sexo) |
 | 3 | Premios | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 | 4 | Menciones | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 | 5 | Sin Premio | `categorias[].subcategorias[].premios` | `categorias[].subcategorias[].premios` |
 
 **Subcategorías**: no se guardan, se calculan. Por cada categoría se toman **todos** los animales que asistieron y no fueron rechazados — tengan premio de categoría (tipos 3/4/5) o no (esos salen con `premio: null`) — se ordenan por **box ascendente** y se parten en subcategorías lo más **parejas** posible, con un máximo de 6 por subcategoría. La cantidad de subcategorías es `ceil(n/6)` y los animales se reparten equilibradamente; si no divide exacto, las primeras subcategorías tienen un animal más. Ej: 8 → `[4,4]`; 9 → `[5,4]`; 13 → `[5,4,4]`; 12 → `[6,6]`; 23 → `[6,6,6,5]`. Los animales sin box quedan al final. **La membresía de cada subcategoría se define por box, pero adentro los `premios` vienen ordenados por premio**: primero por tipo (Premios < Menciones < Sin Premio, y los sin premio al final), después por jerarquía dentro del tipo (1° < 2° < 3° < … vía `IdPremio`), puntaje, y a igual logro el **número de box ascendente** como desempate final. Si un animal tiene el mismo resultado cargado más de una vez (fila duplicada) o varios premios en la misma categoría, sólo se devuelve uno (el de mayor jerarquía: menor `tipo_id` gana).
 
-**Campeonato de morfología** (`tipo_id` = 2): las categorías que sólo difieren en la modalidad (Montado/Cabestro) compiten **unificadas**. Se agrupan por (`Desde`, `Hasta`, `Sexo`, `RestaDesde`, `RestaHasta`) y se exponen como `{ categoria, resultados }`, donde `categoria` es el nombre unificado (sin el número ni la modalidad, ej. `"Categ. 4 - Padrillo - 3 años Montado"` + `"Categ. 5 - Padrillo - 3 años Cabestro"` → `"Categ. Padrillo - 3 años"`). El `gran_campeonato` queda agrupado por sexo (premio cross-categorías).
+**Campeonato de morfología** (`tipo_id` = 2): el shape depende de la **categoría del evento** (`tblEventosMorfologicosAutoridades.Categoria`, expuesta por fila como `EventoCategoria`):
+
+- **Categoría `A`** (Nacional): las categorías que sólo difieren en la modalidad (Montado/Cabestro) compiten **unificadas**. Se agrupan por (`Desde`, `Hasta`, `Sexo`, `RestaDesde`, `RestaHasta`) y se exponen como `{ categoria, resultados }`, donde `categoria` es el nombre unificado (sin el número ni la modalidad, ej. `"Categ. 4 - Padrillo - 3 años Montado"` + `"Categ. 5 - Padrillo - 3 años Cabestro"` → `"Categ. Padrillo - 3 años"`).
+- **Categorías `B`, `C`, `D`** (incluye promocional): el campeonato se muestra **como el gran campeonato**, agrupado por sexo → `{ sexo, resultados }`.
+
+El `gran_campeonato` queda siempre agrupado por sexo (premio cross-categorías), en cualquier categoría.
 
 **Campeonato de tipo y aptitud**: se agrupa por sexo (sin cambios). La columna `Campeonato` de `tblInscripcionResultadosTipoAptitud` marca las rows de campeonato cross-categoría. Sólo las `categorias` de TyA usan el tratamiento de subcategorías/ausentes/rechazados.
 
@@ -766,10 +780,43 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - **Vacas**: array de 12 `(int|null)` por día (`dia1` = Vaca1..Vaca12, `dia2` = Vaca13..Vaca24). `null` significa "vaca todavía no procesada"; `0` es una vaca corrida con cero puntos. Los desempates van en `extras` (`vaca25` = primer desempate, `vaca26` y `vaca27` = adicionales) y también pueden ser `null`.
 - **Totales** (`totales.dia1`, `dia2`, `total_handicap_*`, `total_c_*`): `(float|null)`. Pueden traer decimales porque la morfología (paso 0.25) suma al total. Los puestos, handicaps (`h*`) y desempates son enteros; `morfologia_1` / `morfologia_2` son float.
 - **`ultima_dia1` / `ultima_dia2`**: número de la última vaca **del día** (1..12) con dato no-null. Por ej. `ultima_dia2 = 4` significa que el día 2 se procesaron hasta la Vaca16 (la 4ta del día). `null` si todavía no se cargó ninguna en ese día. No incluye los desempates (vaca25/26/27).
-- **CopaEspecial**: solo un día, sin handicap ni Total C. En esas yuntas, los campos `dia2`, `total_handicap_*`, `total_c_*`, `desempate_dia2`, `vacas.dia2`, `vacas.extras.vaca26`, `vacas.extras.vaca27`, `puesto_dia2` y `puesto.handicap` / `puesto.c` salen en `null`. La key `handicaps` también queda `null`. El cliente discrimina por `clasificacion === "CopaEspecial"`.
+- **CopaEspecial**: solo un día, sin handicap ni Total C. En esas yuntas, los campos `dia2`, `total_handicap_*`, `total_c_*`, `desempate_dia2`, `vacas.dia2`, `vacas.extras.vaca26`, `vacas.extras.vaca27`, `puesto_dia2`, `puesto.handicap` / `puesto.c` y los `handicaps.h*` salen en `null`. `handicaps` **siempre viene como objeto** (nunca `null`): en CopaEspecial los `h*` van en `null` pero `morfologia_1` / `morfologia_2` traen valor, porque la morfología sí se puntúa. El cliente discrimina por `clasificacion === "CopaEspecial"`.
+- **Morfología sin vacas**: si de una yunta solo se cargó la planilla de morfología (ninguna vaca todavía), `totales.dia1` es igual al puntaje de morfología (`morfologia_1 + morfologia_2`) y `vacas.dia1` viene todo en `null`. El día 2 solo suma la morfología si tiene alguna vaca cargada.
 - **Equipo** vs **Equipo2**: `equipo` es el equipo del jinete principal (`IdJinete`), `equipo2` el del jinete secundario (`IdJinete2`). Cualquiera puede ser `null` si la inscripción no tiene equipo cargado.
 - **Orden** de las yuntas dentro de la categoría: por `puesto.general` ASC (los `null` al final), desempate por total descendente (`dia1 + dia2`). Para CopaEspecial, sin puesto, sale por `dia1` descendente.
 - Solo se incluyen pruebas con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 2`). Pruebas dadas de alta sin yuntas no aparecen.
+
+**Shape de `corral_aparte`** (prueba funcional `IdEventosFuncionalesPrueba = 3`): a diferencia de rodeos es **individual** (un animal/jinete por resultado, sin yuntas ni equipos). Agrupa por prueba + categoría, y dentro de cada categoría los resultados vienen ordenados por `total` descendente.
+
+```json
+"corral_aparte": {
+  "pruebas": [
+    {
+      "prueba":    { "id": 3, "nombre": "Corral de aparte" },
+      "categoria": { "id": 9, "nombre": "A" },
+      "clasificacion": "Final",
+      "cantidad_clasificatoria": null,
+      "resultados": [
+        {
+          "puesto": 1,
+          "total": 35.5,
+          "animal": {
+            "id": "pdre:...", "box": ..., "nombre": "...", "sba": ..., "rp": ...,
+            "sexo": "M", "fecha_nacimiento": "YYYY-MM-DD", "pelaje": "...", "cabania": "...",
+            "jinete": { "id": ..., "nombre": "...", "apellido": "..." },
+            "id_evento_inscripcion": 3041
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Reglas**:
+- `puesto`: posición 1-based por `total` descendente dentro de la categoría (la columna `Puesto` de la base no se calcula, se deriva del orden).
+- `total`: `(float|null)`. El jinete va dentro de `animal.jinete` (igual que en rodeos).
+- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3`).
 
 ---
 

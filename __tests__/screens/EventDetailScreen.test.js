@@ -753,6 +753,37 @@ describe('EventDetailScreen', () => {
     expect(getByText('Categ. Padrillo - 3 años')).toBeTruthy();
   });
 
+  test('campeonato de morfología en eventos B/C/D: por sexo y sin Gran Campeonato', async () => {
+    // En eventos de categoría B/C/D (y Pasaporte) no hay gran campeonato y el
+    // campeonato viene con el shape de gran_campeonato: [{ sexo, resultados }].
+    // Los prepotrillos/prepotrancas van en su propio grupo, con sexo =
+    // "Prepotrillo" / "Prepotranca" (no se mezclan con los campeones del sexo).
+    fetchEvento.mockResolvedValueOnce(evento({ id: 344 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      morfologia: {
+        gran_campeonato: [],
+        campeonato: [
+          { sexo: 'M', resultados: [{ animal: { id: 'pdre:1', nombre: 'CampMacho' }, premio: { nombre: 'Campeón Macho' } }] },
+          { sexo: 'H', resultados: [{ animal: { id: 'pdre:2', nombre: 'CampHembra' }, premio: { nombre: 'Campeón Hembra' } }] },
+          { sexo: 'Prepotrillo', resultados: [{ animal: { id: 'pdre:3', nombre: 'CampPrepotrillo' }, premio: { nombre: 'Campeón' } }] },
+          { sexo: 'Prepotranca', resultados: [{ animal: { id: 'pdre:4', nombre: 'CampPrepotranca' }, premio: { nombre: 'Campeón' } }] },
+        ],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 344 })} />,
+    );
+    // Cards del campeonato tituladas por sexo, con los prepo en plural
+    expect(await findByText('Machos')).toBeTruthy();
+    expect(getByText('Hembras')).toBeTruthy();
+    expect(getByText('Prepotrillos')).toBeTruthy();
+    expect(getByText('Prepotrancas')).toBeTruthy();
+    expect(getByText('Campeonato')).toBeTruthy();
+    // Sin gran campeonato: el grupo no se renderiza
+    expect(queryByText('Gran Campeonato')).toBeNull();
+  });
+
   test('botón Refrescar re-pide /resultados y actualiza el contenido', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 320 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
