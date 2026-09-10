@@ -632,6 +632,9 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
           ? <RodeosSection
               t={t}
               pruebas={(current.data.pruebas || []).filter((p) => (p.yuntas || []).length > 0)}
+              // Tocar un animal de la yunta abre el detalle del resultado
+              // (vaca por vaca); el pedigree se ve desde ahí.
+              openDetail={{ eventoId }}
               navigation={navigation}
             />
           : current.kind === 'corral'
@@ -938,7 +941,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
 
 // ── Rodeos ───────────────────────────────────────────────────────
 
-function RodeosSection({ t, pruebas, navigation }) {
+function RodeosSection({ t, pruebas, openDetail, navigation }) {
   return (
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
@@ -957,6 +960,15 @@ function RodeosSection({ t, pruebas, navigation }) {
             title={title}
             prueba={p}
             featured={featured}
+            // Tocar un animal abre el detalle del resultado de la yunta.
+            onPressYunta={openDetail ? (yunta) => navigation.navigate('ResultDetail', {
+              eventoId: openDetail.eventoId,
+              prueba: 'rodeos',
+              pruebaNombre: p.prueba?.nombre || 'Rodeos',
+              categoriaTitle: title,
+              clasificacion: p.clasificacion,
+              yunta,
+            }) : undefined}
             navigation={navigation}
           />
         );
@@ -968,7 +980,7 @@ function RodeosSection({ t, pruebas, navigation }) {
 // Acordeón por prueba/categoría, mismo patrón que el resto del catálogo /
 // resultados: card blanco, header con título + conteo de yuntas, colapsado por
 // default. Al abrir muestra las yuntas como grupos sobre blanco.
-function RodeoCard({ t, title, prueba, featured, navigation }) {
+function RodeoCard({ t, title, prueba, featured, onPressYunta, navigation }) {
   const [open, setOpen] = React.useState(false);
   const yuntas = prueba.yuntas || [];
   if (yuntas.length === 0) return null;
@@ -995,6 +1007,7 @@ function RodeoCard({ t, title, prueba, featured, navigation }) {
                 yunta={y}
                 fallbackRank={i + 1}
                 clasificacion={prueba.clasificacion}
+                onPressYunta={onPressYunta}
                 navigation={navigation}
               />
               {i < yuntas.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
@@ -1018,7 +1031,7 @@ function fmtPts(n) {
 // Una yunta en resultados: header chico (puesto + "Yunta" + total) y las dos
 // filas de animales, todo sobre blanco — misma idea que CatalogYuntaGroup, con
 // las líneas extra de Día 1 / Día 2 y Última vaca que aporta el rodeo.
-function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
+function RodeoYunta({ t, yunta, fallbackRank, clasificacion, onPressYunta, navigation }) {
   const isCopa = clasificacion === 'CopaEspecial';
   // Para CopaEspecial no hay puesto.general (la API ordena por dia1 desc),
   // así que usamos el índice del array como rank visual.
@@ -1027,17 +1040,32 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   const animales = yunta.animales || [];
   const totDia1 = yunta.totales?.dia1;
   const totDia2 = yunta.totales?.dia2;
-  const total = isCopa
-    ? totDia1
-    : (totDia1 != null && totDia2 != null ? Number(totDia1) + Number(totDia2) : null);
+  // En clasificatoria el orden es por número de yunta y el total no se
+  // muestra (sí los parciales por día).
+  const total = clasificacion === 'Clasificatoria'
+    ? null
+    : isCopa
+      ? totDia1
+      : (totDia1 != null && totDia2 != null ? Number(totDia1) + Number(totDia2) : null);
   const ultDia1 = yunta.vacas?.ultima_dia1;
   const ultDia2 = yunta.vacas?.ultima_dia2;
   const hasUltima = isCopa ? ultDia1 != null : (ultDia1 != null || ultDia2 != null);
+  // En clasificatoria las yuntas van por orden de salida, sin puesto: el
+  // header dice "Yunta N" (como el catálogo) en vez del "N°" de posición.
+  const esClasificatoria = clasificacion === 'Clasificatoria';
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
-        <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
-        <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
+        {esClasificatoria ? (
+          <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>
+            Yunta {yunta.orden ?? fallbackRank}
+          </Text>
+        ) : (
+          <>
+            <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
+            <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
+          </>
+        )}
         {total != null && (
           // Mismo formato que Tipo y Aptitud: valor + unidad "PUNTOS" debajo.
           <View style={{ alignItems: 'center' }}>
@@ -1049,7 +1077,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
       <View>
         {animales.map((a, i) => (
           <View key={`${a.id ?? 'a'}-${i}`}>
-            <RodeoAnimalRow t={t} a={a} navigation={navigation} />
+            <RodeoAnimalRow t={t} a={a} onPress={onPressYunta ? () => onPressYunta(yunta) : undefined} navigation={navigation} />
             {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
           </View>
         ))}
@@ -1093,10 +1121,13 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, navigation }) {
   );
 }
 
-function RodeoAnimalRow({ t, a, navigation }) {
+function RodeoAnimalRow({ t, a, onPress, navigation }) {
   const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
+  // Con onPress custom (detalle del resultado) se usa ese; sin él, el
+  // comportamiento histórico: abrir el pedigree del animal.
+  const handlePress = onPress || (() => a.id && navigation.navigate('HorseDetail', { id: a.id }));
   return (
-    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+    <TouchableOpacity onPress={handlePress} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       {a.box != null && (
         <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box}</Text>
       )}

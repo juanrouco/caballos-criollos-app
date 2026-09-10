@@ -41,19 +41,24 @@ function withAlpha(hex, a) {
 }
 
 export default function ResultDetailScreen({ t, navigation, route }) {
-  const { eventoId, prueba, pruebaNombre, categoriaTitle, resultado } = route.params || {};
+  const { eventoId, prueba, pruebaNombre, categoriaTitle, resultado, yunta } = route.params || {};
   const insets = useSafeAreaInsets();
   // Padding inferior para que el final (card Datos) no quede tapado por la
   // botonera flotante — mismo criterio que HorseDetailScreen.
   const bottomPad = 80 + Math.max(22, insets.bottom + 8);
   const r = resultado || {};
   const a = r.animal || {};
+  // Rodeos: el detalle viene por yunta (par de animales) y ya llega completo
+  // en el objeto de la lista (vacas / handicaps / totales) — no hace falta
+  // pedir el desagregado a la API.
+  const isRodeo = prueba === 'rodeos' && !!yunta;
+  const isCopa = route.params?.clasificacion === 'CopaEspecial';
 
   // Desagregado de la planilla. undefined = cargando, null = no disponible
   // (error o prueba sin detalle), objeto = la respuesta de la API.
   const [detResp, setDetResp] = React.useState(undefined);
   React.useEffect(() => {
-    if (!eventoId || !prueba || !a.id) { setDetResp(null); return; }
+    if (isRodeo || !eventoId || !prueba || !a.id) { setDetResp(null); return; }
     let cancelled = false;
     fetchResultadoDetalle(eventoId, prueba, a.id)
       .then((d) => { if (!cancelled) setDetResp(d || null); })
@@ -62,19 +67,37 @@ export default function ResultDetailScreen({ t, navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventoId, prueba, a.id]);
   const detalle = detResp === undefined ? undefined : (detResp?.detalle ?? null);
-  // En las clasificatorias de corral no se corre la 3° vaca ni puntúa la
-  // morfología, así que esas filas no se muestran. En Final y demás, sí.
+  // En las clasificatorias no puntúa la morfología (y en corral tampoco se
+  // corre la 3° vaca), así que esas filas no se muestran. En Final y demás, sí.
   const esClasificatoria = (detResp?.clasificacion ?? route.params?.clasificacion) === 'Clasificatoria';
-  const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
-  const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
-  const meta = [a.sexo, a.fecha_nacimiento && `Nac. ${formatDate(a.fecha_nacimiento)}`, (a.pelaje || '').trim()].filter(Boolean).join(' · ');
-  const top = r.puesto === 1;
+  // Puesto y total del header: para rodeos salen de la yunta.
+  const totDia1 = yunta?.totales?.dia1;
+  const totDia2 = yunta?.totales?.dia2;
+  const rodeoTotal = isCopa
+    ? totDia1
+    : (totDia1 != null && totDia2 != null ? Number(totDia1) + Number(totDia2) : (totDia1 ?? totDia2));
+  // En rodeos clasificatoria el orden es por número de yunta (no por puntaje)
+  // y el total no se muestra.
+  const totalHeader = isRodeo ? (esClasificatoria ? null : rodeoTotal) : r.total;
+  const puesto = isRodeo ? yunta.puesto?.general : r.puesto;
+  const top = puesto === 1;
 
-  const infoRows = [
-    a.cabania && ['Cabaña', String(a.cabania).trim()],
-    a.box != null && ['Box', String(a.box)],
-    jinete && ['Jinete', jinete],
-  ].filter(Boolean);
+  // Ficha(s) de animal: la yunta trae dos; las pruebas individuales, uno.
+  const animales = isRodeo ? (yunta.animales || []) : [a];
+
+  const jineteDe = (an) => (an?.jinete ? [an.jinete.nombre, an.jinete.apellido].filter(Boolean).join(' ') : '');
+  const jinete = jineteDe(a);
+  const infoRows = (isRodeo
+    ? [
+        yunta.equipo?.nombre && ['Equipo', String(yunta.equipo.nombre).trim()],
+        yunta.equipo2?.nombre && ['Equipo 2', String(yunta.equipo2.nombre).trim()],
+      ]
+    : [
+        a.cabania && ['Cabaña', String(a.cabania).trim()],
+        a.box != null && ['Box', String(a.box)],
+        jinete && ['Jinete', jinete],
+      ]
+  ).filter(Boolean);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
@@ -87,37 +110,55 @@ export default function ResultDetailScreen({ t, navigation, route }) {
           <Text style={{ fontSize: 15, color: t.textMute, marginTop: 3, fontFamily: F.bodyBold }}>{categoriaTitle}</Text>
         )}
 
-        {/* Puesto + puntaje */}
+        {/* Puesto + puntaje. En rodeos clasificatoria no hay puesto ni total
+            que mostrar (las yuntas van por orden de salida): la card no va. */}
+        {!(isRodeo && esClasificatoria) && (
         <View style={{ marginTop: 18, backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: top ? withAlpha(t.accent, 0.5) : t.border, flexDirection: 'row', alignItems: 'center', padding: 18, gap: 16 }}>
           <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: top ? t.accent : t.surface2, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontFamily: F.display, fontSize: 20, color: top ? t.bg : t.text }}>{r.puesto != null ? `${r.puesto}°` : '—'}</Text>
+            <Text style={{ fontFamily: F.display, fontSize: 20, color: top ? t.bg : t.text }}>{puesto != null ? `${puesto}°` : '—'}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>Puesto</Text>
-            <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text, marginTop: 2 }}>{r.puesto != null ? `${r.puesto}° de la categoría` : 'Sin puesto'}</Text>
+            <Text style={{ fontFamily: F.display, fontSize: 16, color: t.text, marginTop: 2 }}>{puesto != null ? `${puesto}° de la categoría` : 'Sin puesto'}</Text>
           </View>
-          {r.total != null && (
+          {totalHeader != null && (
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: F.mono, fontSize: 20, color: top ? t.accent : t.text }}>{fmtPts(r.total)}</Text>
+              <Text style={{ fontFamily: F.mono, fontSize: 20, color: top ? t.accent : t.text }}>{fmtPts(totalHeader)}</Text>
               <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 2, fontFamily: F.bodyBold }}>PUNTOS</Text>
             </View>
           )}
         </View>
+        )}
 
-        {/* Animal → pedigree */}
-        <Text style={{ fontSize: 10.5, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: 22, marginBottom: 8 }}>Animal</Text>
-        <TouchableOpacity
-          onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })}
-          style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: F.display, fontSize: 17, color: t.text }} numberOfLines={2}>{a.nombre || '—'}</Text>
-            {!!reg && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
-            {!!meta && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{meta}</Text>}
-            <Text style={{ fontSize: 10.5, color: t.accent, marginTop: 6, fontFamily: F.bodyBold }}>Ver pedigree</Text>
-          </View>
-          <Icon name="arrow" size={16} color={t.textDim} />
-        </TouchableOpacity>
+        {/* Animal(es) → pedigree */}
+        <Text style={{ fontSize: 10.5, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: 22, marginBottom: 8 }}>
+          {animales.length > 1 ? 'Animales' : 'Animal'}
+        </Text>
+        <View style={{ gap: 8 }}>
+          {animales.map((an, i) => {
+            const reg = [an.sba != null && `S.B.A. ${an.sba}`, an.rp != null && `R.P. ${an.rp}`].filter(Boolean).join(' · ');
+            const meta = [an.sexo, an.fecha_nacimiento && `Nac. ${formatDate(an.fecha_nacimiento)}`, (an.pelaje || '').trim()].filter(Boolean).join(' · ');
+            const jin = jineteDe(an);
+            return (
+              <TouchableOpacity
+                key={`${an.id ?? 'a'}-${i}`}
+                onPress={() => an.id && navigation.navigate('HorseDetail', { id: an.id })}
+                style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: F.display, fontSize: 17, color: t.text }} numberOfLines={2}>{an.nombre || '—'}</Text>
+                  {!!reg && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 4, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
+                  {!!meta && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2 }} numberOfLines={1}>{meta}</Text>}
+                  {/* En la yunta cada animal lleva su jinete; en las
+                      individuales el jinete va en la card Datos. */}
+                  {isRodeo && !!jin && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jin}</Text>}
+                  <Text style={{ fontSize: 10.5, color: t.accent, marginTop: 6, fontFamily: F.bodyBold }}>Ver pedigree</Text>
+                </View>
+                <Icon name="arrow" size={16} color={t.textDim} />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         {/* Planilla: desagregado por rubro (F.Z.B.) */}
         {detalle === undefined && (
@@ -195,6 +236,64 @@ export default function ResultDetailScreen({ t, navigation, route }) {
             </View>
           </>
         )}
+
+        {/* Planilla: vaca por vaca (rodeos) — sin fetch, la yunta ya la trae */}
+        {isRodeo && (() => {
+          const extras = yunta.vacas?.extras || {};
+          const days = [
+            { n: 1, vacas: yunta.vacas?.dia1 || [], base: 0, total: totDia1 },
+            // En clasificatoria las vacas del día 2 se cuentan del 1 al 12,
+            // como en el día 1; en Final y demás, del 13 al 24.
+            ...(!isCopa ? [{ n: 2, vacas: yunta.vacas?.dia2 || [], base: esClasificatoria ? 0 : 12, total: totDia2 }] : []),
+          ].filter((d) => d.vacas.some((v) => v != null) || d.total != null);
+          const desempates = [extras.vaca25, extras.vaca26, extras.vaca27]
+            .map((v, i) => (v == null ? null : { label: `Desempate (Vaca ${25 + i})`, v }))
+            .filter(Boolean);
+          const morfos = esClasificatoria ? [] : [
+            yunta.handicaps?.morfologia_1 != null && ['Morfología 1', yunta.handicaps.morfologia_1],
+            yunta.handicaps?.morfologia_2 != null && ['Morfología 2', yunta.handicaps.morfologia_2],
+          ].filter(Boolean);
+          if (days.length === 0 && desempates.length === 0 && morfos.length === 0) return null;
+          return (
+            <>
+              <Text style={{ fontSize: 10.5, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold, marginTop: 22, marginBottom: 8 }}>Planilla</Text>
+              <View style={{ backgroundColor: t.surface, borderRadius: 14, borderWidth: 1, borderColor: t.border, paddingHorizontal: 4, paddingBottom: 4 }}>
+                {days.map((d) => (
+                  <View key={`dia-${d.n}`}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, paddingBottom: 4, paddingHorizontal: 12 }}>
+                      <Text style={{ fontSize: 10, color: t.accent, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }}>Día {d.n}</Text>
+                      {d.total != null && <Text style={{ fontFamily: F.mono, fontSize: 12, color: t.text }}>{fmtPts(d.total)}</Text>}
+                    </View>
+                    {d.vacas.map((v, i) => (v == null ? null : (
+                      <View key={`v-${d.base + i}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: t.border, gap: 12 }}>
+                        <Text style={{ fontSize: 12, color: t.textMute }}>Vaca {d.base + i + 1}</Text>
+                        <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(v)}</Text>
+                      </View>
+                    )))}
+                  </View>
+                ))}
+                {desempates.map((de) => (
+                  <View key={de.label} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: t.border, gap: 12 }}>
+                    <Text style={{ fontSize: 12, color: t.textMute }}>{de.label}</Text>
+                    <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(de.v)}</Text>
+                  </View>
+                ))}
+                {morfos.map(([k, v]) => (
+                  <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: t.border, gap: 12 }}>
+                    <Text style={{ fontSize: 12, color: t.textMute }}>{k}</Text>
+                    <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(v)}</Text>
+                  </View>
+                ))}
+                {!esClasificatoria && rodeoTotal != null && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: t.border, gap: 12, marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, color: t.text, fontFamily: F.bodyBold }}>Total final</Text>
+                    <Text style={{ fontFamily: F.mono, fontSize: 14, color: t.accent }}>{fmtPts(rodeoTotal)}</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          );
+        })()}
 
         {/* Datos de la corrida */}
         {infoRows.length > 0 && (

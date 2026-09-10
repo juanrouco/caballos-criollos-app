@@ -177,6 +177,88 @@ describe('ResultDetailScreen', () => {
     expect(queryByText('Morfología')).toBeNull();
   });
 
+  const YUNTA = {
+    puesto: { general: 2, handicap: null, c: null },
+    totales: { dia1: 50.5, dia2: 46 },
+    handicaps: { morfologia_1: 6, morfologia_2: 8.5 },
+    vacas: {
+      dia1: [0, 15, 10, null, null, null, null, null, null, null, null, null],
+      dia2: [8, 13, null, null, null, null, null, null, null, null, null, null],
+      extras: { vaca25: 12, vaca26: null, vaca27: null },
+    },
+    equipo: { id: 223, nombre: 'Los Potros' },
+    animales: [
+      { id: 'pdre:1', nombre: 'Rodeo Uno', sba: 111, rp: 5, jinete: { nombre: 'Juan', apellido: 'Pérez' } },
+      { id: 'pdre:2', nombre: 'Rodeo Dos', jinete: { nombre: 'Ana', apellido: 'García' } },
+    ],
+  };
+  const RODEO_PARAMS = {
+    eventoId: 2101,
+    prueba: 'rodeos',
+    pruebaNombre: 'Rodeos',
+    categoriaTitle: 'Categ. 19 - Final Adulta · Final',
+    clasificacion: 'Final',
+    yunta: YUNTA,
+  };
+
+  test('rodeos: planilla vaca por vaca desde la yunta, sin fetch', () => {
+    const nav = navStub();
+    const { getByText, getAllByText, queryByText } = render(
+      <ResultDetailScreen t={T} navigation={nav} route={routeStub(RODEO_PARAMS)} />,
+    );
+    expect(fetchResultadoDetalle).not.toHaveBeenCalled();
+    // Header: puesto de la yunta + total dia1+dia2 (aparece en el header y
+    // como Total final de la planilla).
+    expect(getByText('2°')).toBeTruthy();
+    expect(getAllByText('96.5').length).toBe(2);
+    // Los dos animales con su jinete y link al pedigree.
+    expect(getByText('Rodeo Uno')).toBeTruthy();
+    expect(getByText('Rodeo Dos')).toBeTruthy();
+    expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
+    expect(getAllByText('Ver pedigree').length).toBe(2);
+    fireEvent.press(getByText('Rodeo Uno'));
+    expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:1' });
+    // Planilla: vacas por día (día 2 arranca en Vaca 13), desempate y morfología.
+    expect(getByText('Día 1')).toBeTruthy();
+    expect(getByText('Vaca 2')).toBeTruthy();
+    expect(getByText('Vaca 3')).toBeTruthy();
+    expect(queryByText('Vaca 4')).toBeNull();       // null = no procesada
+    expect(getByText('Día 2')).toBeTruthy();
+    expect(getByText('Vaca 13')).toBeTruthy();
+    expect(getByText('Vaca 14')).toBeTruthy();
+    expect(getByText('Desempate (Vaca 25)')).toBeTruthy();
+    expect(getByText('Morfología 1')).toBeTruthy();
+    expect(getByText('Morfología 2')).toBeTruthy();
+    expect(getByText('Total final')).toBeTruthy();
+    // Datos: el equipo de la yunta.
+    expect(getByText('Equipo')).toBeTruthy();
+    expect(getByText('Los Potros')).toBeTruthy();
+  });
+
+  test('rodeos clasificatoria: sin morfología ni totales, y las vacas del día 2 van del 1 al 12', () => {
+    const { getByText, getAllByText, queryByText } = render(
+      <ResultDetailScreen t={T} navigation={navStub()} route={routeStub({
+        ...RODEO_PARAMS,
+        categoriaTitle: 'Categ. 1 · Clasificatoria',
+        clasificacion: 'Clasificatoria',
+      })} />,
+    );
+    expect(getByText('Día 1')).toBeTruthy();
+    expect(queryByText('Morfología 1')).toBeNull();
+    expect(queryByText('Morfología 2')).toBeNull();
+    // Sin card de puesto ni totales (las yuntas van por orden de salida).
+    expect(queryByText('Puesto')).toBeNull();
+    expect(queryByText('2°')).toBeNull();
+    expect(queryByText('96.5')).toBeNull();
+    expect(queryByText('Total final')).toBeNull();
+    expect(queryByText('PUNTOS')).toBeNull();
+    // Día 2 numera las vacas del 1 al 12 (los labels se repiten entre días).
+    expect(getByText('Día 2')).toBeTruthy();
+    expect(getAllByText('Vaca 1').length).toBe(2);
+    expect(getAllByText('Vaca 2').length).toBe(2);
+    expect(queryByText('Vaca 13')).toBeNull();
+  });
+
   test('resultado sin puesto ni total no rompe (sin corrida)', async () => {
     fetchResultadoDetalle.mockResolvedValueOnce({ detalle: null });
     const { getByText, queryByText, findByText } = render(

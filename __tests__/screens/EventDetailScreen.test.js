@@ -446,6 +446,74 @@ describe('EventDetailScreen', () => {
     expect(nav.navigate).toHaveBeenCalledWith('HorseDetail', { id: 'exis:5' });
   });
 
+  test('rodeos: tocar un animal de la yunta abre el detalle del resultado', async () => {
+    const nav = navStub();
+    fetchEvento.mockResolvedValueOnce(evento({ id: 351 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    const yunta = {
+      puesto: { general: 1 },
+      totales: { dia1: 88, dia2: 86 },
+      animales: [{ id: 'pdre:1', nombre: 'Yunta Animal', jinete: { nombre: 'Juan', apellido: 'Pérez' } }],
+    };
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 312, nombre: 'Categ. 19 - Final Adulta' },
+          clasificacion: 'Final',
+          yuntas: [yunta],
+        }],
+      },
+    });
+    const { findByText } = render(
+      <EventDetailScreen t={T} navigation={nav} route={routeStub({ id: 351 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 19 - Final Adulta · Final'));
+    fireEvent.press(await findByText('Yunta Animal'));
+    expect(nav.navigate).toHaveBeenCalledWith('ResultDetail', {
+      eventoId: 351,
+      prueba: 'rodeos',
+      pruebaNombre: 'Rodeos',
+      categoriaTitle: 'Categ. 19 - Final Adulta · Final',
+      clasificacion: 'Final',
+      yunta,
+    });
+  });
+
+  test('rodeos clasificatoria: la yunta no muestra el total (sí los parciales por día)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 352 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 310, nombre: 'Categ. 5 - Adulta' },
+          clasificacion: 'Clasificatoria',
+          yuntas: [{
+            puesto: { general: 3 },
+            totales: { dia1: 88, dia2: 86 },
+            animales: [{ id: 'pdre:1', nombre: 'Clasif Animal' }],
+          }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 352 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 5 - Adulta · Clasificatoria'));
+    await waitFor(() => expect(getByText('Clasif Animal')).toBeTruthy());
+    // Header por orden de salida ("Yunta 1"), no por puesto ("3°").
+    expect(getByText('Yunta 1')).toBeTruthy();
+    expect(queryByText('3°')).toBeNull();
+    // Total (174) oculto; los parciales de Día 1 / Día 2 siguen visibles.
+    expect(queryByText('174')).toBeNull();
+    expect(queryByText('PUNTOS')).toBeNull();
+    expect(getByText('Día 1')).toBeTruthy();
+    expect(getByText('88')).toBeTruthy();
+    expect(getByText('Día 2')).toBeTruthy();
+    expect(getByText('86')).toBeTruthy();
+  });
+
   test('resultados con aparte campero: acordeón por categoría y equipos con rondas', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 347 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
