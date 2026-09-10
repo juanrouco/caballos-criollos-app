@@ -64,6 +64,30 @@ describe('RankingCatScreen', () => {
     expect(queryByText('2025')).toBeNull();
   });
 
+  test('freno: muestra el evento donde hizo el puntaje (+ fecha si no está en el nombre)', async () => {
+    fetchRanking.mockResolvedValueOnce({
+      ...RESP,
+      filas: [
+        {
+          position: 1, animalId: 'exis:1', sba: '103382 D', rp: '302', animal: 'LA GOLOSA',
+          rider: 'LUIS DURE', ownet: 'CEROI, MARCO', points: '18.841',
+          // El nombre del evento ya incluye la fecha → no se repite.
+          event: 'CREDENC FRENO ARIAS 20/05/2026', date: '20-05-2026',
+        },
+        {
+          position: 2, animalId: 'exis:2', sba: '99', animal: 'EL SEGUNDO', points: '15',
+          // Sin la fecha en el nombre → se agrega al final.
+          event: 'CREDENC BRANDSEN', date: '02-06-2026',
+        },
+      ],
+    });
+    const { findByText, getByText, queryByText } = renderCat();
+    await findByText('LA GOLOSA');
+    expect(getByText('CREDENC FRENO ARIAS 20/05/2026')).toBeTruthy();
+    expect(queryByText(/ARIAS 20\/05\/2026 · /)).toBeNull(); // fecha no duplicada
+    expect(getByText('CREDENC BRANDSEN · 02/06/2026')).toBeTruthy();
+  });
+
   test('tocar una fila con animalId abre HorseDetail', async () => {
     const nav = navStub();
     const { findByText } = renderCat(nav);

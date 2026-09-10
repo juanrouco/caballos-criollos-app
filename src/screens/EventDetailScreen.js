@@ -314,9 +314,10 @@ function CatalogoContent({ t, catalogo, navigation }) {
     if (tipoAp.length) list.push({ key: 'tipoap', label: 'Tipo y Aptitud', cats: tipoAp });
     pf.forEach((p, idx) => {
       const cats = (p.categorias || []).filter((c) => (c.animales || []).length > 0 || (c.yuntas || []).length > 0 || (c.equipos || []).length > 0);
-      // En corral de aparte el jinete es parte del dato (prueba individual);
-      // en las demás pruebas/morfológicas no se muestra en el catálogo.
-      const showJinete = /corral/i.test(p.nombre || '');
+      // En las pruebas funcionales individuales (corral de aparte, F.Z.B.,
+      // Freno de Oro) el jinete es parte del dato; en las morfológicas no se
+      // muestra en el catálogo.
+      const showJinete = /corral|f\.?z\.?b|freno/i.test(p.nombre || '');
       if (cats.length > 0) list.push({ key: `pf-${p.id ?? idx}`, label: p.nombre, cats, showJinete });
     });
     return list;
@@ -579,6 +580,10 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
       { key: 'rodeos',        label: 'Rodeos',         kind: 'rodeos', data: resultados.rodeos },
       { key: 'corral_aparte', label: 'Corral de Aparte', kind: 'corral', data: resultados.corral_aparte },
       { key: 'aparte_campero', label: 'Aparte Campero', kind: 'aparte', data: resultados.aparte_campero },
+      // FZB (Aparte Vacuno Felipe Z. Ballester) y Freno de Oro comparten el
+      // shape de corral (pruebas individuales).
+      { key: 'fzb', label: 'F.Z.B.', kind: 'corral', data: resultados.fzb },
+      { key: 'freno_oro', label: 'Freno de Oro', kind: 'corral', data: resultados.freno_oro },
     ];
     return all.filter((s) => s.data && !isSectionEmpty(s));
   }, [resultados]);
@@ -992,12 +997,13 @@ function RodeoCard({ t, title, prueba, featured, navigation }) {
   );
 }
 
-// Formatea un puntaje de rodeo: los totales pueden traer decimales (la
-// morfología suma en pasos de 0.25). Muestra enteros sin decimales y limpia el
-// ruido flotante de las sumas (redondeo a 2 decimales, sin ceros de más).
+// Formatea un puntaje: los totales pueden traer decimales (la morfología de
+// rodeos suma en pasos de 0.25; el Freno de Oro puntúa con 3 decimales).
+// Muestra enteros sin decimales y limpia el ruido flotante de las sumas
+// (redondeo a 3 decimales, sin ceros de más).
 function fmtPts(n) {
   if (n == null || Number.isNaN(Number(n))) return null;
-  return String(Math.round(Number(n) * 100) / 100);
+  return String(Math.round(Number(n) * 1000) / 1000);
 }
 
 // Una yunta en resultados: header chico (puesto + "Yunta" + total) y las dos

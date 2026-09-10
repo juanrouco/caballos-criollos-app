@@ -46,6 +46,10 @@ export function isEmptyResults(r) {
   if (pruebas.some((p) => (p.yuntas || []).length > 0)) return false;
   const corral = r.corral_aparte?.pruebas || [];
   if (corral.some((p) => (p.resultados || []).length > 0)) return false;
+  const fzb = r.fzb?.pruebas || [];
+  if (fzb.some((p) => (p.resultados || []).length > 0)) return false;
+  const freno = r.freno_oro?.pruebas || [];
+  if (freno.some((p) => (p.resultados || []).length > 0)) return false;
   const aparte = r.aparte_campero?.pruebas || [];
   if (aparte.some((p) => (p.equipos || []).length > 0)) return false;
   return true;

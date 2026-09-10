@@ -163,6 +163,20 @@ describe('isEmptyResults', () => {
     })).toBe(false);
   });
 
+  test('fzb comparte el shape de corral: un resultado alcanza para no estar vacío', () => {
+    expect(isEmptyResults({ fzb: { pruebas: [{ resultados: [] }] } })).toBe(true);
+    expect(isEmptyResults({
+      fzb: { pruebas: [{ clasificacion: 'Clasificatoria', resultados: [{ puesto: 1, total: 45, animal: { id: 'x' } }] }] },
+    })).toBe(false);
+  });
+
+  test('freno_oro comparte el shape de corral: un resultado alcanza para no estar vacío', () => {
+    expect(isEmptyResults({ freno_oro: { pruebas: [{ resultados: [] }] } })).toBe(true);
+    expect(isEmptyResults({
+      freno_oro: { pruebas: [{ clasificacion: 'Clasificatoria', resultados: [{ puesto: 1, total: 18.841, animal: { id: 'x' } }] }] },
+    })).toBe(false);
+  });
+
   test('aparte campero sin pruebas o con pruebas sin equipos cuenta como vacío', () => {
     expect(isEmptyResults({ aparte_campero: { pruebas: [] } })).toBe(true);
     expect(isEmptyResults({ aparte_campero: { pruebas: [{ equipos: [] }] } })).toBe(true);

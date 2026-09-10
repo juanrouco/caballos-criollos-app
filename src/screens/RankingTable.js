@@ -86,9 +86,16 @@ export default function RankingTable({
                   </View>
                 )}
                 {!expandable && (lines
-                  ? lines.map((line, li) => (
-                      <Text key={li} style={{ fontSize: li === 0 ? 12 : 11.5, color: t.textMute, marginTop: li === 0 ? 4 : 2, lineHeight: 16 }} numberOfLines={1}>{line}</Text>
-                    ))
+                  ? lines.map((line, li) => {
+                      // Una línea puede venir como string (se trunca a 1 renglón)
+                      // o como { text, wrap: true } para permitir el wrap (ej. el
+                      // nombre del evento en Freno de Oro, que suele ser largo).
+                      const text = typeof line === 'object' ? line.text : line;
+                      const wrap = typeof line === 'object' && line.wrap;
+                      return (
+                        <Text key={li} style={{ fontSize: li === 0 ? 12 : 11.5, color: t.textMute, marginTop: li === 0 ? 4 : 2, lineHeight: 16 }} {...(wrap ? {} : { numberOfLines: 1 })}>{text}</Text>
+                      );
+                    })
                   : (!!secondary && <Text style={{ fontSize: 11, color: t.textMute, marginTop: 3, lineHeight: 16 }}>{secondary}</Text>)
                 )}
               </View>

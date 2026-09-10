@@ -334,6 +334,58 @@ describe('EventDetailScreen', () => {
     expect(getByText('33')).toBeTruthy();
   });
 
+  test('resultados con fzb: sub-tab F.Z.B. con el mismo render que corral', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 349 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      corral_aparte: {
+        pruebas: [{
+          prueba: { id: 3, nombre: 'Corral de aparte' },
+          categoria: { id: 9, nombre: 'A' },
+          clasificacion: 'Clasificatoria',
+          resultados: [{ puesto: 1, total: 30, animal: { id: 'exis:9', nombre: 'Corral Animal' } }],
+        }],
+      },
+      fzb: {
+        pruebas: [{
+          prueba: { id: 1, nombre: 'F.Z.B.' },
+          categoria: { id: 41, nombre: 'C Inicial' },
+          clasificacion: 'Clasificatoria',
+          resultados: [
+            { puesto: 1, total: 45, animal: { id: 'exis:1', nombre: 'Fzb Uno', sba: 95832, rp: 294, jinete: { nombre: 'Martin', apellido: 'Crespo' } } },
+          ],
+        }],
+      },
+      freno_oro: {
+        pruebas: [{
+          prueba: { id: 5, nombre: 'Freno de Oro' },
+          categoria: { id: 23, nombre: 'Hembras' },
+          clasificacion: 'Clasificatoria',
+          resultados: [
+            { puesto: 1, total: 18.841, animal: { id: 'exis:5', nombre: 'Freno Una', jinete: { nombre: 'Luis', apellido: 'Dure' } } },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 349 })} />,
+    );
+    // Sub-tab propia junto a Corral de Aparte; mismo render individual.
+    fireEvent.press(await findByText('F.Z.B.'));
+    fireEvent.press(await findByText('Categoría C Inicial · Clasificatoria'));
+    await waitFor(() => expect(getByText('Fzb Uno')).toBeTruthy());
+    expect(getByText('1°')).toBeTruthy();
+    expect(getByText('S.B.A. 95832 · R.P. 294')).toBeTruthy();
+    expect(getByText('Jinete: Martin Crespo')).toBeTruthy();
+    expect(getByText('45')).toBeTruthy();
+    // Freno de Oro: misma familia, sub-tab propia.
+    fireEvent.press(getByText('Freno de Oro'));
+    fireEvent.press(await findByText('Categoría Hembras · Clasificatoria'));
+    await waitFor(() => expect(getByText('Freno Una')).toBeTruthy());
+    expect(getByText('Jinete: Luis Dure')).toBeTruthy();
+    expect(getByText('18.841')).toBeTruthy(); // freno puntúa con 3 decimales
+  });
+
   test('resultados con aparte campero: acordeón por categoría y equipos con rondas', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 347 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
@@ -1031,6 +1083,18 @@ describe('EventDetailScreen', () => {
             jinete: { id: 3190, nombre: 'Fausto', apellido: 'Aguero' },
           }],
         }],
+      }, {
+        id: 1, nombre: 'F.Z.B.',
+        categorias: [{
+          id: 6, nombre: 'FzbCat',
+          animales: [{ id: 'exis:7', box: 45, nombre: 'FzbCatalogo', jinete: { id: 6182, nombre: 'Martin', apellido: 'Crespo' } }],
+        }],
+      }, {
+        id: 5, nombre: 'Freno de Oro',
+        categorias: [{
+          id: 23, nombre: 'FrenoCat',
+          animales: [{ id: 'exis:8', box: 17, nombre: 'FrenoCatalogo', jinete: { id: 6371, nombre: 'Lucas', apellido: 'Lopes' } }],
+        }],
       }],
       morfologicas: [{
         id: 1, nombre: 'CatMorfoConJinete', tipo_aptitud: false,
@@ -1054,6 +1118,13 @@ describe('EventDetailScreen', () => {
     await waitFor(() => expect(getByText('CorralCatalogo')).toBeTruthy());
     expect(getByText('Jinete: Fausto Aguero')).toBeTruthy();
     expect(getByText('S.B.A. 81726 · R.P. 1327')).toBeTruthy();
+    // F.Z.B. y Freno de Oro: también muestran el jinete.
+    fireEvent.press(getByText('F.Z.B.'));
+    fireEvent.press(await findByText('FzbCat'));
+    await waitFor(() => expect(getByText('Jinete: Martin Crespo')).toBeTruthy());
+    fireEvent.press(getByText('Freno de Oro'));
+    fireEvent.press(await findByText('FrenoCat'));
+    await waitFor(() => expect(getByText('Jinete: Lucas Lopes')).toBeTruthy());
   });
 
   test('catálogo de aparte campero: equipos con nombre y sus animales con jinete', async () => {

@@ -673,6 +673,9 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
   },
   "fzb": {
     "pruebas": [ /* mismo shape que corral_aparte (individual) */ ]
+  },
+  "freno_oro": {
+    "pruebas": [ /* mismo shape que corral_aparte (individual) */ ]
   }
 }
 ```
@@ -817,7 +820,7 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - **Orden** de las yuntas dentro de la categoría: por `puesto.general` ASC (los `null` al final), desempate por total descendente (`dia1 + dia2`). Para CopaEspecial, sin puesto, sale por `dia1` descendente.
 - Solo se incluyen pruebas con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 2`). Pruebas dadas de alta sin yuntas no aparecen.
 
-**Shape de `corral_aparte`** (prueba funcional `IdEventosFuncionalesPrueba = 3`) **y de `fzb`** (`IdEventosFuncionalesPrueba = 1`): ambas son pruebas funcionales **individuales** (un animal/jinete por resultado, sin yuntas ni equipos) y comparten exactamente el mismo shape. Agrupa por prueba + categoría, y dentro de cada categoría los resultados vienen ordenados por `total` descendente.
+**Shape de `corral_aparte`** (prueba funcional `IdEventosFuncionalesPrueba = 3`), **de `fzb`** (`IdEventosFuncionalesPrueba = 1`) **y de `freno_oro`** (`IdEventosFuncionalesPrueba = 5`): las tres son pruebas funcionales **individuales** (un animal/jinete por resultado, sin yuntas ni equipos) y comparten exactamente el mismo shape. Agrupa por prueba + categoría, y dentro de cada categoría los resultados vienen ordenados por `total` descendente.
 
 ```json
 "corral_aparte": {
@@ -847,7 +850,7 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 **Reglas**:
 - `puesto`: posición 1-based por `total` descendente dentro de la categoría (la columna `Puesto` de la base no se calcula, se deriva del orden).
 - `total`: `(float|null)`. El jinete va dentro de `animal.jinete` (igual que en rodeos).
-- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3` para corral, `= 1` para fzb). `fzb` usa el mismo objeto por resultado (`{ puesto, total, animal }`).
+- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3` para corral, `= 1` para fzb, `= 5` para freno_oro). `fzb` y `freno_oro` usan el mismo objeto por resultado (`{ puesto, total, animal }`).
 
 **Shape de `aparte_campero`** (prueba funcional `IdEventosFuncionalesPrueba = 6`): es **por equipo** (una tropilla de animales que aparta junta; la tabla guarda una fila por animal con los datos del equipo copiados). El puntaje es **TIEMPO** (segundos), no puntos: gana el de **menor** tiempo. Agrupa por prueba + categoría, y dentro de cada categoría los equipos vienen ordenados por `tiempo` ascendente (los que no corrieron van al final).
 

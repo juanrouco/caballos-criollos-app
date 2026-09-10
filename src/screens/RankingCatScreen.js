@@ -97,17 +97,26 @@ export default function RankingCatScreen({ t, navigation, route }) {
     ].filter(Boolean).join('  ·  ');
     return [l1, clean(fila.propietario) && `Propietario: ${clean(fila.propietario)}`, clean(fila.evento)].filter(Boolean);
   };
-  // Freno de Oro: 1ª línea SBA · RP, 2ª jinete, 3ª propietario. El puntaje
-  // va arriba a la derecha (points). Sin AF: la API dejó de exponerlo.
+  // Freno de Oro: 1ª línea SBA · RP, 2ª jinete, 3ª propietario, 4ª el evento
+  // donde hizo el puntaje (+ fecha, salvo que el nombre del evento ya la
+  // incluya). El puntaje va arriba a la derecha (points). Sin AF: la API dejó
+  // de exponerlo.
   const frenoLines = (fila) => {
     const l1 = [
       clean(fila.sba) && `SBA ${clean(fila.sba)}`,
       clean(fila.rp) && `RP ${clean(fila.rp)}`,
     ].filter(Boolean).join('  ·  ');
+    const ev = clean(fila.event);
+    const date = clean(fila.date); // "DD-MM-YYYY"
+    const dateInEvent = ev && date && (ev.includes(date) || ev.includes(date.replace(/-/g, '/')));
+    const evLine = ev && (date && !dateInEvent ? `${ev} · ${date.replace(/-/g, '/')}` : ev);
     return [
       l1,
       clean(fila.rider) && `Jinete: ${clean(fila.rider)}`,
       clean(fila.ownet) && `Propietario: ${clean(fila.ownet)}`,
+      // wrap: los nombres de credenciadoras son largos y truncados no se
+      // entiende dónde corrió.
+      evLine && { text: evLine, wrap: true },
     ].filter(Boolean);
   };
   // "Puntos obtenidos" (totalPointsObtained) se oculta por ahora (queda solo el
