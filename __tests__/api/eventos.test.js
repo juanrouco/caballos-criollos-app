@@ -86,6 +86,17 @@ describe('isEmptyCatalog', () => {
     })).toBe(false);
   });
 
+  test('un equipo de aparte campero también cuenta (categorías con equipos[] sin animales[])', () => {
+    expect(isEmptyCatalog({
+      pruebas_funcionales: [{ categorias: [{ equipos: [{ equipo: { id: 1, nombre: 'El Charco' }, animales: [{ id: 'pdre:1' }] }] }] }],
+      morfologicas: [],
+    })).toBe(false);
+    expect(isEmptyCatalog({
+      pruebas_funcionales: [{ categorias: [{ equipos: [] }] }],
+      morfologicas: [],
+    })).toBe(true);
+  });
+
   test('un animal en morfológicas también', () => {
     expect(isEmptyCatalog({
       pruebas_funcionales: [],
@@ -138,6 +149,28 @@ describe('isEmptyResults', () => {
   test('una yunta en cualquier prueba de rodeo alcanza para no estar vacío', () => {
     expect(isEmptyResults({
       rodeos: { pruebas: [{ clasificacion: 'Final', yuntas: [{ puesto: { general: 1 }, animales: [] }] }] },
+    })).toBe(false);
+  });
+
+  test('corral de aparte sin pruebas o con pruebas sin resultados cuenta como vacío', () => {
+    expect(isEmptyResults({ corral_aparte: { pruebas: [] } })).toBe(true);
+    expect(isEmptyResults({ corral_aparte: { pruebas: [{ resultados: [] }] } })).toBe(true);
+  });
+
+  test('un resultado en cualquier categoría de corral alcanza para no estar vacío', () => {
+    expect(isEmptyResults({
+      corral_aparte: { pruebas: [{ clasificacion: 'Clasificatoria', resultados: [{ puesto: 1, total: 36.5, animal: { id: 'x' } }] }] },
+    })).toBe(false);
+  });
+
+  test('aparte campero sin pruebas o con pruebas sin equipos cuenta como vacío', () => {
+    expect(isEmptyResults({ aparte_campero: { pruebas: [] } })).toBe(true);
+    expect(isEmptyResults({ aparte_campero: { pruebas: [{ equipos: [] }] } })).toBe(true);
+  });
+
+  test('un equipo en cualquier categoría de aparte campero alcanza para no estar vacío', () => {
+    expect(isEmptyResults({
+      aparte_campero: { pruebas: [{ clasificacion: 'Clasificatoria', equipos: [{ puesto: 1, total: 80, animales: [] }] }] },
     })).toBe(false);
   });
 });

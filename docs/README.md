@@ -586,6 +586,31 @@ La categoría de rodeo no usa `animales[]` como las demás — usa `yuntas[]`, d
 - `animales[]` siempre trae 2 (los dos miembros de la yunta), salvo que haya quedado coja por carga incompleta — en ese caso, un solo animal.
 - `jinete` viene de `iapf.IdJinete` (jinete que asignó el expositor para la prueba), no del jinete de morfología / tipo y aptitud.
 
+**Aparte campero** (prueba `id = 6`): igual que rodeos, no usa `animales[]` sino **`equipos[]`** (es una prueba por equipo). Cada equipo trae su `{ id, nombre }` (de `tblEquipos`, vía `iapf.IdEquipo`) y sus `animales[]` (cada uno con su `jinete`, tomado de `iapf.IdJinete`):
+
+```json
+{
+  "id": 6,
+  "nombre": "Aparte Campero",
+  "categorias": [
+    {
+      "id": 15, "nombre": "A", "clasificacion": "Clasificatoria", "cantidad_clasificatoria": null,
+      "equipos": [
+        {
+          "equipo": { "id": 138, "nombre": "Los Frasqueados" },
+          "animales": [
+            { "id": "pdre:...", "nombre": "...", "sexo": "M",
+              "jinete": { "id": ..., "nombre": "...", "apellido": "..." }, "...": "..." }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Las demás pruebas funcionales (corral de aparte, freno de oro, FZB, R.J. Dowdall) usan `animales[]` (lista individual), cada animal con su `jinete` de `iapf.IdJinete`.
+
 Si el evento no tiene inscripciones, devuelve el shape vacío con arrays vacíos.
 
 #### `GET /eventos/{id}/resultados`
@@ -642,6 +667,12 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
   },
   "corral_aparte": {
     "pruebas": [ /* ver shape más abajo */ ]
+  },
+  "aparte_campero": {
+    "pruebas": [ /* ver shape más abajo */ ]
+  },
+  "fzb": {
+    "pruebas": [ /* mismo shape que corral_aparte (individual) */ ]
   }
 }
 ```
@@ -786,7 +817,7 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - **Orden** de las yuntas dentro de la categoría: por `puesto.general` ASC (los `null` al final), desempate por total descendente (`dia1 + dia2`). Para CopaEspecial, sin puesto, sale por `dia1` descendente.
 - Solo se incluyen pruebas con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 2`). Pruebas dadas de alta sin yuntas no aparecen.
 
-**Shape de `corral_aparte`** (prueba funcional `IdEventosFuncionalesPrueba = 3`): a diferencia de rodeos es **individual** (un animal/jinete por resultado, sin yuntas ni equipos). Agrupa por prueba + categoría, y dentro de cada categoría los resultados vienen ordenados por `total` descendente.
+**Shape de `corral_aparte`** (prueba funcional `IdEventosFuncionalesPrueba = 3`) **y de `fzb`** (`IdEventosFuncionalesPrueba = 1`): ambas son pruebas funcionales **individuales** (un animal/jinete por resultado, sin yuntas ni equipos) y comparten exactamente el mismo shape. Agrupa por prueba + categoría, y dentro de cada categoría los resultados vienen ordenados por `total` descendente.
 
 ```json
 "corral_aparte": {
@@ -816,7 +847,45 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 **Reglas**:
 - `puesto`: posición 1-based por `total` descendente dentro de la categoría (la columna `Puesto` de la base no se calcula, se deriva del orden).
 - `total`: `(float|null)`. El jinete va dentro de `animal.jinete` (igual que en rodeos).
-- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3`).
+- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3` para corral, `= 1` para fzb). `fzb` usa el mismo objeto por resultado (`{ puesto, total, animal }`).
+
+**Shape de `aparte_campero`** (prueba funcional `IdEventosFuncionalesPrueba = 6`): es **por equipo** (una tropilla de animales que aparta junta; la tabla guarda una fila por animal con los datos del equipo copiados). El puntaje es **TIEMPO** (segundos), no puntos: gana el de **menor** tiempo. Agrupa por prueba + categoría, y dentro de cada categoría los equipos vienen ordenados por `tiempo` ascendente (los que no corrieron van al final).
+
+```json
+"aparte_campero": {
+  "pruebas": [
+    {
+      "prueba":    { "id": 6, "nombre": "Aparte Campero" },
+      "categoria": { "id": 15, "nombre": "A" },
+      "clasificacion": "Clasificatoria",
+      "cantidad_clasificatoria": null,
+      "equipos": [
+        {
+          "puesto": 1,
+          "equipo": { "id": 138, "nombre": "Los Frasqueados" },
+          "tiempo": 52,
+          "rondas": [
+            { "tiempo": 52, "encerradas": 6 },
+            { "tiempo": 0,  "encerradas": 0 }
+          ],
+          "animales": [
+            { "id": "pdre:...", "nombre": "...", "sba": ..., "rp": ..., "sexo": "M",
+              "jinete": { "id": ..., "nombre": "...", "apellido": "..." }, "...": "..." }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Reglas**:
+- `tiempo`: tiempo total en segundos = `Total1 + Total2` (`int|null`); `null` solo si ambas rondas son null. **Gana el menor tiempo**: los equipos se ordenan por `tiempo` ascendente.
+- `puesto`: posición 1-based en ese orden. Los equipos que **no corrieron** (tiempo `0` o `null`) van al final y con `puesto: null`.
+- `rondas`: siempre 2 entradas (ronda 1 y 2), cada una con su `tiempo` (`Total1`/`Total2`) y las vacas `encerradas` (`TotalEncerradas1`/`TotalEncerradas2`).
+- `equipo`: `{ id, nombre }` del equipo (`tblEquipos`); `nombre` puede ser `null` si el equipo no está cargado.
+- `animales`: los animales del equipo (`IdEquipo`), cada uno con su `jinete` dentro (igual que en rodeos/corral).
+- Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 6`).
 
 ---
 

@@ -6,13 +6,14 @@ export const fetchEventoCatalogo    = (id)     => apiGet(`/eventos/${encodeURICo
 export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/resultados`);
 
 // Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales
-// (o yuntas, para rodeos que usan ese shape en vez de animales[]).
+// (o yuntas para rodeos / equipos para aparte campero, que usan esos shapes
+// en vez de animales[]).
 export function isEmptyCatalog(c) {
   if (!c) return true;
   const pf = c.pruebas_funcionales || [];
   const mo = c.morfologicas || [];
   const pfHas = pf.some((p) => (p.categorias || []).some(
-    (cat) => (cat.animales || []).length > 0 || (cat.yuntas || []).length > 0
+    (cat) => (cat.animales || []).length > 0 || (cat.yuntas || []).length > 0 || (cat.equipos || []).length > 0
   ));
   const moHas = mo.some((cat) => (cat.animales || []).length > 0);
   return !(pfHas || moHas);
@@ -28,8 +29,8 @@ export function categoriaEntries(c) {
 }
 
 // Resultados "vacíos" = ninguno de los grupos (morfología / tipo y aptitud,
-// y dentro: gran_campeonato / campeonato / categorias) trae entries, y rodeos
-// no tiene ninguna prueba con yuntas.
+// y dentro: gran_campeonato / campeonato / categorias) trae entries, rodeos
+// no tiene ninguna prueba con yuntas y corral de aparte ninguna con resultados.
 export function isEmptyResults(r) {
   if (!r) return true;
   const groups = [r.morfologia, r.tipo_aptitud].filter(Boolean);
@@ -43,6 +44,10 @@ export function isEmptyResults(r) {
   }
   const pruebas = r.rodeos?.pruebas || [];
   if (pruebas.some((p) => (p.yuntas || []).length > 0)) return false;
+  const corral = r.corral_aparte?.pruebas || [];
+  if (corral.some((p) => (p.resultados || []).length > 0)) return false;
+  const aparte = r.aparte_campero?.pruebas || [];
+  if (aparte.some((p) => (p.equipos || []).length > 0)) return false;
   return true;
 }
 

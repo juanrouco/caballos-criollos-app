@@ -313,8 +313,11 @@ function CatalogoContent({ t, catalogo, navigation }) {
     if (morfo.length)  list.push({ key: 'morfo',  label: 'Morfología',     cats: morfo });
     if (tipoAp.length) list.push({ key: 'tipoap', label: 'Tipo y Aptitud', cats: tipoAp });
     pf.forEach((p, idx) => {
-      const cats = (p.categorias || []).filter((c) => (c.animales || []).length > 0 || (c.yuntas || []).length > 0);
-      if (cats.length > 0) list.push({ key: `pf-${p.id ?? idx}`, label: p.nombre, cats });
+      const cats = (p.categorias || []).filter((c) => (c.animales || []).length > 0 || (c.yuntas || []).length > 0 || (c.equipos || []).length > 0);
+      // En corral de aparte el jinete es parte del dato (prueba individual);
+      // en las demás pruebas/morfológicas no se muestra en el catálogo.
+      const showJinete = /corral/i.test(p.nombre || '');
+      if (cats.length > 0) list.push({ key: `pf-${p.id ?? idx}`, label: p.nombre, cats, showJinete });
     });
     return list;
   }, [catalogo]);
@@ -352,24 +355,29 @@ function CatalogoContent({ t, catalogo, navigation }) {
       )}
       <View style={{ gap: 8 }}>
         {current.cats.map((cat) => (
-          <CategoryAccordion key={cat.id} t={t} cat={cat} navigation={navigation} />
+          <CategoryAccordion key={cat.id} t={t} cat={cat} showJinete={current.showJinete} navigation={navigation} />
         ))}
       </View>
     </View>
   );
 }
 
-function CategoryAccordion({ t, cat, navigation }) {
+function CategoryAccordion({ t, cat, showJinete, navigation }) {
   const [open, setOpen] = React.useState(false);
-  // Rodeo cats traen yuntas[] (par de animales con jinete c/u) en vez de
-  // animales[]. El resto usa animales[].
+  // Rodeo cats traen yuntas[] (par de animales con jinete c/u) y aparte
+  // campero equipos[] (tropilla con nombre), en vez de animales[]. El resto
+  // usa animales[].
   const yuntas = cat.yuntas;
   const isRodeo = Array.isArray(yuntas);
+  const equipos = cat.equipos;
+  const isEquipos = !isRodeo && Array.isArray(equipos);
   const animales = cat.animales || [];
-  const count = isRodeo ? yuntas.length : animales.length;
+  const count = isRodeo ? yuntas.length : isEquipos ? equipos.length : animales.length;
   const countLabel = isRodeo
     ? `${count} ${count === 1 ? 'yunta' : 'yuntas'}`
-    : `${count} ${count === 1 ? 'animal' : 'animales'}`;
+    : isEquipos
+      ? `${count} ${count === 1 ? 'equipo' : 'equipos'}`
+      : `${count} ${count === 1 ? 'animal' : 'animales'}`;
   // CopaEspecial reemplaza el nombre de la categoría — siempre se trata de
   // la misma copa, el nombre de la categ. aporta poco.
   const title = cat.clasificacion === 'CopaEspecial' ? 'Copa Especial' : cat.nombre;
@@ -391,9 +399,16 @@ function CategoryAccordion({ t, cat, navigation }) {
                   {i < yuntas.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
                 </View>
               ))
-            : animales.map((a, i) => (
+            : isEquipos
+              ? equipos.map((e, i) => (
+                  <View key={`e-${e.equipo?.id ?? i}-${i}`}>
+                    <CatalogEquipoGroup t={t} equipo={e} navigation={navigation} />
+                    {i < equipos.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
+                  </View>
+                ))
+              : animales.map((a, i) => (
                 <View key={`${a.id}-${i}`}>
-                  <AnimalRow t={t} a={a} navigation={navigation} />
+                  <AnimalRow t={t} a={a} showJinete={showJinete} navigation={navigation} />
                   {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
                 </View>
               ))
@@ -446,7 +461,29 @@ function CatalogYuntaAnimalRow({ t, a, navigation }) {
   );
 }
 
-function AnimalRow({ t, a, navigation }) {
+// Un equipo de aparte campero en el catálogo: header con el nombre del equipo
+// + las filas de sus animales (mismo formato que las yuntas de rodeo).
+function CatalogEquipoGroup({ t, equipo, navigation }) {
+  const animales = equipo.animales || [];
+  return (
+    <View>
+      <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>
+          {equipo.equipo?.nombre ? `Equipo ${equipo.equipo.nombre}` : 'Equipo'}
+        </Text>
+      </View>
+      {animales.map((a, i) => (
+        <View key={`${a.id ?? 'a'}-${i}`}>
+          <CatalogYuntaAnimalRow t={t} a={a} navigation={navigation} />
+          {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function AnimalRow({ t, a, showJinete, navigation }) {
+  const jinete = showJinete && a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
   return (
     <TouchableOpacity onPress={() => navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text numberOfLines={1} allowFontScaling={false} style={{ width: 44, fontFamily: F.mono, fontSize: 13, color: t.accent, textAlign: 'center' }}>{a.box ?? '—'}</Text>
@@ -454,6 +491,7 @@ function AnimalRow({ t, a, navigation }) {
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre}</Text>
         <AnimalMetaLines t={t} a={a} />
+        {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
       </View>
       <Icon name="arrow" size={15} color={t.textDim} />
     </TouchableOpacity>
@@ -539,6 +577,8 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
       { key: 'morfologia',    label: 'Morfología',     kind: 'std',    data: resultados.morfologia },
       { key: 'tipo_aptitud',  label: 'Tipo y Aptitud', kind: 'std',    data: resultados.tipo_aptitud },
       { key: 'rodeos',        label: 'Rodeos',         kind: 'rodeos', data: resultados.rodeos },
+      { key: 'corral_aparte', label: 'Corral de Aparte', kind: 'corral', data: resultados.corral_aparte },
+      { key: 'aparte_campero', label: 'Aparte Campero', kind: 'aparte', data: resultados.aparte_campero },
     ];
     return all.filter((s) => s.data && !isSectionEmpty(s));
   }, [resultados]);
@@ -581,11 +621,23 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
       </View>
       {current.kind === 'std'
         ? <StandardSection t={t} data={current.data} navigation={navigation} />
-        : <RodeosSection
-            t={t}
-            pruebas={(current.data.pruebas || []).filter((p) => (p.yuntas || []).length > 0)}
-            navigation={navigation}
-          />
+        : current.kind === 'rodeos'
+          ? <RodeosSection
+              t={t}
+              pruebas={(current.data.pruebas || []).filter((p) => (p.yuntas || []).length > 0)}
+              navigation={navigation}
+            />
+          : current.kind === 'corral'
+            ? <CorralSection
+                t={t}
+                pruebas={(current.data.pruebas || []).filter((p) => (p.resultados || []).length > 0)}
+                navigation={navigation}
+              />
+            : <AparteSection
+                t={t}
+                pruebas={(current.data.pruebas || []).filter((p) => (p.equipos || []).length > 0)}
+                navigation={navigation}
+              />
       }
     </View>
   );
@@ -594,6 +646,12 @@ function ResultsContent({ t, resultados, navigation, onRefresh, refreshing }) {
 function isSectionEmpty(s) {
   if (s.kind === 'rodeos') {
     return !(s.data.pruebas || []).some((p) => (p.yuntas || []).length > 0);
+  }
+  if (s.kind === 'corral') {
+    return !(s.data.pruebas || []).some((p) => (p.resultados || []).length > 0);
+  }
+  if (s.kind === 'aparte') {
+    return !(s.data.pruebas || []).some((p) => (p.equipos || []).length > 0);
   }
   const g = s.data;
   if (!g) return true;
@@ -1031,6 +1089,245 @@ function RodeoAnimalRow({ t, a, navigation }) {
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
         {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
+      </View>
+      <Icon name="arrow" size={15} color={t.textDim} />
+    </TouchableOpacity>
+  );
+}
+
+// ── Corral de aparte ─────────────────────────────────────────────
+// A diferencia de rodeos es individual (un animal/jinete por resultado, sin
+// yuntas ni equipos). Un card acordeón por prueba+categoría; adentro, una fila
+// por resultado con puesto, animal, jinete y total.
+function CorralSection({ t, pruebas, navigation }) {
+  return (
+    <View style={{ gap: 10 }}>
+      {pruebas.map((p, i) => {
+        // Las categorías del corral suelen llamarse "A" / "B" / "C" a secas;
+        // les anteponemos "Categoría" salvo que ya vengan con un nombre largo.
+        const nom = p.categoria?.nombre;
+        const catName = nom
+          ? (/^categ/i.test(String(nom)) ? String(nom) : `Categoría ${nom}`)
+          : (p.prueba?.nombre || 'Corral de aparte');
+        const title = p.clasificacion ? `${catName} · ${p.clasificacion}` : catName;
+        const featured = p.clasificacion === 'Final';
+        return (
+          <CorralCard
+            key={`${p.prueba?.id ?? 'p'}-${p.categoria?.id ?? 'c'}-${i}`}
+            t={t}
+            title={title}
+            prueba={p}
+            featured={featured}
+            navigation={navigation}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function CorralCard({ t, title, prueba, featured, navigation }) {
+  const [open, setOpen] = React.useState(false);
+  const resultados = prueba.resultados || [];
+  if (resultados.length === 0) return null;
+  return (
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: (open || featured) ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+        {featured && (
+          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{resultados.length} {resultados.length === 1 ? 'animal' : 'animales'}</Text>
+        </View>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+          {resultados.map((r, i) => (
+            <View key={`r-${r.animal?.id ?? i}`}>
+              <CorralResultRow t={t} r={r} fallbackRank={i + 1} navigation={navigation} />
+              {i < resultados.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function CorralResultRow({ t, r, fallbackRank, navigation }) {
+  const a = r.animal || {};
+  const rank = r.puesto ?? fallbackRank;
+  const top = rank === 1;
+  const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
+  const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
+  return (
+    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+      <Text numberOfLines={1} allowFontScaling={false} style={{ width: 38, fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text, textAlign: 'center' }}>{rank}°</Text>
+      <View style={{ width: 1, height: 28, backgroundColor: t.border }} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
+        {!!reg && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
+        {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
+      </View>
+      {r.total != null && (
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtPts(r.total)}</Text>
+          <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>PUNTOS</Text>
+        </View>
+      )}
+      <Icon name="arrow" size={15} color={t.textDim} />
+    </TouchableOpacity>
+  );
+}
+
+// ── Aparte campero ───────────────────────────────────────────────
+// Por equipo: una tropilla de animales que aparta junta. Un card acordeón por
+// prueba+categoría; adentro, un grupo por equipo (puesto + total + rondas) con
+// la fila de cada animal y su jinete.
+
+// Los totales del aparte campero son SEGUNDOS (menor = mejor), no puntos.
+// Se muestran como min:seg (ej. 80 → "1:20").
+function fmtTiempo(n) {
+  if (n == null || Number.isNaN(Number(n))) return null;
+  const total = Math.round(Number(n));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+function AparteSection({ t, pruebas, navigation }) {
+  return (
+    <View style={{ gap: 10 }}>
+      {pruebas.map((p, i) => {
+        // Igual que en corral: las categorías suelen llamarse "A"/"B" a secas.
+        const nom = p.categoria?.nombre;
+        const catName = nom
+          ? (/^categ/i.test(String(nom)) ? String(nom) : `Categoría ${nom}`)
+          : (p.prueba?.nombre || 'Aparte Campero');
+        const title = p.clasificacion ? `${catName} · ${p.clasificacion}` : catName;
+        const featured = p.clasificacion === 'Final';
+        return (
+          <AparteCard
+            key={`${p.prueba?.id ?? 'p'}-${p.categoria?.id ?? 'c'}-${i}`}
+            t={t}
+            title={title}
+            prueba={p}
+            featured={featured}
+            navigation={navigation}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function AparteCard({ t, title, prueba, featured, navigation }) {
+  const [open, setOpen] = React.useState(false);
+  const equipos = prueba.equipos || [];
+  if (equipos.length === 0) return null;
+  return (
+    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: (open || featured) ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
+      <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
+        {featured && (
+          <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="trophy" size={15} color={t.bg} stroke={2.4} />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{title}</Text>
+          <Text style={{ fontSize: 10.5, color: t.textMute, fontFamily: F.mono, marginTop: 3 }}>{equipos.length} {equipos.length === 1 ? 'equipo' : 'equipos'}</Text>
+        </View>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {open && (
+        <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+          {equipos.map((e, i) => (
+            <View key={`e-${i}`}>
+              <AparteEquipo t={t} equipo={e} navigation={navigation} />
+              {i < equipos.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Un equipo: header chico (puesto + "Equipo" + tiempo total), las filas de
+// animales y un renglón por día (tiempo · vacas encerradas) más el Total.
+// Los equipos que no corrieron vienen con puesto null → "—".
+// Compat: datos viejos cacheados traían `total` en vez de `tiempo`.
+function AparteEquipo({ t, equipo, navigation }) {
+  const rank = equipo.puesto;
+  const top = rank === 1;
+  const animales = equipo.animales || [];
+  const rondas = equipo.rondas || [];
+  const tiempoDe = (r) => r?.tiempo ?? r?.total;
+  const tiempoTotal = equipo.tiempo ?? equipo.total;
+  const encerradas = rondas.map((r) => r?.encerradas);
+  const hasEncerradas = encerradas.some((e) => e != null);
+  const totalEncerradas = encerradas.reduce((n, e) => n + (e ?? 0), 0);
+  const fmtVacas = (n) => `${n} ${n === 1 ? 'vaca' : 'vacas'}`;
+  // Un renglón por día (tiempo · vacas encerradas) + el renglón Total.
+  const diaRows = rondas
+    .map((r, i) => {
+      const tiempo = tiempoDe(r);
+      if (tiempo == null && r?.encerradas == null) return null;
+      const value = [tiempo != null && fmtTiempo(tiempo), r?.encerradas != null && fmtVacas(r.encerradas)]
+        .filter(Boolean).join(' · ');
+      return { label: `Día ${i + 1}`, value };
+    })
+    .filter(Boolean);
+  if (diaRows.length > 0 && tiempoTotal != null) {
+    diaRows.push({
+      label: 'Total',
+      value: [fmtTiempo(tiempoTotal), hasEncerradas && fmtVacas(totalEncerradas)].filter(Boolean).join(' · '),
+    });
+  }
+  return (
+    <View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank != null ? `${rank}°` : '—'}</Text>
+        <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>
+          {equipo.equipo?.nombre ? `Equipo ${equipo.equipo.nombre}` : 'Equipo'}
+        </Text>
+        {tiempoTotal != null && (
+          <View style={{ alignItems: 'center' }}>
+            <Text style={{ fontFamily: F.mono, fontSize: 13, color: t.text }}>{fmtTiempo(tiempoTotal)}</Text>
+            <Text style={{ fontSize: 9.5, color: t.accent, letterSpacing: 1, marginTop: 1, fontFamily: F.bodyBold }}>TIEMPO</Text>
+          </View>
+        )}
+      </View>
+      <View>
+        {animales.map((a, i) => (
+          <View key={`${a.id ?? 'a'}-${i}`}>
+            <AparteAnimalRow t={t} a={a} navigation={navigation} />
+            {i < animales.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
+          </View>
+        ))}
+      </View>
+      {diaRows.map((row) => (
+        <View key={row.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: t.border }}>
+          <Text style={{ width: 52, fontSize: 10, color: t.textMute, letterSpacing: 1.2, textTransform: 'uppercase' }}>{row.label}</Text>
+          <Text style={{ fontFamily: F.mono, fontSize: 11, color: t.text }}>{row.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function AparteAnimalRow({ t, a, navigation }) {
+  const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
+  const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
+  return (
+    <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
+        {!!reg && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 3, fontFamily: F.mono }} numberOfLines={1}>{reg}</Text>}
+        {!!jinete && <Text style={{ fontSize: 10.5, color: t.textMute, marginTop: 2, fontFamily: F.mono }} numberOfLines={1}>Jinete: {jinete}</Text>}
       </View>
       <Icon name="arrow" size={15} color={t.textDim} />
     </TouchableOpacity>

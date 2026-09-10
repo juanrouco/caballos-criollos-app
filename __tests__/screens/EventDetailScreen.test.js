@@ -288,6 +288,113 @@ describe('EventDetailScreen', () => {
     expect(getByText('Jinete: Juan Pérez')).toBeTruthy();
   });
 
+  test('resultados con corral de aparte: sub-tab propia, acordeón y filas individuales', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 345 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      rodeos: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Rodeos' },
+          categoria: { id: 312, nombre: 'Categ. 19 - Final Adulta' },
+          clasificacion: 'Final',
+          yuntas: [{ puesto: { general: 1 }, totales: { dia1: 88, dia2: 86 }, animales: [{ id: 'pdre:9', nombre: 'Rodeo Animal' }] }],
+        }],
+      },
+      corral_aparte: {
+        pruebas: [{
+          prueba: { id: 3, nombre: 'Corral de aparte' },
+          categoria: { id: 9, nombre: 'A' },
+          clasificacion: 'Clasificatoria',
+          cantidad_clasificatoria: 0,
+          resultados: [
+            { puesto: 1, total: 36.5, animal: { id: 'exis:1', nombre: 'Corral Uno', sba: 81726, rp: 1327, jinete: { nombre: 'Fausto', apellido: 'Aguero' } } },
+            { puesto: 2, total: 33, animal: { id: 'exis:2', nombre: 'Corral Dos', jinete: { nombre: 'Ana', apellido: 'García' } } },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 345 })} />,
+    );
+    // Sub-tab "Corral de Aparte" junto a Rodeos; al entrar, card acordeón
+    // "Categoría A · Clasificatoria" (a las categorías cortas se les antepone
+    // "Categoría") colapsado.
+    fireEvent.press(await findByText('Corral de Aparte'));
+    expect(await findByText('Categoría A · Clasificatoria')).toBeTruthy();
+    expect(getByText('2 animales')).toBeTruthy();
+    expect(queryByText('Corral Uno')).toBeNull();
+    fireEvent.press(getByText('Categoría A · Clasificatoria'));
+    await waitFor(() => expect(getByText('Corral Uno')).toBeTruthy());
+    // Fila individual: puesto, S.B.A./R.P., jinete y total con la unidad PUNTOS.
+    expect(getByText('1°')).toBeTruthy();
+    expect(getByText('2°')).toBeTruthy();
+    expect(getByText('S.B.A. 81726 · R.P. 1327')).toBeTruthy();
+    expect(getByText('Jinete: Fausto Aguero')).toBeTruthy();
+    expect(getByText('36.5')).toBeTruthy();
+    expect(getByText('33')).toBeTruthy();
+  });
+
+  test('resultados con aparte campero: acordeón por categoría y equipos con rondas', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 347 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({
+      aparte_campero: {
+        pruebas: [{
+          prueba: { id: 6, nombre: 'Aparte Campero' },
+          categoria: { id: 15, nombre: 'A' },
+          clasificacion: 'Clasificatoria',
+          cantidad_clasificatoria: null,
+          equipos: [
+            {
+              puesto: 1,
+              equipo: { id: 3232, nombre: 'El Charco' },
+              tiempo: 80,
+              rondas: [{ tiempo: 52, encerradas: 6 }, { tiempo: 28, encerradas: 4 }],
+              animales: [
+                { id: 'pdre:1', nombre: 'Aparte Uno', sba: 59229, rp: 379, jinete: { nombre: 'Isabel', apellido: 'Alais' } },
+                { id: 'pdre:2', nombre: 'Aparte Dos', jinete: { nombre: 'Mora', apellido: 'Alais' } },
+              ],
+            },
+            {
+              // No corrió: tiempo 0/null → puesto null, se muestra "—".
+              puesto: null,
+              tiempo: null,
+              rondas: [{ tiempo: null, encerradas: null }, { tiempo: null, encerradas: null }],
+              animales: [{ id: 'pdre:3', nombre: 'Aparte Tres' }],
+            },
+          ],
+        }],
+      },
+    });
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 347 })} />,
+    );
+    // Única sección → sin sub-tabs; card acordeón colapsado con conteo de equipos.
+    expect(await findByText('Categoría A · Clasificatoria')).toBeTruthy();
+    expect(getByText('2 equipos')).toBeTruthy();
+    expect(queryByText('Aparte Uno')).toBeNull();
+    fireEvent.press(getByText('Categoría A · Clasificatoria'));
+    await waitFor(() => expect(getByText('Aparte Uno')).toBeTruthy());
+    // Equipo: puesto + tiempo en min:seg (son segundos), animales con
+    // S.B.A./R.P. y jinete, y un renglón por día (tiempo · vacas) + Total.
+    expect(getByText('1°')).toBeTruthy();
+    expect(getByText('Equipo El Charco')).toBeTruthy();
+    expect(getByText('1:20')).toBeTruthy();
+    expect(getByText('TIEMPO')).toBeTruthy();
+    expect(getByText('S.B.A. 59229 · R.P. 379')).toBeTruthy();
+    expect(getByText('Jinete: Isabel Alais')).toBeTruthy();
+    expect(getByText('Aparte Dos')).toBeTruthy();
+    expect(getByText('Día 1')).toBeTruthy();
+    expect(getByText('0:52 · 6 vacas')).toBeTruthy();
+    expect(getByText('Día 2')).toBeTruthy();
+    expect(getByText('0:28 · 4 vacas')).toBeTruthy();
+    expect(getByText('Total')).toBeTruthy();
+    expect(getByText('1:20 · 10 vacas')).toBeTruthy();
+    // El equipo que no corrió sale sin puesto ("—") y sin líneas de días/vacas.
+    expect(getByText('Aparte Tres')).toBeTruthy();
+    expect(getByText('—')).toBeTruthy();
+  });
+
   test('rodeo: totales con decimales (morfología) se muestran prolijos', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 305 }));
     fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
@@ -909,6 +1016,80 @@ describe('EventDetailScreen', () => {
     await waitFor(() => expect(getByText('CaballoMorfo')).toBeTruthy());
     expect(getByText('M · Nac. 10/08/2018 · Tordillo')).toBeTruthy();
     expect(getByText('S.B.A. 67890 · R.P. 12345')).toBeTruthy();
+  });
+
+  test('catálogo de corral de aparte: muestra el jinete (y morfo no)', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 346 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 3, nombre: 'Corral de aparte',
+        categorias: [{
+          id: 9, nombre: 'A',
+          animales: [{
+            id: 'exis:1', box: 4, nombre: 'CorralCatalogo',
+            sba: 81726, rp: 1327, sexo: 'H',
+            jinete: { id: 3190, nombre: 'Fausto', apellido: 'Aguero' },
+          }],
+        }],
+      }],
+      morfologicas: [{
+        id: 1, nombre: 'CatMorfoConJinete', tipo_aptitud: false,
+        animales: [{
+          id: 'pdre:1', box: 'A-1', nombre: 'CaballoMorfo',
+          jinete: { id: 99, nombre: 'Carlos', apellido: 'Gomez' },
+        }],
+      }],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 346 })} />,
+    );
+    // Morfología (sub-tab default): el jinete NO se muestra en el catálogo.
+    fireEvent.press(await findByText('CatMorfoConJinete'));
+    await waitFor(() => expect(getByText('CaballoMorfo')).toBeTruthy());
+    expect(queryByText('Jinete: Carlos Gomez')).toBeNull();
+    // Corral de aparte: el jinete sí es parte del dato.
+    fireEvent.press(getByText('Corral de aparte'));
+    fireEvent.press(await findByText('A'));
+    await waitFor(() => expect(getByText('CorralCatalogo')).toBeTruthy());
+    expect(getByText('Jinete: Fausto Aguero')).toBeTruthy();
+    expect(getByText('S.B.A. 81726 · R.P. 1327')).toBeTruthy();
+  });
+
+  test('catálogo de aparte campero: equipos con nombre y sus animales con jinete', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 348 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 6, nombre: 'Aparte Campero',
+        categorias: [{
+          id: 15, nombre: 'A',
+          equipos: [{
+            equipo: { id: 4194, nombre: 'El Charco' },
+            animales: [
+              { id: 'exis:1', box: 28, nombre: 'AparteCat Uno', sba: 109229, rp: 3725, jinete: { nombre: 'Paulino', apellido: 'Castaño' } },
+              { id: 'pdre:2', box: 7, nombre: 'AparteCat Dos', jinete: { nombre: 'German', apellido: 'Lopez' } },
+            ],
+          }],
+        }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 348 })} />,
+    );
+    // Card de la categoría con conteo de equipos, colapsado.
+    expect(await findByText('A')).toBeTruthy();
+    expect(getByText('1 equipo')).toBeTruthy();
+    expect(queryByText('AparteCat Uno')).toBeNull();
+    fireEvent.press(getByText('A'));
+    await waitFor(() => expect(getByText('AparteCat Uno')).toBeTruthy());
+    // Header del equipo + animales con datos y jinete.
+    expect(getByText('Equipo El Charco')).toBeTruthy();
+    expect(getByText('S.B.A. 109229 · R.P. 3725')).toBeTruthy();
+    expect(getByText('Jinete: Paulino Castaño')).toBeTruthy();
+    expect(getByText('AparteCat Dos')).toBeTruthy();
+    expect(getByText('Jinete: German Lopez')).toBeTruthy();
   });
 
   test('catálogo de rodeo: lista las yuntas con sus animales y jinetes', async () => {
