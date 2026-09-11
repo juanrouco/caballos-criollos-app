@@ -15,6 +15,17 @@ const { fetchRankings, fetchRanking } = require('../../src/api');
 const RankingsScreen = require('../../src/screens/RankingsScreen').default;
 const { T, navStub } = require('../helpers');
 
+// Los accordions quedan deshabilitados hasta que resuelve el sondeo de
+// disponibilidad del año; apretar antes no expande y el test queda flaky
+// según el timing de los mocks. Este helper reintenta el press hasta que el
+// contenido esperado aparece: si el press fue ignorado (disabled) el assert
+// falla y waitFor reintenta; una vez habilitado, el press abre y pasa.
+const pressUntil = (getByText, pressLabel, expectLabel) =>
+  waitFor(() => {
+    fireEvent.press(getByText(pressLabel));
+    expect(getByText(expectLabel)).toBeTruthy();
+  });
+
 const SOLANET = {
   slug: 'solanet', nombre: 'Premio Emilio Solanet', familia: 'propietario',
   filtros: [{ param: 'premio', default: 1, opciones: [
@@ -124,7 +135,8 @@ describe('RankingsScreen', () => {
   test('expandir una disciplina y tocar una categoría navega con año + categoría', async () => {
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
-    fireEvent.press(await findByText('Freno de Oro')); // expande
+    await findByText('Freno de Oro');
+    await pressUntil(getByText, 'Freno de Oro', 'Machos'); // expande
     fireEvent.press(getByText('Machos')); // categoría
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2026, categoria: 24 },
@@ -136,9 +148,9 @@ describe('RankingsScreen', () => {
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     await findByText('Freno de Oro');
     fireEvent.press(getByText('2025')); // tab de año
-    // Tras cambiar de año el accordion queda deshabilitado hasta que resuelve el
-    // sondeo del nuevo año; reintentamos el press hasta que expande.
-    await waitFor(() => { fireEvent.press(getByText('Freno de Oro')); expect(getByText('Machos')).toBeTruthy(); });
+    // Tras cambiar de año el accordion queda deshabilitado hasta que resuelve
+    // el sondeo del nuevo año.
+    await pressUntil(getByText, 'Freno de Oro', 'Machos');
     fireEvent.press(getByText('Machos'));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
       ranking: FRENO_CLEAN, initialFilters: { anio: 2025, categoria: 24 },
@@ -148,8 +160,8 @@ describe('RankingsScreen', () => {
   test('cambiar el año cierra los accordions abiertos', async () => {
     const nav = navStub();
     const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={nav} />);
-    fireEvent.press(await findByText('Freno de Oro')); // expande → categorías visibles
-    expect(getByText('Machos')).toBeTruthy();
+    await findByText('Freno de Oro');
+    await pressUntil(getByText, 'Freno de Oro', 'Machos'); // expande → categorías visibles
     fireEvent.press(getByText('2025')); // cambia de año
     expect(queryByText('Machos')).toBeNull(); // el accordion se cerró
   });
@@ -163,8 +175,7 @@ describe('RankingsScreen', () => {
     expect(queryByText('Ranking General')).toBeNull(); // sub-rankings ocultos
 
     // Abrir el grupo → aparecen los sub-rankings
-    fireEvent.press(getByText('Corral de Aparte'));
-    expect(getByText('Ranking General')).toBeTruthy();
+    await pressUntil(getByText, 'Corral de Aparte', 'Ranking General');
     expect(getByText('Ranking Analítico')).toBeTruthy();
     expect(queryByText('Libre')).toBeNull(); // categorías aún ocultas
 
@@ -182,9 +193,7 @@ describe('RankingsScreen', () => {
     expect(await findByText('Aparte Campero')).toBeTruthy();
     expect(queryByText('Aparte Campero — Ranking General')).toBeNull();
 
-    fireEvent.press(getByText('Aparte Campero'));
-    const generales = await findByText('Ranking General'); // aparece dentro del grupo
-    expect(generales).toBeTruthy();
+    await pressUntil(getByText, 'Aparte Campero', 'Ranking General'); // abre el grupo
     fireEvent.press(getByText('Ranking Analítico'));
     fireEvent.press(getByText('B'));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
