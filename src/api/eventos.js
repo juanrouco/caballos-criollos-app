@@ -49,6 +49,8 @@ export function isEmptyResults(r) {
   }
   const pruebas = r.rodeos?.pruebas || [];
   if (pruebas.some((p) => (p.yuntas || []).length > 0)) return false;
+  const paleteada = r.paleteada?.pruebas || [];
+  if (paleteada.some((p) => (p.yuntas || []).length > 0)) return false;
   const corral = r.corral_aparte?.pruebas || [];
   if (corral.some((p) => (p.resultados || []).length > 0)) return false;
   const fzb = r.fzb?.pruebas || [];

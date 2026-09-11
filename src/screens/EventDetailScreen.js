@@ -316,10 +316,13 @@ function CatalogoContent({ t, catalogo, navigation }) {
     pf.forEach((p, idx) => {
       const cats = (p.categorias || []).filter((c) => (c.animales || []).length > 0 || (c.yuntas || []).length > 0 || (c.equipos || []).length > 0);
       // En las pruebas funcionales individuales (corral de aparte, F.Z.B.,
-      // Freno de Oro) el jinete es parte del dato; en las morfológicas no se
-      // muestra en el catálogo.
-      const showJinete = /corral|f\.?z\.?b|freno/i.test(p.nombre || '');
-      if (cats.length > 0) list.push({ key: `pf-${p.id ?? idx}`, label: p.nombre, cats, showJinete });
+      // Freno de Oro, Copa Incentivo) el jinete es parte del dato; en las
+      // morfológicas no se muestra en el catálogo.
+      const showJinete = /corral|f\.?z\.?b|freno|incentivo/i.test(p.nombre || '');
+      // La key incluye el índice: la API parte Freno de Oro / Copa Incentivo
+      // y Rodeos / Paleteada en entradas separadas que COMPARTEN el id de la
+      // prueba subyacente (ver docs/README.md), así que el id solo no alcanza.
+      if (cats.length > 0) list.push({ key: `pf-${p.id ?? 'x'}-${idx}`, label: p.nombre, cats, showJinete });
     });
     return list;
   }, [catalogo]);
@@ -381,8 +384,12 @@ function CategoryAccordion({ t, cat, showJinete, navigation }) {
       ? `${count} ${count === 1 ? 'equipo' : 'equipos'}`
       : `${count} ${count === 1 ? 'animal' : 'animales'}`;
   // CopaEspecial reemplaza el nombre de la categoría — siempre se trata de
-  // la misma copa, el nombre de la categ. aporta poco.
-  const title = cat.clasificacion === 'CopaEspecial' ? 'Copa Especial' : cat.nombre;
+  // la misma copa, el nombre de la categ. aporta poco. fixCp1252 limpia los
+  // guiones mal codificados del backend, y en CIO se recorta el prefijo
+  // "Copa Incentivo de Oro –" que ya dice la sub-tab (igual que en resultados).
+  const title = cat.clasificacion === 'CopaEspecial'
+    ? 'Copa Especial'
+    : (fixCp1252(cat.nombre).replace(/^copa incentivo de oro\s*[–—-]\s*/i, '').trim() || fixCp1252(cat.nombre));
   return (
     <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: open ? withAlpha(t.accent, 0.5) : t.border, overflow: 'hidden' }}>
       <TouchableOpacity onPress={() => setOpen(!open)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}>
@@ -580,6 +587,9 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
       { key: 'morfologia',    label: 'Morfología',     kind: 'std',    data: resultados.morfologia },
       { key: 'tipo_aptitud',  label: 'Tipo y Aptitud', kind: 'std',    data: resultados.tipo_aptitud },
       { key: 'rodeos',        label: 'Rodeos',         kind: 'rodeos', data: resultados.rodeos },
+      // Paleteada: categorías de la prueba Rodeos que la API informa aparte
+      // (mismo shape de yuntas).
+      { key: 'paleteada',     label: 'Paleteada',      kind: 'rodeos', data: resultados.paleteada },
       { key: 'corral_aparte', label: 'Corral de Aparte', kind: 'corral', data: resultados.corral_aparte },
       { key: 'aparte_campero', label: 'Aparte Campero', kind: 'aparte', data: resultados.aparte_campero },
       // FZB (Aparte Vacuno Felipe Z. Ballester) y Freno de Oro comparten el

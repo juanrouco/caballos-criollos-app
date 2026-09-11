@@ -540,6 +540,15 @@ Catálogo de animales inscriptos para el evento. Recibe el `IdEvento` del lado w
 
 Pruebas con `IdEventosFuncionalesPrueba` no listado (pruebas nuevas que se agreguen) caen al final, ordenadas por id ascendente. Dentro de cada prueba, las categorías van por `IdEventosFuncionalesPruebasCategoria` ascendente.
 
+**Pruebas que se reportan separadas** — dos `IdEventosFuncionalesPrueba` se parten en más de una entrada de `pruebas_funcionales`, según el nombre de la categoría:
+
+| Prueba real | Se separa en | Criterio (por nombre de categoría) |
+|---|---|---|
+| Freno de Oro (5) | `"Freno de Oro"` y `"Copa Incentivo de Oro"` | categoría contiene "Incentivo" → Copa Incentivo |
+| Rodeos (2) | `"Rodeos"` y `"Paleteada"` | categoría contiene "Paleteada" → Paleteada |
+
+Cada parte es una entrada propia de `pruebas_funcionales` (con su `nombre` distinto y sus `categorias`), y aparece inmediatamente después de la prueba de la que se separó. **El `id` es el de la prueba subyacente** (5 para Freno/Copa Incentivo; 2 para Rodeos/Paleteada), así que dos entradas pueden compartir `id` — hay que distinguirlas por `nombre`. Paleteada usa el mismo `yuntas[]` que Rodeos; Copa Incentivo el mismo `animales[]` que las pruebas individuales.
+
 **Orden de animales dentro de cada prueba**:
 
 | Prueba | Orden |
@@ -665,6 +674,9 @@ Premios y puntajes cargados para el evento, agrupados por disciplina (morfologí
   "rodeos": {
     "pruebas": [ /* ver shape más abajo */ ]
   },
+  "paleteada": {
+    "pruebas": [ /* mismo shape que rodeos (yuntas) */ ]
+  },
   "corral_aparte": {
     "pruebas": [ /* ver shape más abajo */ ]
   },
@@ -752,6 +764,8 @@ Si el evento no tiene resultados, devuelve el shape vacío con los arrays vacío
 **Rodeos**
 
 La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su `clasificacion` (`Clasificatoria` / `Final` / `TercioFinal` / `CopaEspecial`) y un array de `yuntas`. Cada yunta (par de animales) consolida los dos rows de `tblInscripcionResultadosRodeos` que la componen (dedupe por `IdEquipo`; fallback al par `(IdAnimal, YuntaIdAnimal)` cuando el equipo no está cargado).
+
+**`paleteada`**: las categorías de **Paleteada** (nombre contiene "Paleteada", ej. "Paleteada Brasilera", "Paleteada Campera") pertenecen a la prueba Rodeos (`IdEventosFuncionalesPrueba = 2`) y se puntúan igual (misma tabla, mismo shape de `yuntas`), pero se informan en una **key aparte** `paleteada`, fuera de `rodeos`. Mismo shape que `rodeos.pruebas[]`; el `prueba.nombre` anidado se expone como `"Paleteada"` (aunque el `prueba.id` subyacente sigue siendo `2`).
 
 ```json
 "rodeos": {
@@ -858,7 +872,7 @@ La key `rodeos.pruebas[]` agrupa por prueba + categoría. Cada prueba expone su 
 - `total`: `(float|null)`. El jinete va dentro de `animal.jinete` (igual que en rodeos).
 - Solo se incluyen categorías con resultados cargados (`iapf.IdEventosFuncionalesPrueba = 3` para corral, `= 1` para fzb, `= 5` para freno_oro). `fzb` y `freno_oro` usan el mismo objeto por resultado (`{ puesto, total, animal }`).
 
-**Shape de `copa_incentivo`** (Copa Incentivo de Oro, "CIO"): es una **categoría de la prueba Freno de Oro** (`IdEventosFuncionalesPrueba = 5`, categorías 30/31/32/34/35/36) pero con **carga de resultados propia**, en `tblInscripcionResultadosCio` (no en la tabla del freno clásico). Por eso va en una clave aparte, aunque comparte exactamente el mismo shape individual que `freno_oro` (`{ puesto, total, animal }`, agrupado por categoría, ordenado por `total` descendente). No hay solapamiento con `freno_oro`: cada uno lee su propia tabla, así que las categorías CIO **no** aparecen en `freno_oro` ni viceversa.
+**Shape de `copa_incentivo`** (Copa Incentivo de Oro, "CIO"): es una **categoría de la prueba Freno de Oro** (`IdEventosFuncionalesPrueba = 5`, categorías cuyo nombre contiene "Incentivo": 30/31/32/34/35/36) pero con **carga de resultados propia**, en `tblInscripcionResultadosCio` (no en la tabla del freno clásico). Por eso va en una clave aparte, aunque comparte exactamente el mismo shape individual que `freno_oro` (`{ puesto, total, animal }`, agrupado por categoría, ordenado por `total` descendente). No hay solapamiento con `freno_oro`: `copa_incentivo` lee la tabla CIO y `freno_oro` lee la tabla del freno **excluyendo además** las categorías "Incentivo" (por si hubiera datos legacy en la tabla del freno), así que las categorías CIO **no** aparecen en `freno_oro` ni viceversa.
 
 **Shape de `aparte_campero`** (prueba funcional `IdEventosFuncionalesPrueba = 6`): es **por equipo** (una tropilla de animales que aparta junta; la tabla guarda una fila por animal con los datos del equipo copiados). El puntaje es **TIEMPO** (segundos), no puntos: gana el de **menor** tiempo. Agrupa por prueba + categoría, y dentro de cada categoría los equipos vienen ordenados por `tiempo` ascendente (los que no corrieron van al final).
 

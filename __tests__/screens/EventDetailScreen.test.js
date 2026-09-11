@@ -1315,6 +1315,69 @@ describe('EventDetailScreen', () => {
     expect(getByText('Jinete: German Lopez')).toBeTruthy();
   });
 
+  test('catálogo: Freno de Oro y Copa Incentivo comparten id de prueba pero son sub-tabs distintas', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 354 }));
+    // La API parte la prueba 5 en dos entradas con el MISMO id; se distinguen
+    // por nombre. Elegir la segunda tiene que mostrar SUS categorías.
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{
+        id: 5, nombre: 'Freno de Oro',
+        categorias: [{ id: 23, nombre: 'Hembras', animales: [{ id: 'exis:1', nombre: 'Freno Animal' }] }],
+      }, {
+        id: 5, nombre: 'Copa Incentivo de Oro',
+        categorias: [{ id: 34, nombre: 'Copa Incentivo de Oro \u0096 Jinetes menores', animales: [{ id: 'exis:2', nombre: 'Cio Animal', jinete: { nombre: 'Pilar', apellido: 'Campagna' } }] }],
+      }],
+      morfologicas: [],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 354 })} />,
+    );
+    // Sub-tab default: Freno de Oro con sus categorías.
+    expect(await findByText('Hembras')).toBeTruthy();
+    // Cambiar a Copa Incentivo muestra las suyas (con el prefijo recortado y
+    // el guion cp1252 limpio) y el jinete al abrir.
+    fireEvent.press(getByText('Copa Incentivo de Oro'));
+    expect(await findByText('Jinetes menores')).toBeTruthy();
+    expect(queryByText('Hembras')).toBeNull();
+    fireEvent.press(getByText('Jinetes menores'));
+    await waitFor(() => expect(getByText('Cio Animal')).toBeTruthy());
+    expect(getByText('Jinete: Pilar Campagna')).toBeTruthy();
+  });
+
+  test('resultados con paleteada: sub-tab propia con el shape de rodeos', async () => {
+    const nav = navStub();
+    fetchEvento.mockResolvedValueOnce(evento({ id: 355 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    const yunta = {
+      puesto: { general: 1 },
+      totales: { dia1: 90, dia2: 85 },
+      animales: [{ id: 'pdre:1', nombre: 'Pale Animal', jinete: { nombre: 'Juan', apellido: 'Pérez' } }],
+    };
+    fetchEventoResultados.mockResolvedValueOnce({
+      paleteada: {
+        pruebas: [{
+          prueba: { id: 2, nombre: 'Paleteada' },
+          categoria: { id: 400, nombre: 'Paleteada Campera' },
+          clasificacion: 'Final',
+          yuntas: [yunta],
+        }],
+      },
+    });
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={nav} route={routeStub({ id: 355 })} />,
+    );
+    expect(await findByText('Paleteada')).toBeTruthy(); // sub-tab
+    fireEvent.press(await findByText('Paleteada Campera · Final'));
+    fireEvent.press(await findByText('Pale Animal'));
+    expect(nav.navigate).toHaveBeenCalledWith('ResultDetail', expect.objectContaining({
+      eventoId: 355,
+      prueba: 'rodeos',
+      pruebaNombre: 'Paleteada',
+      yunta,
+    }));
+  });
+
   test('catálogo de rodeo: lista las yuntas con sus animales y jinetes', async () => {
     fetchEvento.mockResolvedValueOnce(evento({ id: 7 }));
     fetchEventoCatalogo.mockResolvedValueOnce({

@@ -152,6 +152,13 @@ describe('isEmptyResults', () => {
     })).toBe(false);
   });
 
+  test('paleteada comparte el shape de rodeos: una yunta alcanza para no estar vacío', () => {
+    expect(isEmptyResults({ paleteada: { pruebas: [{ yuntas: [] }] } })).toBe(true);
+    expect(isEmptyResults({
+      paleteada: { pruebas: [{ clasificacion: 'Clasificatoria', yuntas: [{ puesto: { general: 1 }, animales: [] }] }] },
+    })).toBe(false);
+  });
+
   test('corral de aparte sin pruebas o con pruebas sin resultados cuenta como vacío', () => {
     expect(isEmptyResults({ corral_aparte: { pruebas: [] } })).toBe(true);
     expect(isEmptyResults({ corral_aparte: { pruebas: [{ resultados: [] }] } })).toBe(true);

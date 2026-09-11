@@ -48,10 +48,10 @@ export default function ResultDetailScreen({ t, navigation, route }) {
   const bottomPad = 80 + Math.max(22, insets.bottom + 8);
   const r = resultado || {};
   const a = r.animal || {};
-  // Rodeos: el detalle viene por yunta (par de animales) y ya llega completo
-  // en el objeto de la lista (vacas / handicaps / totales) — no hace falta
-  // pedir el desagregado a la API.
-  const isRodeo = prueba === 'rodeos' && !!yunta;
+  // Rodeos (y Paleteada, que comparte el shape): el detalle viene por yunta
+  // (par de animales) y ya llega completo en el objeto de la lista
+  // (vacas / handicaps / totales) — no hace falta pedir el desagregado.
+  const isRodeo = !!yunta;
   const isCopa = route.params?.clasificacion === 'CopaEspecial';
 
   // Desagregado de la planilla. undefined = cargando, null = no disponible
