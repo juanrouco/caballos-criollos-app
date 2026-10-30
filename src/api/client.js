@@ -14,6 +14,8 @@
 // en la LAN. La que figura como fallback fue la detectada al inicializar el
 // proyecto; cambiarla en .env si tu IP es otra.
 
+import { getSession, setSession, clearSession, accessExpired, mapSesion } from './session';
+
 const DEV_DEFAULT  = 'http://192.168.68.106:8090/api';
 const PROD_DEFAULT = 'https://api.caballoscriollos.com';
 
@@ -27,45 +29,152 @@ export const API_BASE = __DEV__
 // e.message en sus cards de error, así que con esto muestran algo entendible.
 export const OFFLINE_MSG = 'Sin conexión. Revisá tu internet e intentá de nuevo.';
 
+// Error HTTP de la API, con el status y el `code` a mano.
+//
+// `message` mantiene el formato de siempre (`<path> → HTTP <status>: <texto del
+// backend>`): es lo que las pantallas ya pintan en sus cards de error. `detail`
+// es el texto del backend solo, para los casos donde hay que mostrarlo tal cual
+// (el login y el cambio de clave: los mensajes del README están redactados para
+// la pantalla). `code` es el string estable que trae `/auth/*` e
+// `/inscripciones` para elegir qué mostrar sin parsear el mensaje.
+export class ApiError extends Error {
+  constructor({ path, status, detail, code }) {
+    super(`${path} → HTTP ${status}${detail ? `: ${detail}` : ''}`);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detail = detail || '';
+    this.code = code || '';
+  }
+}
+
 // Envuelve fetch para que un fallo de red se propague como OFFLINE_MSG en vez
 // del TypeError crudo. Los errores HTTP (4xx/5xx) NO pasan por acá — esos son
 // respuestas válidas y se manejan abajo con el status.
 async function safeFetch(url, opts) {
   try {
-    // Sin opts (GET) llamamos fetch(url) a secas — mismo shape que antes.
+    // Sin opts (GET sin headers) llamamos fetch(url) a secas — mismo shape que antes.
     return await (opts ? fetch(url, opts) : fetch(url));
   } catch {
     throw new Error(OFFLINE_MSG);
   }
 }
 
-export async function apiGet(path, params) {
-  const qs = params
-    ? '?' + new URLSearchParams(
-        Object.entries(params)
-          .filter(([, v]) => v !== undefined && v !== null && v !== '')
-          .map(([k, v]) => [k, String(v)])
-      ).toString()
-    : '';
-  const res = await safeFetch(`${API_BASE}${path}${qs}`);
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json())?.message || ''; } catch {}
-    throw new Error(`${path} → HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
-  }
+function queryString(params) {
+  if (!params) return '';
+  return '?' + new URLSearchParams(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([k, v]) => [k, String(v)])
+  ).toString();
+}
+
+async function raise(res, path) {
+  let detail = '';
+  let code = '';
+  try {
+    const body = await res.json();
+    detail = body?.message || '';
+    code = body?.code || '';
+  } catch {}
+  throw new ApiError({ path, status: res.status, detail, code });
+}
+
+export async function apiGet(path, params, headers) {
+  const res = await safeFetch(`${API_BASE}${path}${queryString(params)}`, headers ? { headers } : undefined);
+  if (!res.ok) await raise(res, path);
   return res.json();
 }
 
-export async function apiPost(path, body) {
+export async function apiPost(path, body, headers) {
   const res = await safeFetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: body != null ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.json())?.message || ''; } catch {}
-    throw new Error(`${path} → HTTP ${res.status}${detail ? `: ${detail}` : ''}`);
-  }
+  if (!res.ok) await raise(res, path);
+  // /auth/logout responde 204 sin body; el resto devuelve JSON.
   return res.json().catch(() => ({}));
+}
+
+// ── Requests protegidos ────────────────────────────────────────────
+//
+// El flujo del README (§Autenticación): el access dura 60 minutos y va en
+// `Authorization: Bearer`; cuando vence, `POST /auth/refresh` devuelve uno nuevo
+// **y un refresh nuevo** (el anterior deja de servir).
+//
+// ⚠️ El refresh rota, y reusar uno ya usado el servidor lo lee como token
+// robado: cierra la sesión entera, no sólo ese token. Por eso el refresh es de
+// un solo vuelo — si dos requests pinchan con 401 a la vez, las dos esperan el
+// mismo refresh en lugar de mandar dos y matar la sesión.
+
+let refreshing = null;
+
+function refreshOnce() {
+  if (!refreshing) {
+    refreshing = doRefresh().finally(() => { refreshing = null; });
+  }
+  return refreshing;
+}
+
+async function doRefresh() {
+  const s = getSession();
+  if (!s?.refreshToken) {
+    clearSession();
+    throw new ApiError({ path: '/auth/refresh', status: 401, detail: 'No autenticado' });
+  }
+  let body;
+  try {
+    body = await apiPost('/auth/refresh', { refresh_token: s.refreshToken });
+  } catch (e) {
+    // 401 = el refresh venció, fue revocado, ya se usó, o la cuenta cambió de
+    // estado: la sesión está perdida y la app vuelve al login. Cualquier otra
+    // falla (sin red, 503) deja la sesión como está para reintentar después.
+    if (e instanceof ApiError && e.status === 401) clearSession();
+    throw e;
+  }
+  const next = mapSesion(body);
+  if (!next) {
+    clearSession();
+    throw new ApiError({ path: '/auth/refresh', status: 401, detail: 'Respuesta de refresh sin token' });
+  }
+  setSession(next);
+  return next;
+}
+
+// Corre `run(accessToken)` con una sesión válida: refresca antes si el access ya
+// venció, y ante un 401 refresca y reintenta una sola vez.
+async function authed(path, run) {
+  if (!getSession()) throw new ApiError({ path, status: 401, detail: 'No autenticado' });
+  if (accessExpired()) await refreshOnce();
+
+  const token = () => {
+    const s = getSession();
+    // Otra request pudo haber perdido la sesión mientras esperábamos.
+    if (!s) throw new ApiError({ path, status: 401, detail: 'No autenticado' });
+    return s.accessToken;
+  };
+
+  try {
+    return await run(token());
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 401) throw e;
+    await refreshOnce();
+    try {
+      return await run(token());
+    } catch (e2) {
+      // Un 401 con un access recién emitido no se arregla reintentando.
+      if (e2 instanceof ApiError && e2.status === 401) clearSession();
+      throw e2;
+    }
+  }
+}
+
+const bearer = (token) => ({ Authorization: `Bearer ${token}` });
+
+export function apiGetAuth(path, params) {
+  return authed(path, (token) => apiGet(path, params, bearer(token)));
+}
+
+export function apiPostAuth(path, body) {
+  return authed(path, (token) => apiPost(path, body, bearer(token)));
 }

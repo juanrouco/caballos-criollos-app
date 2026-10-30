@@ -19,6 +19,7 @@ import { Icon } from './src/components';
 import { LiveProvider, useLive } from './src/LiveContext';
 import { NotificationsProvider } from './src/NotificationsContext';
 import { MenuProvider } from './src/MenuContext';
+import { AuthProvider } from './src/AuthContext';
 import { MenuLayer } from './src/SideMenu';
 import ConnectionBanner from './src/ConnectionBanner';
 import { navigationRef } from './src/navigation';
@@ -274,28 +275,30 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeCtx.Provider value={t}>
-        <MenuProvider>
-          <LiveProvider>
-            <NotificationsProvider>
-              <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
-              <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
-                {/* Banner global de conectividad: al tope, debajo del status
-                    bar y arriba de toda la navegación. Aparece/desaparece solo. */}
-                <ConnectionBanner t={t} />
-                <NavigationContainer
-                  ref={navigationRef}
-                  theme={navTheme}
-                  onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
-                >
-                  <Tabs />
-                </NavigationContainer>
-              </SafeAreaView>
-              {/* Overlay del menú lateral (drawer custom) — por encima de todo,
-                  sin tocar los navegadores. */}
-              <MenuLayer t={t} />
-            </NotificationsProvider>
-          </LiveProvider>
-        </MenuProvider>
+        <AuthProvider>
+          <MenuProvider>
+            <LiveProvider>
+              <NotificationsProvider>
+                <StatusBar barStyle={MODE === 'dark' ? 'light-content' : 'dark-content'} />
+                <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={['top']}>
+                  {/* Banner global de conectividad: al tope, debajo del status
+                      bar y arriba de toda la navegación. Aparece/desaparece solo. */}
+                  <ConnectionBanner t={t} />
+                  <NavigationContainer
+                    ref={navigationRef}
+                    theme={navTheme}
+                    onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
+                  >
+                    <Tabs />
+                  </NavigationContainer>
+                </SafeAreaView>
+                {/* Overlay del menú lateral (drawer custom) — por encima de todo,
+                    sin tocar los navegadores. */}
+                <MenuLayer t={t} />
+              </NotificationsProvider>
+            </LiveProvider>
+          </MenuProvider>
+        </AuthProvider>
       </ThemeCtx.Provider>
     </SafeAreaProvider>
   );

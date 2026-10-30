@@ -126,6 +126,18 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// expo-secure-store: store en memoria. Suficiente para AuthContext, que guarda
+// la sesión bajo una sola key; cada archivo de test arranca con el store vacío.
+jest.mock('expo-secure-store', () => {
+  let store = {};
+  return {
+    getItemAsync: jest.fn(async (k) => (k in store ? store[k] : null)),
+    setItemAsync: jest.fn(async (k, v) => { store[k] = String(v); }),
+    deleteItemAsync: jest.fn(async (k) => { delete store[k]; }),
+    __reset: () => { store = {}; },
+  };
+});
+
 // expo-font / google fonts: no necesitamos cargar nada en test.
 jest.mock('@expo-google-fonts/roboto', () => ({
   useFonts: () => [true],

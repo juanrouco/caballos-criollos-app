@@ -4,15 +4,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Crest, Divider, F } from './components';
 import { withAlpha } from './theme';
 import { useMenu } from './MenuContext';
+import { useAuth } from './AuthContext';
 import { navigationRef } from './navigation';
 import ReglamentosScreen from './screens/ReglamentosScreen';
 import MapaScreen from './screens/MapaScreen';
+import CuentaScreen from './screens/CuentaScreen';
 
 // Secciones con pantalla propia (overlay). Las que tienen `Component` renderizan
 // su pantalla real; el resto muestra el placeholder (SectionView).
 export const SECTIONS = [
   { key: 'reglamentos', label: 'Reglamentos', icon: 'pdf', Component: ReglamentosScreen },
   { key: 'mapa',        label: 'Mapa ACCC',   icon: 'pin', Component: MapaScreen },
+  { key: 'cuenta',      label: 'Mi cuenta',   icon: 'user', Component: CuentaScreen },
 ];
 
 // Todo el menú en un solo listado: accesos a las tabs del footer (con `tab`) +
@@ -52,6 +55,14 @@ export function MenuLayer({ t }) {
 
 function MenuDrawer({ t, topInset, bottomInset, open, onClose, onSelect }) {
   const { width } = useWindowDimensions();
+  // Cerrar sesión vive acá además de en Mi cuenta: es la acción que el socio
+  // busca sin querer entrar a ver sus datos. Sólo aparece con sesión abierta.
+  const { status, logout } = useAuth();
+  const [saliendo, setSaliendo] = React.useState(false);
+  const onLogout = React.useCallback(async () => {
+    setSaliendo(true);
+    try { await logout(); } finally { setSaliendo(false); onClose(); }
+  }, [logout, onClose]);
   const PANEL = Math.min(340, Math.round(width * 0.84));
   // Ir a una tab del footer desde el menú: cierra el drawer y cambia de tab.
   const onNavigateTab = React.useCallback((tab) => {
@@ -113,6 +124,22 @@ function MenuDrawer({ t, topInset, bottomInset, open, onClose, onSelect }) {
                 {i < MENU_ITEMS.length - 1 && <Divider t={t} />}
               </View>
             ))}
+
+            {status === 'in' && (
+              <>
+                <Divider t={t} style={{ marginTop: 14 }} />
+                <TouchableOpacity
+                  onPress={onLogout}
+                  disabled={saliendo}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15, marginTop: 6 }}
+                >
+                  <Icon name="logout" size={20} color={saliendo ? t.textDim : t.live} />
+                  <Text style={{ flex: 1, fontFamily: F.display, fontSize: 16, color: saliendo ? t.textDim : t.live }}>
+                    {saliendo ? 'Cerrando sesión…' : 'Cerrar sesión'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </Animated.View>
       </View>
