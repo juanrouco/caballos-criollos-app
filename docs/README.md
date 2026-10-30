@@ -5,8 +5,16 @@ API REST de solo lectura para alimentar el sitio público, la app mobile y otros
 ## Base URL
 
 ```
-https://caballoscriollos.com/api
+https://api.caballoscriollos.com
 ```
+
+Subdominio propio, PHP 8.3 — las rutas cuelgan de la raíz (`/eventos`, `/vivos`, …),
+sin prefijo `/api`.
+
+El host legacy `https://caballoscriollos.com/api` (PHP 5.6) sigue respondiendo con
+las mismas rutas y los mismos shapes, pero es el que se va a dar de baja. Los
+ejemplos `curl` de este documento todavía lo usan; para probar contra PHP 8,
+reemplazar `https://caballoscriollos.com/api` por `https://api.caballoscriollos.com`.
 
 En desarrollo local con Docker: `http://localhost:8090/api`.
 

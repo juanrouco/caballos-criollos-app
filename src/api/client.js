@@ -5,12 +5,17 @@
 // variables que empiezan con EXPO_PUBLIC_ llegan al bundle del cliente).
 // Hay que reiniciar `expo start` después de tocar .env.
 //
+// OJO con el prefijo de ruta: la API vieja (PHP 5.6) vivía en un subdirectorio
+// de caballoscriollos.com y las rutas colgaban de `/api`. La migrada a PHP 8
+// tiene su propio subdominio y sirve las rutas en la raíz — de ahí que la base
+// de prod NO lleve `/api` y la local sí (el Docker la expone en /api).
+//
 // El simulador iOS no resuelve "localhost" al host — necesita la IP del Mac
 // en la LAN. La que figura como fallback fue la detectada al inicializar el
 // proyecto; cambiarla en .env si tu IP es otra.
 
 const DEV_DEFAULT  = 'http://192.168.68.106:8090/api';
-const PROD_DEFAULT = 'https://caballoscriollos.com/api';
+const PROD_DEFAULT = 'https://api.caballoscriollos.com';
 
 export const API_BASE = __DEV__
   ? (process.env.EXPO_PUBLIC_API_BASE_DEV  || DEV_DEFAULT)
