@@ -261,12 +261,17 @@ function Tabs() {
 
 export default function App() {
   const t = getTheme(PALETTE, MODE);
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Roboto_400Regular, Roboto_500Medium, Roboto_700Bold,
     InterTight_600SemiBold, InterTight_700Bold,
   });
   usePushNotifications();
-  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
+  // Mientras cargan, un View del color de fondo (evita el flash blanco). Pero
+  // si la carga FALLA arrancamos igual, con las fuentes del sistema: las
+  // nuestras son cosméticas y quedarse acá deja la app en blanco para siempre,
+  // sin mensaje ni salida. `useFonts` devuelve el error como segundo elemento;
+  // ignorarlo era lo que convertía un problema de fuentes en una app muerta.
+  if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
   const navTheme = MODE === 'dark'
     ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: t.bg } }
