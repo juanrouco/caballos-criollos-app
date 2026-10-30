@@ -34,6 +34,7 @@ export function Icon({ name, size = 20, color = '#000', stroke = 1.8 }) {
     case 'building': return <Svg {...p}><Path d="M3 21h18M5 21V6l7-3 7 3v15" /><Path d="M9 21v-5h6v5M9 9h.01M15 9h.01M9 13h.01M15 13h.01" /></Svg>;
     case 'user': return <Svg {...p}><Circle cx="12" cy="8" r="4" /><Path d="M4 21a8 8 0 0 1 16 0" /></Svg>;
     case 'mail': return <Svg {...p}><Rect x="3" y="5" width="18" height="14" rx="2" /><Path d="m3 7 9 6 9-6" /></Svg>;
+    case 'list': return <Svg {...p}><Rect x="5" y="3" width="14" height="18" rx="2" /><Path d="M9 3.5h6a1 1 0 0 1 1 1V6H8V4.5a1 1 0 0 1 1-1z" /><Path d="M9 11h6M9 15h4" /></Svg>;
     case 'logout': return <Svg {...p}><Path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><Path d="m16 17 5-5-5-5" /><Path d="M21 12H9" /></Svg>;
     default: return null;
   }

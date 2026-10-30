@@ -58,6 +58,7 @@ describe('MenuLayer / drawer', () => {
     expect(queryByText('Reglamentos')).toBeNull();
     expect(queryByText('Mapa ACCC')).toBeNull();
     expect(queryByText('Mi cuenta')).toBeNull();
+    expect(queryByText('Mis inscripciones')).toBeNull();
   });
 
   test('al abrir el menú lista los accesos a las tabs y las secciones', () => {
@@ -72,6 +73,7 @@ describe('MenuLayer / drawer', () => {
     expect(getByText('Reglamentos')).toBeTruthy();
     expect(getByText('Mapa ACCC')).toBeTruthy();
     expect(getByText('Mi cuenta')).toBeTruthy();
+    expect(getByText('Mis inscripciones')).toBeTruthy();
     // Presencia Institucional quitada por ahora
     expect(queryByText('Presencia Institucional')).toBeNull();
   });

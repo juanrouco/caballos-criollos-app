@@ -6,6 +6,10 @@ export { API_BASE, apiGet, apiPost, apiGetAuth, apiPostAuth, ApiError, OFFLINE_M
 export { getSession, setSession, clearSession, subscribeSession } from './session';
 export { login, logout, cambiarClave, OLVIDO_CLAVE_URL } from './auth';
 export { fetchPerfil, mapPerfil } from './perfil';
+export {
+  fetchInscripciones, fetchInscripcion, fetchCertificado,
+  mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf,
+} from './inscripciones';
 export { registerPushToken } from './push';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,

@@ -126,6 +126,22 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// expo-file-system / expo-sharing: sólo los usa src/descargas.js (el PDF del
+// certificado). Los tests que ejercitan la descarga override con jest.spyOn.
+jest.mock('expo-file-system', () => {
+  class File {
+    constructor() { this.uri = 'file:///cache/archivo.pdf'; }
+    delete() {}
+  }
+  File.downloadFileAsync = jest.fn(async () => new File());
+  return { File, Paths: { cache: {} } };
+});
+
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
 // expo-secure-store: store en memoria. Suficiente para AuthContext, que guarda
 // la sesión bajo una sola key; cada archivo de test arranca con el store vacío.
 jest.mock('expo-secure-store', () => {

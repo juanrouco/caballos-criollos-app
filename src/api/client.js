@@ -143,6 +143,14 @@ async function doRefresh() {
 
 // Corre `run(accessToken)` con una sesión válida: refresca antes si el access ya
 // venció, y ante un 401 refresca y reintenta una sola vez.
+//
+// Exportada como `authedRequest` porque no todo request protegido pasa por
+// fetch: la descarga del certificado en PDF la hace el downloader nativo, y
+// necesita el mismo token fresco y el mismo refresh de un solo vuelo.
+export async function authedRequest(path, run) {
+  return authed(path, run);
+}
+
 async function authed(path, run) {
   if (!getSession()) throw new ApiError({ path, status: 401, detail: 'No autenticado' });
   if (accessExpired()) await refreshOnce();
