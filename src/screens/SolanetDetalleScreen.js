@@ -12,21 +12,33 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
   const [error, setError] = React.useState(false);
   const [resolving, setResolving] = React.useState(false);
 
-  // El `animalId` del detalle Solanet no es confiable: cuando un SBA se repite
-  // entre tablas (pdre/exis) apunta al animal equivocado. Resolvemos por SBA+RP,
-  // que sí identifica de forma única, y caemos al animalId sólo si falla.
+  // El `animalId` del detalle Solanet no es confiable: la API lo resuelve por
+  // SBA sola (README, "Cambios respecto de /api") y la SBA no identifica un
+  // animal — la misma SBA existe en varias tablas (pdre/exis/extr) con animales
+  // distintos, y la resolución se queda con la de pdre. Medido contra el premio
+  // 2025-2026: la mitad de los méritos quedan apuntando a otro animal (SBA
+  // 115539 → "DON ROMEO JURADO" en vez de "CHAKE LA CARRETILLA 5550").
+  //
+  // Resolvemos nosotros: traemos los candidatos de la SBA y elegimos por RP, que
+  // junto con la SBA sí identifica de forma única. Si el RP no matchea ninguno
+  // (viene vacío o con otro formato) sirve igual mientras la SBA tenga un solo
+  // candidato; con varios no hay forma de elegir y no navegamos, antes que abrir
+  // el pedigree de otro animal. El `animalId` queda sólo para las filas sin SBA.
   const openAnimal = React.useCallback((fila) => {
     if (resolving) return;
     const sba = fila.sba, rp = fila.rp;
     if (sba == null && !fila.animalId) return;
     if (sba == null) { navigation.navigate('HorseDetail', { id: fila.animalId }); return; }
     setResolving(true);
-    fetchAnimales({ sba, rp })
+    const norm = (v) => String(v ?? '').trim().replace(/^0+/, '');
+    fetchAnimales({ sba })
       .then((r) => {
-        const id = (r.data || [])[0]?.id || fila.animalId || null;
-        if (id) navigation.navigate('HorseDetail', { id });
+        const cands = r.data || [];
+        const pick = cands.find((c) => norm(c.rp) !== '' && norm(c.rp) === norm(rp))
+          || (cands.length === 1 ? cands[0] : null);
+        if (pick?.id) navigation.navigate('HorseDetail', { id: pick.id });
       })
-      .catch(() => { if (fila.animalId) navigation.navigate('HorseDetail', { id: fila.animalId }); })
+      .catch(() => {})
       .finally(() => setResolving(false));
   }, [resolving, navigation]);
 

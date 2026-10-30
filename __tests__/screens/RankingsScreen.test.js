@@ -74,8 +74,13 @@ const RODEOS = {
     { param: 'tipo', default: 1, opciones: [{ value: 1, label: 'General' }, { value: 2, label: 'Handicap' }, { value: 3, label: 'Ranking C' }] },
   ],
 };
-// Paleteada: viene en el catálogo pero sin filtros; su detalle responde not_available.
-const PALETEADA = { slug: 'paleteada', nombre: 'Paleteada Campera — Ranking', familia: 'equipo', filtros: [] };
+// Paleteada: viene en el catálogo con filtro de año pero sin categorías, así que
+// se abre desde el header (no expande). Según el año, su detalle responde
+// not_available o pdf.
+const PALETEADA = {
+  slug: 'paleteada', nombre: 'Paleteada Campera — Ranking', familia: 'equipo',
+  filtros: [{ param: 'anio', default: 2026, opciones: [{ value: 2026, label: '2026' }, { value: 2025, label: '2025' }] }],
+};
 const CATALOG = [SOLANET, FRENO, CORRAL_GEN, CORRAL_ANA, RODEOS, APARTE_ANA, APARTE_GEN, PALETEADA];
 const FRENO_CLEAN = { ...FRENO, nombre: 'Freno de Oro' }; // sin "— Ranking General" en el landing
 const RODEOS_CLEAN = { ...RODEOS, nombre: 'Rodeos' };      // sin "— Ranking"
@@ -247,6 +252,27 @@ describe('RankingsScreen', () => {
     await waitFor(() => expect(getByText('Próximamente')).toBeTruthy()); // badge tras el probe
     fireEvent.press(getByText('Paleteada Campera')); // no es clickeable
     expect(nav.navigate).not.toHaveBeenCalled();
+  });
+
+  test('Paleteada en modo pdf se abre desde el header del item, sin entrar al detalle', async () => {
+    // Paleteada no tiene categorías: el item se toca y resuelve ahí mismo. Con el
+    // año 2026 la API la publica como PDF (override de config), así que abrimos
+    // el pdf_url en vez de navegar a RankingCat.
+    fetchRanking.mockImplementation((slug, params) => (slug === 'paleteada'
+      ? Promise.resolve(params?.anio === 2026
+        ? { modo: 'pdf', pdf_url: 'https://drive.google.com/file/d/XXX/view', filas: [] }
+        : { modo: 'not_available', pdf_url: null, filas: [] })
+      : Promise.resolve({ filas: [{ position: 1, name: 'X', cabin: 'Y', points: '1' }] })));
+    const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    const nav = navStub();
+    const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    expect(await findByText('Paleteada Campera')).toBeTruthy();
+    await waitFor(() => expect(queryByText('Próximamente')).toBeNull()); // modo pdf → disponible
+    fireEvent.press(getByText('Paleteada Campera'));
+    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://drive.google.com/file/d/XXX/view'));
+    expect(fetchRanking).toHaveBeenCalledWith('paleteada', { anio: 2026 });
+    expect(nav.navigate).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   test('Corral (grupo con todos los sub-rankings not_available) figura como Próximamente y no expande', async () => {
