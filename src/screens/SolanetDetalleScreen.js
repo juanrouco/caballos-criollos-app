@@ -56,7 +56,7 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
   const filas    = data?.filas || [];
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 130 }} showsVerticalScrollIndicator={false}>
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }}>
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Volver" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
           <Icon name="arrowL" size={18} color={t.text} />
