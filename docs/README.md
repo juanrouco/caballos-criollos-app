@@ -1497,13 +1497,13 @@ Ej: `GET /rankings/solanet/detalle?premio=1&propietario=221`
     { "sba": "98015", "rp": "5047", "animal": "CHAKE VIROLA E PLATA 5047",
       "event": "Final Nacional Freno de Oro 2025", "date": "25-03-2025",
       "test": "Freno de Oro", "category": "Hembras", "achievement": "Finalista", "points": "19.00",
-      "idAnimal": null, "tabla": null, "animalId": null }
+      "idAnimal": "132977", "tabla": "IdExis", "animalId": "exis:132977" }
   ],
   "meta": { "count": 7, "filtros": { "premio": 1, "propietario": "221" } }
 }
 ```
 
-> **Pedigree en el detalle Solanet**: acá `animalId` viene **`null`** — `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (Solanet identifica al animal por SBA/RP). Para el pedigree desde el detalle, resolvé por SBA: `GET /animales?sba={sba}` → tomá `data[0].id` → `GET /animales/{id}/pedigree`. (Se puede resolver server-side para que `animalId` venga listo — ver nota al pie.)
+> **Pedigree en el detalle Solanet**: `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (identifica al animal por SBA), así que la API **resuelve `animalId` server-side por SBA** contra el stud book (prioridad machos > hembras > extranjeros) y completa `idAnimal`/`tabla`/`animalId`. Si el SBA no se encuentra, o si la resolución falla, quedan `null` (best-effort) y el cliente puede caer a `GET /animales?sba={sba}`. `premio` se convierte a entero (`1abc` ⇒ `1`); `propietario` se usa tal cual (`trim`), y vacío o sólo espacios da `400`.
 
 > Nota de encoding: algunos nombres pueden traer la entidad HTML `&Ntilde;` (heredado de los wrappers del admin). Si el cliente no renderiza HTML, conviene reemplazarla por `Ñ` al mostrar.
 
@@ -1627,3 +1627,26 @@ curl -H 'Accept: image/webp' \
 curl "https://caballoscriollos.com/api/reglamentos/pruebas"
 curl "https://caballoscriollos.com/api/reglamentos?prueba=5"
 ```
+
+---
+
+## Cambios respecto de `/api`
+
+**La conducta de los endpoints es la misma que en `/api`**: las mismas firmas, parámetros, respuestas y
+errores. Cambia la URL, y se corrige la documentación donde decía algo distinto de lo que la API hace
+(y hacía) de verdad. En las filas 1 a 6 no cambió la conducta: cambia lo que dice el README. La fila 7
+es la **única diferencia de conducta**, y es de borde.
+
+| | qué | antes (README de `/api`) | ahora (lo que la API hace) |
+|---|---|---|---|
+| 1 | **URL base** | `https://caballoscriollos.com/api` | `https://api.caballoscriollos.com`, mismos paths sin el prefijo `/api`. Las URLs de imagen que arman los endpoints (`imagen.optimizada`, `imagen_optimizada`) apuntan a `https://api.caballoscriollos.com/img/...` |
+| 2 | `GET /animales/{id}` y `/pedigree` con **id mal formado** | `404` | `400` con `"ID inválido (esperado formato 'pdre:N' / 'exis:N' / 'extr:N'): <id>"`. `404` queda sólo para un id bien formado que no existe |
+| 3 | `GET /eventos`: **`fecha_desde` / `fecha_hasta`** | `Fecha >= fecha_desde`, `Fecha <= fecha_hasta` | Miran **las dos fechas** del evento (`fecha` y `fecha_hasta`): `fecha_desde` deja pasar el evento si **cualquiera** de las dos es `>=` el valor, y `fecha_hasta` si **cualquiera** es `<=`. Un evento que empezó antes de `fecha_desde` y termina después entra |
+| 4 | `GET /eventos/{id}/resultados/{prueba}/{target}`: **cache** | `Cache-Control: public` | No envía `Cache-Control` |
+| 5 | `GET /rankings/solanet/detalle`: **`animalId`** | viene `null`; hay que resolverlo por SBA | Se completa **server-side por SBA** (`"pdre:N"`, ...) cuando el SBA se encuentra; si no se encuentra, o si la resolución falla, queda `null` |
+| 6 | `GET /rankings/paleteada` | siempre `modo: "not_available"` | Con el filtro de año en **2026** responde `modo: "pdf"` por un override de `config/rankings_pdf.json`. Para los otros valores, se comporta como dice la sección de rankings |
+| 7 | `GET /notificaciones?since=…`: **parser de fechas** | `since` lo interpretaba PHP 5.6 | Lo interpreta PHP 8, y su parser no acepta exactamente lo mismo. Medido: `2026-07-24 ART` (abreviatura de zona vieja) en `/api` filtraba, y acá **se ignora** (devuelve todas). Con fechas `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, ISO 8601 y los relativos comunes (`yesterday`, `-1 week`…) el resultado es el mismo |
+| 8 | `GET /rankings/{slug}`: **claves `origen` y `premio`, y query `calculado=1`** (E3, `docs/plan-php84-e3-web.md`) | no existían | Aditivas: `origen` (siempre; `null` fuera de `modo: ranking`) y `premio` (sólo `solanet`) se suman a la respuesta para la web; con `calculado=1` se saltean los overrides. Sin el parámetro, la respuesta de la app es la de antes más esas claves. En la paridad son divergencia declarada (`tests/paridad/casos/rankings.php`) |
+
+Las secciones de cada endpoint de arriba se revisan contra el código a medida que se porta cada módulo. Hasta
+entonces, si una sección contradice esta tabla, vale esta tabla.
