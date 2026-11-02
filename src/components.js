@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 import { withAlpha, HORSE_HEAD, fonts } from './theme';
 
@@ -35,6 +35,7 @@ export function Icon({ name, size = 20, color = '#000', stroke = 1.8 }) {
     case 'user': return <Svg {...p}><Circle cx="12" cy="8" r="4" /><Path d="M4 21a8 8 0 0 1 16 0" /></Svg>;
     case 'mail': return <Svg {...p}><Rect x="3" y="5" width="18" height="14" rx="2" /><Path d="m3 7 9 6 9-6" /></Svg>;
     case 'list': return <Svg {...p}><Rect x="5" y="3" width="14" height="18" rx="2" /><Path d="M9 3.5h6a1 1 0 0 1 1 1V6H8V4.5a1 1 0 0 1 1-1z" /><Path d="M9 11h6M9 15h4" /></Svg>;
+    case 'plus': return <Svg {...p}><Path d="M12 5v14M5 12h14" /></Svg>;
     case 'logout': return <Svg {...p}><Path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><Path d="m16 17 5-5-5-5" /><Path d="M21 12H9" /></Svg>;
     default: return null;
   }
@@ -96,6 +97,54 @@ export function SectionLabel({ children, t, style }) {
     }, style]}>
       {children}
     </Text>
+  );
+}
+
+// ── Primitivas de formulario ─────────────────────────────────────
+// Compartidas por las pantallas con formulario (cuenta, alta de inscripción).
+// El `accessibilityLabel` del input es su label: es por donde los tests lo
+// encuentran, y por donde un lector de pantalla lo anuncia.
+export function Field({ t, label, placeholder, value, onChange, secureTextEntry, autoComplete, keyboardType, onSubmitEditing }) {
+  const filled = !!String(value ?? '').trim();
+  return (
+    <View>
+      <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: fonts.bodyBold, marginBottom: 6 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 10, backgroundColor: t.surface, borderWidth: 1, borderColor: filled ? t.accent : t.border }}>
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor={t.textDim}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete={autoComplete}
+          keyboardType={keyboardType}
+          onSubmitEditing={onSubmitEditing}
+          returnKeyType={onSubmitEditing ? 'go' : 'next'}
+          accessibilityLabel={label}
+          style={{ flex: 1, paddingVertical: 11, color: t.text, fontFamily: fonts.body, fontSize: 14 }}
+        />
+      </View>
+    </View>
+  );
+}
+
+export function Boton({ t, label, onPress, disabled, loading, style, accessibilityLabel }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      // Dos botones pueden decir lo mismo en pantalla (los dos «Aceptar» de los
+      // avisos) y aun así ser acciones distintas: ahí el label los separa.
+      accessibilityLabel={accessibilityLabel || label}
+      style={{ padding: 15, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? t.surface2 : t.accent, borderWidth: 1, borderColor: disabled ? t.border : t.accent, ...style }}
+    >
+      {loading
+        ? <ActivityIndicator color={disabled ? t.textMute : t.bg} />
+        : <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14.5, color: disabled ? t.textDim : t.bg, letterSpacing: 0.3 }}>{label}</Text>}
+    </TouchableOpacity>
   );
 }
 

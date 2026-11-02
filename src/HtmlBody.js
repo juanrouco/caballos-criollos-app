@@ -6,8 +6,13 @@ import { WebView } from 'react-native-webview';
 // que se autoajusta de alto. La API devuelve HTML con imágenes embebidas, así
 // que pintarlo como texto plano perdería formato. El injectedJavaScript postea
 // el scrollHeight al montar y cuando terminan de cargar las imágenes.
-export default function HtmlBody({ html, t }) {
+// `ancho` es el ancho que debe ocupar. Por default el de la pantalla menos 20
+// de margen a cada lado, que es como lo usan las pantallas de contenido. Dentro
+// de un contenedor más angosto (un modal, una card) hay que pasarlo: si no, el
+// WebView queda más ancho que su caja y el texto se corta a la derecha.
+export default function HtmlBody({ html, t, ancho }) {
   const { width } = useWindowDimensions();
+  const anchoFinal = ancho ?? width - 40;
   const [height, setHeight] = React.useState(200);
   const wrapped = `<!doctype html><html><head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -30,7 +35,7 @@ export default function HtmlBody({ html, t }) {
         source={{ html: wrapped }}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
-        style={{ width: width - 40, height, backgroundColor: 'transparent' }}
+        style={{ width: anchoFinal, height, backgroundColor: 'transparent' }}
         injectedJavaScript={`
           (function() {
             function post() {

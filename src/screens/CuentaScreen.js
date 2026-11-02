@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
-import { Icon, Card, Divider, F } from '../components';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { Icon, Card, Divider, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { useAuth } from '../AuthContext';
 import { fetchPerfil, mapPerfil, OLVIDO_CLAVE_URL } from '../api';
@@ -300,49 +300,6 @@ function ClaveView({ t, cambiarClave, onOk, onSesionPerdida }) {
         Desde que la cambiás acá, la app distingue mayúsculas y minúsculas en tu clave.
       </Text>
     </ScrollView>
-  );
-}
-
-// ── Primitivas del formulario ──────────────────────────────────────
-
-function Field({ t, label, placeholder, value, onChange, secureTextEntry, autoComplete, keyboardType, onSubmitEditing }) {
-  const filled = !!String(value).trim();
-  return (
-    <View>
-      <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 6 }}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 10, backgroundColor: t.surface, borderWidth: 1, borderColor: filled ? t.accent : t.border }}>
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor={t.textDim}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete={autoComplete}
-          keyboardType={keyboardType}
-          onSubmitEditing={onSubmitEditing}
-          returnKeyType={onSubmitEditing ? 'go' : 'next'}
-          accessibilityLabel={label}
-          style={{ flex: 1, paddingVertical: 11, color: t.text, fontFamily: F.body, fontSize: 14 }}
-        />
-      </View>
-    </View>
-  );
-}
-
-function Boton({ t, label, onPress, disabled, loading, style }) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      style={{ padding: 15, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? t.surface2 : t.accent, borderWidth: 1, borderColor: disabled ? t.border : t.accent, ...style }}
-    >
-      {loading
-        ? <ActivityIndicator color={disabled ? t.textMute : t.bg} />
-        : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: disabled ? t.textDim : t.bg, letterSpacing: 0.3 }}>{label}</Text>}
-    </TouchableOpacity>
   );
 }
 
