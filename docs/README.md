@@ -1586,7 +1586,19 @@ Ej: `GET /rankings/solanet/detalle?premio=1&propietario=221`
 }
 ```
 
-> **Pedigree en el detalle Solanet**: `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (identifica al animal por SBA), así que la API **resuelve `animalId` server-side por SBA** contra el stud book (prioridad machos > hembras > extranjeros) y completa `idAnimal`/`tabla`/`animalId`. Si el SBA no se encuentra, o si la resolución falla, quedan `null` (best-effort) y el cliente puede caer a `GET /animales?sba={sba}`. `premio` se convierte a entero (`1abc` ⇒ `1`); `propietario` se usa tal cual (`trim`), y vacío o sólo espacios da `400`.
+> **Pedigree en el detalle Solanet**: `tblMeritosSolanet` no guarda `IdAnimal`/`Tabla` (identifica al animal por **SBA + RP**), así que la API **resuelve `animalId` server-side por SBA + RP** contra el stud book y completa `idAnimal`/`tabla`/`animalId`.
+>
+> La SBA **no identifica un animal**: la misma SBA está en `tblPdre`, `tblExis` y `tblExtr` apuntando a animales distintos, así que el RP del mérito es el que elige. La regla es:
+>
+> - **un solo candidato** para la SBA ⇒ ése, **sin mirar el RP** (la SBA no es ambigua, así que el RP no tiene nada que elegir). Medido sobre los tres premios (2605 méritos, 2026-10-30): este camino se recorre 383 veces y el RP difiere en 2, las dos con el nombre idéntico y el RP corrido en uno — un tipeo, no otro animal — y 0 animales equivocados por el oráculo del nombre. Exigir el match ahí convertiría 2 resoluciones correctas en `null` sin evitar ningún error medido;
+> - **varios candidatos** ⇒ el único cuyo RP coincide (normalizado: espacios de relleno, ceros a la izquierda y mayúsculas, a los dos lados);
+> - **ninguno coincide, coincide más de uno, o el mérito no trae RP** ⇒ `idAnimal`, `tabla` y `animalId` quedan **los tres en `null`**: una SBA ambigua no se adivina, porque un id equivocado abre el pedigree de otro caballo.
+>
+> El SBA que no está en el stud book, y cualquier error de la resolución, también quedan en `null` (best-effort). Con `animalId: null` el cliente puede caer a `GET /animales?sba={sba}` y elegir por RP él mismo (es lo que hace la app).
+>
+> Medido el 2026-10-30 sobre los 1133 méritos del detalle de premio 2, con un oráculo independiente del RP (el `NOMB` del animal contra el `Nombre` que el mérito guarda): resolviendo **por SBA sola** con prioridad de tabla, **525 de 1133 apuntaban a otro animal** (46%); **por SBA + RP**, 1116 correctos, 16 en `null` y 1 con el nombre distinto (un mérito que guarda un nombre viejo). Esos 16 `null` son SBAs donde más de un candidato coincide con el RP — casi siempre el mismo animal anotado en dos tablas.
+>
+> `premio` se convierte a entero (`1abc` ⇒ `1`); `propietario` se usa tal cual (`trim`), y vacío o sólo espacios da `400`.
 
 > Nota de encoding: algunos nombres pueden traer la entidad HTML `&Ntilde;` (heredado de los wrappers del admin). Si el cliente no renderiza HTML, conviene reemplazarla por `Ñ` al mostrar.
 
@@ -2073,6 +2085,23 @@ resuelto al superviviente como el POST. **Sin precios** (R-7): el `201` del POST
 
 A1. Parámetros: —. Devuelve `[{id, nombre, inscripcion_desde, inscripcion_hasta, evento_desde, por_rehacer, pide_renspa, alerta2, alerta3, alertas: [{titulo, texto}]}]`: los eventos donde el usuario puede inscribir **hoy** (ventana abierta, más los cerrados con una habilitación de «rehacer» pendiente que el validador acepta: no eliminados y ya cerrados). `id` es el `evento` del POST (`caballos_bd`). Los textos de alerta son HTML tal como están guardados.
 
+#### `GET /inscripciones/alertas`
+
+Parámetros: —. Devuelve `{terminos, alertas: [{titulo, texto}]}`: lo que la web muestra en `expositores_alerta1.php` **antes** de elegir el evento. `alertas` son las alertas generales vigentes hoy (visibles, sin evento o con evento `0`, y con `FechaDesde`/`FechaHasta` vacías o que incluyen hoy: los dos bordes son **inclusivos**, en la hora de Buenos Aires), en el orden de la web: la primera es el primer popup. Usa las mismas claves que las `alertas` de `GET /inscripciones/eventos`. Los textos son HTML crudo, tal como están guardados (como A1).
+
+`terminos` es el texto que la web muestra hoy bajo «TÉRMINOS Y CONDICIONES GENERALES», que **no** es necesariamente la alerta fija:
+- si `alertas` no está vacía, es el texto de la **última** alerta de `alertas` (el mismo que su `texto`). La página lo muestra así por un defecto (imprime el cuerpo con la variable que reasignó el bucle de los popups), y la API lo replica **a propósito**, para que la app y la web muestren lo mismo;
+- si `alertas` está vacía, es el texto de la alerta fija (la 1);
+- es `null` sólo cuando no hay nada que mostrar.
+
+La app no puede suponer que `terminos` son los términos generales. **Sin alertas** (`{"terminos": null, "alertas": []}`, con **200**) es el caso en que la web redirige directo al paso 1: la app saltea la pantalla.
+
+#### `GET /inscripciones/cabanias`
+
+Parámetros: —. Devuelve `["LA ESTANCIA", "LA SOÑADA"]`: las cabañas que **este usuario** (el del token) ya usó en sus inscripciones, las del `<select>` del paso 4 de la web. No es un catálogo de cabañas. La lista de la web, **recortada, sin vacías y sin repetidos** (sin distinguir mayúsculas; sí acentos): de cada repetido queda la **primera aparición**, con su grafía recortada, y el orden es el de la web, sin reordenar. Sin cabañas: `[]` con 200, y la app ofrece sólo «nueva», como la web. Se omiten las cabañas que el alta rechazaría (por ejemplo, las que tienen el carácter de reemplazo U+FFFD guardado): el usuario puede tipearla de nuevo.
+
+El valor elegido se manda tal cual en `cabania` del `POST /inscripciones`; la web también guarda recortada la cabaña elegida de la lista. Un valor que en la base estaba con bytes UTF-8 dentro de la columna latin1 se guarda en latin1 **correcto**, así que la fila nueva queda con otros bytes que la vieja (aceptado: D-3 del plan).
+
 #### `GET /inscripciones/animales`
 
 A2. Parámetros: `sba` y/o `rp` (al menos uno), `sexo` 0/1/2, `evento` (opcional). Devuelve `[{id, nombre, sba, rp, sexo, fecha_nacimiento, pelo, propio, ya_inscripto}]`: los candidatos de paso3 (macho/castrado en Pdre + Extr, hembra en Extr + Exis), sin absorbidos. `ya_inscripto` es `null` sin `evento`. `ya_inscripto` es `true` también con una inscripción rechazada en el evento (#189).
@@ -2219,7 +2248,7 @@ es la **única diferencia de conducta**, y es de borde.
 | 2 | `GET /animales/{id}` y `/pedigree` con **id mal formado** | `404` | `400` con `"ID inválido (esperado formato 'pdre:N' / 'exis:N' / 'extr:N'): <id>"`. `404` queda sólo para un id bien formado que no existe |
 | 3 | `GET /eventos`: **`fecha_desde` / `fecha_hasta`** | `Fecha >= fecha_desde`, `Fecha <= fecha_hasta` | Miran **las dos fechas** del evento (`fecha` y `fecha_hasta`): `fecha_desde` deja pasar el evento si **cualquiera** de las dos es `>=` el valor, y `fecha_hasta` si **cualquiera** es `<=`. Un evento que empezó antes de `fecha_desde` y termina después entra |
 | 4 | `GET /eventos/{id}/resultados/{prueba}/{target}`: **cache** | `Cache-Control: public` | No envía `Cache-Control` |
-| 5 | `GET /rankings/solanet/detalle`: **`animalId`** | viene `null`; hay que resolverlo por SBA | Se completa **server-side por SBA** (`"pdre:N"`, ...) cuando el SBA se encuentra; si no se encuentra, o si la resolución falla, queda `null` |
+| 5 | `GET /rankings/solanet/detalle`: **`animalId`** | viene `null`; hay que resolverlo por SBA | Se completa **server-side por SBA + RP** (`"pdre:N"`, ...). `/api` resolvía por **SBA sola** con prioridad machos > hembras > extranjeros, y como la SBA no identifica un animal devolvía otro caballo en 525 de los 1133 méritos de premio 2 (medido 2026-10-30); acá el RP del mérito desempata, y la SBA que el RP no desempata deja `idAnimal`/`tabla`/`animalId` en `null` en vez de adivinar. Ver la nota "Pedigree en el detalle Solanet". **`/api` sigue con el comportamiento viejo**: es la única divergencia de VALOR de este endpoint, declarada en `tests/paridad/casos/rankings.php` |
 | 6 | `GET /rankings/paleteada` | siempre `modo: "not_available"` | Con el filtro de año en **2026** responde `modo: "pdf"` por un override de `config/rankings_pdf.json`. Para los otros valores, se comporta como dice la sección de rankings |
 | 7 | `GET /notificaciones?since=…`: **parser de fechas** | `since` lo interpretaba PHP 5.6 | Lo interpreta PHP 8, y su parser no acepta exactamente lo mismo. Medido: `2026-07-24 ART` (abreviatura de zona vieja) en `/api` filtraba, y acá **se ignora** (devuelve todas). Con fechas `YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS`, ISO 8601 y los relativos comunes (`yesterday`, `-1 week`…) el resultado es el mismo |
 | 8 | `GET /rankings/{slug}`: **claves `origen` y `premio`, y query `calculado=1`** (E3, `docs/plan-php84-e3-web.md`) | no existían | Aditivas: `origen` (siempre; `null` fuera de `modo: ranking`) y `premio` (sólo `solanet`) se suman a la respuesta para la web; con `calculado=1` se saltean los overrides. Sin el parámetro, la respuesta de la app es la de antes más esas claves. En la paridad son divergencia declarada (`tests/paridad/casos/rankings.php`) |
