@@ -10,6 +10,11 @@ jest.mock('../../src/api', () => {
     fetchOpcionesAlta: jest.fn(),
     buscarJinetes: jest.fn(),
     buscarDomadores: jest.fn(),
+    buscarYuntaCandidatos: jest.fn(),
+    fetchEquipos: jest.fn(),
+    mapYuntaCandidato: alta.mapYuntaCandidato,
+    mapEquipo: alta.mapEquipo,
+    companieroAPayload: alta.companieroAPayload,
     crearInscripcion: jest.fn(),
     fetchAnimalPedigree: jest.fn(),
     fetchAlertasAlta: jest.fn(),
@@ -43,6 +48,18 @@ const OPCIONES = {
     { prueba: { id: 2, nombre: 'Paleteada' }, modalidad: 'yunta',
       categorias: [{ id: 7, nombre: 'Mayor', habilitada: true, cupo: 20, ocupacion: 1, lista_espera: false }] },
   ],
+};
+
+// Padrón con el animal que se inscribe + dos compañeros, como lo trae A7.
+const EQUIPO = {
+  id: 9059040, nombre: 'EL TRÍO', anio: 2026,
+  animales: [
+    { id: 'exis:9059010', nombre: 'LA ÑANDÚ', sba: '123456', rp: '45', sexo: 2,
+      jinete: { id: 31, nombre: 'Ana', apellido: 'Gómez' } },
+    { id: 'pdre:1', nombre: 'EL PRIMERO', sba: '1', rp: '1', sexo: 1, jinete: null },
+    { id: 'exis:2', nombre: 'LA SEGUNDA', sba: '2', rp: '2', sexo: 2, jinete: null },
+  ],
+  habilitado: true, jinetes_inhabilitados: [], bloqueado: false, bloqueado_por: null,
 };
 
 const renderAlta = (onSalir = jest.fn(), onHecho = jest.fn()) =>
@@ -84,6 +101,10 @@ beforeEach(() => {
     { id: 7, nombre: 'Ana', apellido: 'Gómez', documento: '1', tiene_deuda: false },
   ]);
   api.buscarDomadores.mockReset().mockResolvedValue([]);
+  api.buscarYuntaCandidatos.mockReset().mockResolvedValue([
+    { id: 'pdre:9059012', nombre: 'EL COMPAÑERO', sba: '99', rp: '12', sexo: 1, permitido: true },
+  ]);
+  api.fetchEquipos.mockReset().mockResolvedValue([EQUIPO]);
   // Sin alertas: el asistente saltea esa pantalla y arranca en el evento.
   api.fetchAlertasAlta.mockReset().mockResolvedValue({ terminos: null, alertas: [] });
   api.fetchCabanias.mockReset().mockResolvedValue(['LA ESTANCIA', 'LA SOÑADA']);
@@ -388,11 +409,48 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByText('Escribí el nombre de tu cabaña.')).toBeTruthy();
   });
 
-  test('las pruebas de yunta se listan pero no se pueden elegir todavía', async () => {
+  test('una prueba de yunta pide el compañero además del jinete', async () => {
     const utils = renderAlta();
     await hastaParticipacion(utils);
-    expect(utils.getByText('Paleteada')).toBeTruthy();
-    expect(utils.getByText('Las pruebas de yunta se inscriben por la web por ahora.')).toBeTruthy();
+    fireEvent.press(utils.getByLabelText('Paleteada · Mayor'));
+    expect(await utils.findByText('Elegir compañero de yunta')).toBeTruthy();
+    expect(utils.getByText('Falta el compañero de Paleteada.')).toBeTruthy();
+  });
+
+  test('J-1: un compañero ya tomado en esa categoría no se puede elegir', async () => {
+    // El POST no lo frena salvo de rebote: si la app lo deja pasar queda una
+    // yunta cruzada.
+    api.buscarYuntaCandidatos.mockResolvedValue([
+      { id: 'pdre:9059012', nombre: 'EL TOMADO', sba: '99', sexo: 1, permitido: false },
+    ]);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Paleteada · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir compañero de yunta'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A. del compañero'), '99');
+    fireEvent.press(utils.getByText('Macho'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('Ya está inscripto en esta categoría con otra yunta')).toBeTruthy();
+    fireEvent.press(utils.getByText('EL TOMADO'));
+    // No lo eligió: sigue en el buscador.
+    expect(utils.getByLabelText('S.B.A. del compañero')).toBeTruthy();
+  });
+
+  test('el compañero elegido viaja con su tabla y su sexo', async () => {
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Paleteada · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir compañero de yunta'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A. del compañero'), '99');
+    fireEvent.press(utils.getByText('Macho'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('EL COMPAÑERO'));
+
+    expect(await utils.findByText('EL COMPAÑERO')).toBeTruthy(); // ya en el selector
+    expect(api.buscarYuntaCandidatos).toHaveBeenCalledWith(
+      expect.objectContaining({ sba: '99', sexo: 1, prueba: 2, categoria: 7, animal: 'exis:9059010' }),
+    );
   });
 
   test('una prueba con una sola categoría va en una línea, con su nombre', async () => {
@@ -500,6 +558,101 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     fireEvent.press(utils.getByText('No participa'));
     fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
     expect(await utils.findByText('Falta el jinete de morfología, el jinete de Rienda.')).toBeTruthy();
+  });
+
+  // Opciones con una prueba de equipo (Aparte Campero).
+  const CON_EQUIPO = {
+    ...OPCIONES,
+    pruebas: [{ prueba: { id: 6, nombre: 'Aparte Campero' }, modalidad: 'equipo',
+      categorias: [{ id: 9, nombre: 'Mayor', habilitada: true, cupo: 20, ocupacion: 2, lista_espera: false }] }],
+  };
+
+  test('J-2: los equipos salen de la lista del animal', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+
+    expect(await utils.findByText('EL TRÍO')).toBeTruthy();
+    expect(api.fetchEquipos).toHaveBeenCalledWith(
+      expect.objectContaining({ animal: 'exis:9059010', evento: 9059001, prueba: 6, categoria: 9 }),
+    );
+  });
+
+  test('sin equipos para el animal lo dice', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    api.fetchEquipos.mockResolvedValue([]);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    expect(await utils.findByText(/no figura en ningún equipo/)).toBeTruthy();
+  });
+
+  test('J-3: el equipo completa los compañeros y el jinete del padrón', async () => {
+    // El socio no los elige: salen del padrón, como en la web.
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    fireEvent.press(await utils.findByText('EL TRÍO'));
+
+    // Los dos compañeros y el jinete propio, a la vista.
+    expect(await utils.findByText(/EL PRIMERO · LA SEGUNDA — jinete Gómez Ana/)).toBeTruthy();
+    // Y no pide jinete aparte: en Aparte Campero sale del equipo.
+    expect(utils.queryByText('Elegir jinete')).toBeNull();
+  });
+
+  test('J-4: un equipo sin trío completo no deja continuar', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    api.fetchEquipos.mockResolvedValue([{
+      ...EQUIPO,
+      animales: [EQUIPO.animales[0], EQUIPO.animales[1]], // falta el segundo compañero
+    }]);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    fireEvent.press(await utils.findByText('EL TRÍO'));
+    expect(await utils.findByText('Falta el trío completo de Aparte Campero.')).toBeTruthy();
+  });
+
+  test('un equipo con jinetes no vigentes o bloqueado no se puede elegir', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    api.fetchEquipos.mockResolvedValue([
+      { ...EQUIPO, id: 1, nombre: 'IMPAGO', habilitado: false, jinetes_inhabilitados: ['Ana Gómez'] },
+      { ...EQUIPO, id: 2, nombre: 'BLOQUEADO', bloqueado: true, bloqueado_por: 'EL PRIMERO' },
+    ]);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+
+    expect(await utils.findByText('Jinetes no vigentes: Ana Gómez')).toBeTruthy();
+    expect(utils.getByText('EL PRIMERO ya está inscripto en esta prueba con otro equipo')).toBeTruthy();
+    fireEvent.press(utils.getByText('IMPAGO'));
+    // No eligió ninguno: sigue en la lista.
+    expect(utils.getByText('BLOQUEADO')).toBeTruthy();
+  });
+
+  test('regla 4.5: dos pruebas de yunta en la misma categoría no se permiten', async () => {
+    // El compañero viaja en un campo por categoría sola: se pisarían.
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      pruebas: [
+        { prueba: { id: 2, nombre: 'Rodeos' }, modalidad: 'yunta',
+          categorias: [{ id: 7, nombre: 'Mayor', habilitada: true, cupo: 9, ocupacion: 1, lista_espera: false }] },
+        { prueba: { id: 6, nombre: 'Aparte Campero' }, modalidad: 'equipo',
+          categorias: [{ id: 7, nombre: 'Mayor', habilitada: true, cupo: 9, ocupacion: 1, lista_espera: false }] },
+      ],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Rodeos · Mayor'));
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    expect(await utils.findByText('No se pueden inscribir dos pruebas de yunta o equipo en la misma categoría.')).toBeTruthy();
   });
 
   test('sin participación elegida no deja continuar', async () => {
@@ -653,6 +806,32 @@ describe('AltaInscripcionScreen — confirmación', () => {
     fireEvent.press(await utils.findByText('Continuar'));
     await utils.findByText('Confirmar inscripción');
     expect(utils.getByText('Participa')).toBeTruthy();
+  });
+
+  test('el equipo viaja con sus dos compañeros y el jinete del padrón', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      morfologia: { categoria: null, habilitada: false },
+      tipo_aptitud: { categoria: null, habilitada: false },
+      pruebas: [{ prueba: { id: 6, nombre: 'Aparte Campero' }, modalidad: 'equipo',
+        categorias: [{ id: 9, nombre: 'Mayor', habilitada: true, cupo: 20, ocupacion: 2, lista_espera: false }] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    fireEvent.press(await utils.findByText('EL TRÍO'));
+    fireEvent.press(await utils.findByText('Continuar'));
+    fireEvent.press(await utils.findByText('Confirmar inscripción'));
+
+    expect(api.crearInscripcion.mock.calls[0][0].pruebas[0]).toEqual({
+      prueba: 6, categoria: 9,
+      jinete: 31,                                  // del padrón, no elegido
+      domador: null,
+      yunta:  { tabla: 'IdPdre', id: 1, sexo: 1 }, // los dos compañeros,
+      yunta2: { tabla: 'IdExis', id: 2, sexo: 2 }, // con su tabla y su sexo
+      equipo: 9059040,
+    });
   });
 
   test('un 201 muestra el número de inscripción y el precio', async () => {

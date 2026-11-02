@@ -8,6 +8,7 @@ import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload,
   fetchAnimalPedigree, fetchAlertasAlta, fetchCabanias, mapAlertas,
+  buscarYuntaCandidatos, fetchEquipos, mapYuntaCandidato, mapEquipo, companieroAPayload,
 } from '../api';
 import HtmlBody from '../HtmlBody';
 
@@ -34,6 +35,8 @@ const TITULOS = {
   confirmar: 'Confirmar',
   jinete: 'Elegí el jinete',
   domador: 'Elegí el domador',
+  yunta: 'Elegí el compañero',
+  equipo: 'Elegí el equipo',
   listo: 'Inscripción confirmada',
 };
 
@@ -48,6 +51,8 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
   });
   // Dónde guardar el jinete que se elija en el paso 'jinete'.
   const [destinoJinete, setDestinoJinete] = React.useState(null);
+  // Qué prueba está eligiendo compañero o equipo.
+  const [destinoUnidad, setDestinoUnidad] = React.useState(null);
   const [resultado, setResultado] = React.useState(null);
 
   const set = (cambios) => setSel((s) => ({ ...s, ...cambios }));
@@ -57,7 +62,7 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
     // El aviso no está en PASOS: su vuelta es a participación, y desde
     // confirmar también, para no obligar a aceptarlo de nuevo.
     if (paso === 'alerta3') return setPaso('participacion');
-    if (paso === 'jinete') return setPaso('participacion');
+    if (paso === 'jinete' || paso === 'yunta' || paso === 'equipo') return setPaso('participacion');
     if (paso === 'listo') return onHecho();
     const i = PASOS.indexOf(paso);
     if (i <= 0) return onSalir();
@@ -65,6 +70,36 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
   };
 
   const elegirJinete = (destino) => { setDestinoJinete(destino); setPaso('jinete'); };
+
+  const elegirUnidad = (destino) => {
+    setDestinoUnidad(destino);
+    setPaso(destino.modalidad === 'equipo' ? 'equipo' : 'yunta');
+  };
+
+  const parchearPrueba = (cambios) => set({
+    pruebas: sel.pruebas.map((p) => (p.prueba === destinoUnidad.prueba ? { ...p, ...cambios } : p)),
+  });
+
+  const guardarCompaniero = (candidato) => {
+    parchearPrueba({ companiero: candidato });
+    setDestinoUnidad(null);
+    setPaso('participacion');
+  };
+
+  // J-3: al elegir el equipo, los dos compañeros y el jinete del propio animal
+  // salen del padrón — el socio no los elige, como en la web.
+  const guardarEquipo = (equipo) => {
+    const propios = equipo.animales.filter((a) => a.id === sel.animal.id);
+    const otros = equipo.animales.filter((a) => a.id !== sel.animal.id);
+    parchearPrueba({
+      equipo,
+      companiero: otros[0] || null,
+      companiero2: otros[1] || null,
+      jinete: propios[0]?.jinete || null,
+    });
+    setDestinoUnidad(null);
+    setPaso('participacion');
+  };
 
   const guardarJinete = (persona) => {
     const rol = destinoJinete?.rol === 'domador' ? 'domador' : 'jinete';
@@ -101,7 +136,7 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
       {paso === 'datos' && <PasoDatos t={t} sel={sel} set={set} onSeguir={() => setPaso('participacion')} />}
       {paso === 'participacion' && (
         <PasoParticipacion
-          t={t} sel={sel} set={set} onJinete={elegirJinete}
+          t={t} sel={sel} set={set} onJinete={elegirJinete} onUnidad={elegirUnidad}
           // El aviso del evento (alerta3) es una pantalla propia, como en la
           // web; si el evento no lo trae, se saltea.
           onSeguir={() => setPaso(tieneContenido(sel.evento?.alerta3) ? 'alerta3' : 'confirmar')}
@@ -109,6 +144,12 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
       )}
       {paso === 'jinete' && (
         <PasoJinete t={t} evento={sel.evento} rol={destinoJinete?.rol} onElegir={guardarJinete} />
+      )}
+      {paso === 'yunta' && (
+        <PasoYunta t={t} sel={sel} destino={destinoUnidad} onElegir={guardarCompaniero} />
+      )}
+      {paso === 'equipo' && (
+        <PasoEquipo t={t} sel={sel} destino={destinoUnidad} onElegir={guardarEquipo} />
       )}
       {paso === 'alerta3' && (
         <PasoAlerta3 t={t} evento={sel.evento} onSeguir={() => setPaso('confirmar')} onVolver={() => setPaso('participacion')} />
@@ -666,7 +707,7 @@ function SelectorCabania({ t, cabanias, valor, onElegir }) {
 
 // ── 4. Participación ───────────────────────────────────────────────
 
-function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
+function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   const [opciones, setOpciones] = React.useState(null);
   const [error, setError] = React.useState(null);
 
@@ -686,7 +727,11 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
     if (yaEsta) return set({ pruebas: sel.pruebas.filter((p) => p !== yaEsta) });
     // Una misma prueba no puede ir dos veces: cambiar de categoría reemplaza.
     const sinEsaPrueba = sel.pruebas.filter((p) => p.prueba !== prueba.id);
-    set({ pruebas: [...sinEsaPrueba, { prueba: prueba.id, categoria: categoria.id, nombre: prueba.nombre, categoriaNombre: categoria.nombre, jinete: null }] });
+    set({ pruebas: [...sinEsaPrueba, {
+      prueba: prueba.id, categoria: categoria.id, modalidad: prueba.modalidad,
+      nombre: prueba.nombre, categoriaNombre: categoria.nombre,
+      jinete: null, domador: null, companiero: null, companiero2: null, equipo: null,
+    }] });
   };
 
   const algoElegido = !!sel.morfologia || !!sel.tipoAptitud || sel.pruebas.length > 0;
@@ -694,12 +739,32 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
   // El jinete es obligatorio en morfología, en tipo y aptitud y en cada prueba
   // (el servidor lo valida con JineteMorfologia y JineteFaltante). Avisarlo acá
   // evita que el socio cargue todo y se entere recién con un 422.
+  // Qué le falta a una prueba, según su modalidad.
+  const faltaDe = (p) => {
+    if (p.modalidad === 'equipo') {
+      if (!p.equipo) return `el equipo de ${p.nombre}`;
+      // J-4: el trío se arma con los dos compañeros y el jinete del propio
+      // animal, todos del padrón. El POST sólo exige el equipo, así que un
+      // trío incompleto pasaría y quedaría mal inscripto.
+      if (!p.companiero || !p.companiero2 || !p.jinete) return `el trío completo de ${p.nombre}`;
+      return null;
+    }
+    if (p.modalidad === 'yunta' && !p.companiero) return `el compañero de ${p.nombre}`;
+    if (!p.jinete) return `el jinete de ${p.nombre}`;
+    return null;
+  };
+
+  // Regla 4.5: el compañero viaja en un campo por categoría sola, así que dos
+  // pruebas con yunta en la misma categoría se pisan — el POST da 400.
+  const categoriasConYunta = sel.pruebas.filter((p) => p.modalidad === 'yunta' || p.modalidad === 'equipo').map((p) => p.categoria);
+  const yuntaRepetida = categoriasConYunta.some((c, i) => categoriasConYunta.indexOf(c) !== i);
+
   const faltan = [
     sel.morfologia && !sel.morfologia.jinete && 'el jinete de morfología',
     sel.tipoAptitud && !sel.tipoAptitud.jinete && 'el jinete de tipo y aptitud',
-    ...sel.pruebas.filter((p) => !p.jinete).map((p) => `el jinete de ${p.nombre}`),
+    ...sel.pruebas.map(faltaDe),
   ].filter(Boolean);
-  const completo = algoElegido && faltan.length === 0;
+  const completo = algoElegido && faltan.length === 0 && !yuntaRepetida;
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
@@ -725,24 +790,17 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
       <View style={{ marginHorizontal: 20, gap: 14 }}>
         {opciones.pruebas.map((p) => {
           const elegida = sel.pruebas.find((x) => x.prueba === p.id);
-          // Yunta y equipo quedan para el tramo siguiente: elegir compañero o
-          // equipo necesita sus propias pantallas y sus propias reglas.
-          const soportada = p.modalidad === 'individual';
           // Una prueba con una sola categoría se dibuja en UNA línea: el
           // nombre de la prueba hace de etiqueta del checkbox. Varias de esas
           // categorías vienen sin nombre, y la fila quedaba con un checkbox
           // suelto y el cupo, sin decir de qué.
-          const unica = soportada && p.categorias.length === 1 ? p.categorias[0] : null;
+          const unica = p.categorias.length === 1 ? p.categorias[0] : null;
           return (
             <Card key={p.id} t={t} style={{ padding: 14 }}>
               {!unica && (
-                <Text style={{ fontFamily: F.display, fontSize: 15, color: soportada ? t.text : t.textDim }}>{p.nombre}</Text>
+                <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{p.nombre}</Text>
               )}
-              {!soportada ? (
-                <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textDim, marginTop: 6 }}>
-                  {p.modalidad === 'yunta' ? 'Las pruebas de yunta' : 'Las pruebas de equipo'} se inscriben por la web por ahora.
-                </Text>
-              ) : unica ? (
+              {unica ? (
                 <>
                   <FilaCategoria
                     t={t}
@@ -755,7 +813,11 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
                     destacada
                   />
                   {elegida && (
-                    <Actores t={t} elegida={elegida} onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })} />
+                    <Actores
+                      t={t} prueba={p} elegida={elegida}
+                      onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })}
+                      onUnidad={() => onUnidad({ prueba: p.id, categoria: elegida.categoria, modalidad: p.modalidad })}
+                    />
                   )}
                 </>
               ) : (
@@ -770,7 +832,11 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
                     />
                   ))}
                   {elegida && (
-                    <Actores t={t} elegida={elegida} onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })} />
+                    <Actores
+                      t={t} prueba={p} elegida={elegida}
+                      onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })}
+                      onUnidad={() => onUnidad({ prueba: p.id, categoria: elegida.categoria, modalidad: p.modalidad })}
+                    />
                   )}
                 </View>
               )}
@@ -784,6 +850,10 @@ function PasoParticipacion({ t, sel, set, onJinete, onSeguir }) {
         {!algoElegido ? (
           <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textDim, marginTop: 10, textAlign: 'center' }}>
             Elegí al menos una participación.
+          </Text>
+        ) : yuntaRepetida ? (
+          <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textDim, marginTop: 10, textAlign: 'center', lineHeight: 18 }}>
+            No se pueden inscribir dos pruebas de yunta o equipo en la misma categoría.
           </Text>
         ) : faltan.length > 0 && (
           <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textDim, marginTop: 10, textAlign: 'center', lineHeight: 18 }}>
@@ -821,13 +891,51 @@ function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada 
   );
 }
 
-// Jinete y domador de una prueba. El jinete es obligatorio en casi todas (lo
-// valida el servidor); el domador es opcional y la web lo ofrece igual.
-function Actores({ t, elegida, onActor }) {
+// Qué se elige en cada prueba, según su modalidad:
+//  - individual: jinete (obligatorio) y domador (opcional)
+//  - yunta: lo mismo más el compañero
+//  - equipo: SÓLO el equipo. El jinete no se elige — sale del padrón del equipo
+//    (regla 3.1: obligatorio salvo en Aparte Campero, «donde sale del equipo»).
+function Actores({ t, prueba, elegida, onActor, onUnidad }) {
+  const esEquipo = prueba.modalidad === 'equipo';
   return (
     <>
-      <SelectorJinete t={t} jinete={elegida.jinete} onPress={() => onActor('jinete')} />
-      <SelectorJinete t={t} jinete={elegida.domador} rol="domador" onPress={() => onActor('domador')} />
+      {esEquipo ? (
+        <SelectorUnidad t={t} elegida={elegida} modalidad="equipo" onPress={onUnidad} />
+      ) : (
+        <>
+          <SelectorJinete t={t} jinete={elegida.jinete} onPress={() => onActor('jinete')} />
+          <SelectorJinete t={t} jinete={elegida.domador} rol="domador" onPress={() => onActor('domador')} />
+          {prueba.modalidad === 'yunta' && (
+            <SelectorUnidad t={t} elegida={elegida} modalidad="yunta" onPress={onUnidad} />
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+// El compañero de yunta, o el equipo con el trío que trae.
+function SelectorUnidad({ t, elegida, modalidad, onPress }) {
+  const esEquipo = modalidad === 'equipo';
+  const elegido = esEquipo ? elegida.equipo : elegida.companiero;
+  return (
+    <>
+      <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
+        <Icon name={esEquipo ? 'building' : 'tree'} size={16} color={t.accent} />
+        <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13, color: elegido ? t.text : t.textMute }} numberOfLines={1}>
+          {elegido ? elegido.nombre : (esEquipo ? 'Elegir equipo' : 'Elegir compañero de yunta')}
+        </Text>
+        <Icon name="arrow" size={15} color={t.textMute} />
+      </TouchableOpacity>
+      {/* Lo que el equipo aporta, para que se vea qué se va a inscribir: el
+          socio no elige estos datos, salen del padrón (J-3). */}
+      {esEquipo && elegida.equipo && (
+        <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 6, lineHeight: 17 }}>
+          {[elegida.companiero?.nombre, elegida.companiero2?.nombre].filter(Boolean).join(' · ') || 'Sin compañeros en el padrón'}
+          {elegida.jinete ? ` — jinete ${`${elegida.jinete.apellido || ''} ${elegida.jinete.nombre || ''}`.trim()}` : ' — sin jinete en el padrón'}
+        </Text>
+      )}
     </>
   );
 }
@@ -965,6 +1073,154 @@ function PasoJinete({ t, evento, onElegir, rol }) {
   );
 }
 
+// ── Compañero de yunta ─────────────────────────────────────────────
+
+// J-1 (regla 4.4): un compañero con `permitido: false` ya está inscripto en esa
+// prueba y categoría con OTRO compañero. El POST no lo frena salvo de rebote,
+// así que si la app lo deja pasar queda una yunta cruzada. Por eso acá no se
+// puede elegir.
+function PasoYunta({ t, sel, destino, onElegir }) {
+  const [sba, setSba] = React.useState('');
+  const [sexo, setSexo] = React.useState(null);
+  const [resultados, setResultados] = React.useState(null);
+  const [buscando, setBuscando] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  // El sexo decide en qué tabla se busca (hembra en Exis, el resto en Pdre; en
+  // los dos casos también en Extr), así que es obligatorio.
+  const puedeBuscar = !!sba.trim() && (sexo === 1 || sexo === 2) && !buscando;
+
+  const buscar = async () => {
+    if (!puedeBuscar) return;
+    Keyboard.dismiss();
+    setBuscando(true); setError(null); setResultados(null);
+    try {
+      const r = await buscarYuntaCandidatos({
+        sba: sba.trim(), sexo,
+        evento: sel.evento?.id, prueba: destino?.prueba, categoria: destino?.categoria,
+        animal: sel.animal?.id,
+      });
+      setResultados((Array.isArray(r) ? r : r?.data || []).map(mapYuntaCandidato));
+    } catch (e) {
+      setError(mensaje(e));
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View style={{ gap: 14 }}>
+        <Field t={t} label="S.B.A. del compañero" placeholder="Número de S.B.A." value={sba} onChange={setSba} keyboardType="number-pad" />
+        <View>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 6 }}>Sexo del compañero</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Opcion t={t} label="Macho" activa={sexo === 1} onPress={() => setSexo(1)} />
+            <Opcion t={t} label="Hembra" activa={sexo === 2} onPress={() => setSexo(2)} />
+          </View>
+        </View>
+      </View>
+      <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
+
+      {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}
+      {resultados && resultados.length === 0 && (
+        <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textMute, marginTop: 18 }}>
+          No existe animal con ese S.B.A.
+        </Text>
+      )}
+
+      <View style={{ marginTop: 18, gap: 10 }}>
+        {(resultados || []).map((c) => {
+          const propio = c.id === sel.animal?.id; // regla 4.2
+          const bloqueado = !c.permitido || propio;
+          return (
+            <TouchableOpacity key={c.id} onPress={() => !bloqueado && onElegir(c)} disabled={bloqueado} activeOpacity={0.8}>
+              <Card t={t} style={{ padding: 14 }}>
+                <Text style={{ fontFamily: F.display, fontSize: 15, color: bloqueado ? t.textDim : t.text }}>{c.nombre}</Text>
+                <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>
+                  {[c.sba && `S.B.A. ${c.sba}`, c.rp && `R.P. ${c.rp}`].filter(Boolean).join(' · ')}
+                </Text>
+                {propio && (
+                  <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
+                    Es el animal que estás inscribiendo
+                  </Text>
+                )}
+                {!propio && !c.permitido && (
+                  <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
+                    Ya está inscripto en esta categoría con otra yunta
+                  </Text>
+                )}
+              </Card>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
+}
+
+// ── Equipo ─────────────────────────────────────────────────────────
+
+// J-2: sólo los equipos donde figura este animal, que es lo único que garantiza
+// la pertenencia — el POST apenas verifica que el equipo exista. La API los trae
+// del año en curso (qué rango vale es una decisión pendiente del negocio).
+function PasoEquipo({ t, sel, destino, onElegir }) {
+  const [equipos, setEquipos] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelado = false;
+    fetchEquipos({
+      animal: sel.animal?.id, evento: sel.evento?.id,
+      prueba: destino?.prueba, categoria: destino?.categoria,
+    })
+      .then((r) => { if (!cancelado) setEquipos((Array.isArray(r) ? r : r?.data || []).map(mapEquipo)); })
+      .catch((e) => { if (!cancelado) setError(mensaje(e)); });
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (error) return <ErrorCard t={t} texto={error} />;
+  if (!equipos) return <Cargando t={t} />;
+  if (equipos.length === 0) {
+    return (
+      <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, marginHorizontal: 20, lineHeight: 20 }}>
+        Este animal no figura en ningún equipo de este año. Los equipos se crean por la web.
+      </Text>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 10 }} showsVerticalScrollIndicator={false}>
+      {equipos.map((e) => {
+        // 4.6: jinete con deuda ⇒ deshabilitado, con los nombres.
+        // 4.10: bloqueado ⇒ un integrante ya está en otro equipo en esa prueba.
+        const bloqueado = !e.habilitado || e.bloqueado;
+        return (
+          <TouchableOpacity key={e.id} onPress={() => !bloqueado && onElegir(e)} disabled={bloqueado} activeOpacity={0.8}>
+            <Card t={t} style={{ padding: 14 }}>
+              <Text style={{ fontFamily: F.display, fontSize: 15, color: bloqueado ? t.textDim : t.text }}>{e.nombre}</Text>
+              <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 4, lineHeight: 17 }}>
+                {e.animales.map((a) => a.nombre).filter(Boolean).join(' · ') || 'Sin integrantes'}
+              </Text>
+              {!e.habilitado && (
+                <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6, lineHeight: 17 }}>
+                  Jinetes no vigentes: {e.jinetesInhabilitados.join(', ') || 'sin detalle'}
+                </Text>
+              )}
+              {e.bloqueado && (
+                <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6, lineHeight: 17 }}>
+                  {e.bloqueadoPor || 'Un integrante'} ya está inscripto en esta prueba con otro equipo
+                </Text>
+              )}
+            </Card>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 // ── 4-bis. El aviso previo a confirmar ─────────────────────────────
 
 // `alerta3` del evento, en su propia pantalla: en la web es
@@ -1008,6 +1264,11 @@ function PasoConfirmar({ t, sel, onHecho }) {
         pruebas: sel.pruebas.map((p) => ({
           prueba: p.prueba, categoria: p.categoria,
           jinete: p.jinete?.id ?? null, domador: p.domador?.id ?? null,
+          // `tabla` y `sexo` del compañero salen del propio candidato: un par
+          // incoherente da 400.
+          yunta: p.companiero ? companieroAPayload(p.companiero) : null,
+          yunta2: p.companiero2 ? companieroAPayload(p.companiero2) : null,
+          equipo: p.equipo?.id ?? null,
         })),
       });
       onHecho(mapAltaCreada(r));

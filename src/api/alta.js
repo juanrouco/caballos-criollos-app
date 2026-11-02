@@ -151,6 +151,65 @@ export function mapJinete(j) {
   };
 }
 
+// A6 — compañeros de yunta por SBA: hembra se busca en Exis, el resto en Pdre, y
+// en los dos casos también en Extr. `permitido` es la regla J-1: false cuando
+// ese animal YA está inscripto en esa prueba y categoría con otro compañero.
+// Sólo se evalúa con evento, prueba y categoría, como la web.
+//
+// ⚠️ El POST no cubre J-1 salvo de rebote, así que un `permitido: false` que la
+// app ignore se inscribe igual y deja una yunta cruzada.
+export function buscarYuntaCandidatos({ sba, sexo, evento, prueba, categoria, animal }) {
+  return apiGetAuth('/inscripciones/yunta-candidatos', { sba, sexo, evento, prueba, categoria, animal });
+}
+
+export function mapYuntaCandidato(c) {
+  return {
+    id: c.id,
+    nombre: texto(c.nombre),
+    sba: c.sba || null,
+    rp: c.rp || null,
+    sexo: c.sexo,
+    permitido: c.permitido !== false,
+  };
+}
+
+// A7 — los equipos donde figura este animal, del año en curso. La lista ES la
+// garantía de que el animal pertenece al equipo (J-2): el POST sólo verifica
+// que el equipo exista.
+//
+// `animales` trae el padrón con el jinete de cada uno: de ahí salen los dos
+// compañeros y el jinete del propio animal (J-3), que el socio no elige.
+// `habilitado` es false con algún jinete con deuda (sus nombres vienen en
+// `jinetes_inhabilitados`); `bloqueado` es true si un integrante ya está en
+// OTRO equipo en esa prueba y categoría, y sólo se evalúa con las dos.
+export function fetchEquipos({ animal, evento, prueba, categoria }) {
+  return apiGetAuth('/equipos', { animal, evento, prueba, categoria });
+}
+
+export function mapEquipo(e) {
+  return {
+    id: e.id,
+    nombre: texto(e.nombre),
+    anio: e.anio ?? null,
+    animales: Array.isArray(e.animales)
+      ? e.animales.map((a) => ({
+          id: a.id,
+          nombre: texto(a.nombre),
+          sba: a.sba || null,
+          rp: a.rp || null,
+          sexo: a.sexo,
+          jinete: a.jinete
+            ? { id: a.jinete.id, nombre: texto(a.jinete.nombre), apellido: texto(a.jinete.apellido) }
+            : null,
+        }))
+      : [],
+    habilitado: e.habilitado !== false,
+    jinetesInhabilitados: Array.isArray(e.jinetes_inhabilitados) ? e.jinetes_inhabilitados.map(texto) : [],
+    bloqueado: e.bloqueado === true,
+    bloqueadoPor: texto(e.bloqueado_por),
+  };
+}
+
 // A5 — domadores.
 export function buscarDomadores({ nombre, apellido, documento }) {
   return apiGetAuth('/domadores', { nombre, apellido, documento });
@@ -165,6 +224,17 @@ export function animalAPayload(id) {
   const tabla = TABLA_POR_FUENTE[fuente];
   if (!tabla || !local) return null;
   return { tabla, id: Number(local) };
+}
+
+// El compañero como lo pide el payload. `tabla` y `sexo` tienen que ser
+// coherentes (IdExis ⇔ 2, IdPdre ⇔ 1; IdExtr admite los dos) o el POST da 400,
+// así que el sexo sale del propio candidato y no de lo que se tipeó.
+export function companieroAPayload(candidato) {
+  const base = animalAPayload(candidato?.id);
+  if (!base) return null;
+  const sexo = base.tabla === 'IdExis' ? 2 : base.tabla === 'IdPdre' ? 1 : Number(candidato.sexo);
+  if (sexo !== 1 && sexo !== 2) return null;
+  return { ...base, sexo };
 }
 
 // POST — el único endpoint que escribe. Un 201 es un alta confirmada SIEMPRE,

@@ -1,5 +1,6 @@
 import {
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload, mapAlertas,
+  mapYuntaCandidato, mapEquipo, companieroAPayload,
   buscarAnimalesAlta, fetchOpcionesAlta, crearInscripcion,
 } from '../../src/api/alta';
 import { API_BASE } from '../../src/api/client';
@@ -176,5 +177,38 @@ describe('mapAlertas', () => {
     const d = mapAlertas({ terminos: '<p>la alerta fija</p>', alertas: [] });
     expect(d).toMatchObject({ hayAlgo: true, terminos: '<p>la alerta fija</p>' });
     expect(d.alertas).toEqual([]);
+  });
+});
+
+describe('yunta y equipo', () => {
+  test('mapYuntaCandidato: permitido false es la regla J-1', () => {
+    expect(mapYuntaCandidato({ id: 'pdre:1', nombre: 'X', sba: '9', permitido: false }).permitido).toBe(false);
+    // Ausente se toma como permitido: la API sólo lo evalúa con prueba y categoría.
+    expect(mapYuntaCandidato({ id: 'pdre:1', nombre: 'X' }).permitido).toBe(true);
+  });
+
+  test('mapEquipo trae el padrón con el jinete de cada integrante', () => {
+    const e = mapEquipo({
+      id: 7, nombre: 'EL TRÍO', anio: 2026,
+      animales: [{ id: 'exis:1', nombre: 'UNA', sba: '1', sexo: 2, jinete: { id: 3, nombre: 'Ana', apellido: 'Gómez' } }],
+      habilitado: false, jinetes_inhabilitados: ['Ana Gómez'], bloqueado: true, bloqueado_por: 'OTRO',
+    });
+    expect(e).toMatchObject({ id: 7, nombre: 'EL TRÍO', habilitado: false, bloqueado: true, bloqueadoPor: 'OTRO' });
+    expect(e.animales[0].jinete).toEqual({ id: 3, nombre: 'Ana', apellido: 'Gómez' });
+    expect(e.jinetesInhabilitados).toEqual(['Ana Gómez']);
+  });
+
+  test('companieroAPayload deriva la tabla y el sexo del propio candidato', () => {
+    // Un par tabla/sexo incoherente da 400, así que el sexo no sale de lo tipeado.
+    expect(companieroAPayload({ id: 'exis:9059011', sexo: 1 })).toEqual({ tabla: 'IdExis', id: 9059011, sexo: 2 });
+    expect(companieroAPayload({ id: 'pdre:9059012', sexo: 2 })).toEqual({ tabla: 'IdPdre', id: 9059012, sexo: 1 });
+    // Extranjero: admite los dos, así que se respeta el del candidato.
+    expect(companieroAPayload({ id: 'extr:6703', sexo: 2 })).toEqual({ tabla: 'IdExtr', id: 6703, sexo: 2 });
+  });
+
+  test('companieroAPayload rechaza lo que no puede armar', () => {
+    expect(companieroAPayload({ id: 'extr:1', sexo: 0 })).toBeNull(); // castrado no vale de compañero
+    expect(companieroAPayload({ id: '9059011' })).toBeNull();
+    expect(companieroAPayload(null)).toBeNull();
   });
 });

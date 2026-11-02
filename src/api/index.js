@@ -13,8 +13,10 @@ export {
 export {
   fetchEventosAlta, fetchAlertasAlta, fetchCabanias,
   buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores,
-  crearInscripcion, animalAPayload,
+  buscarYuntaCandidatos, fetchEquipos,
+  crearInscripcion, animalAPayload, companieroAPayload,
   mapEventoAlta, mapAlertas, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada,
+  mapYuntaCandidato, mapEquipo,
 } from './alta';
 export { registerPushToken } from './push';
 export {
