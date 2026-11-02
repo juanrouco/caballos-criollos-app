@@ -464,7 +464,7 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     await hastaParticipacion(utils);
     // El checkbox se etiqueta con el nombre de la prueba.
     expect(utils.getByLabelText('Marchita')).toBeTruthy();
-    expect(utils.getByText('0/50')).toBeTruthy();
+    expect(utils.getByText('Cupo 0/50')).toBeTruthy();
   });
 
   test('con varias categorías cada una es una fila propia', async () => {
@@ -572,6 +572,38 @@ describe('AltaInscripcionScreen — paso a paso', () => {
 
     expect(await utils.findByText('Gómez Ana')).toBeTruthy();
     expect(utils.queryByText('Elegir jinete')).toBeNull();
+  });
+
+  test('el cupo dice que es el cupo, y avisa cuando está completo', async () => {
+    // «10/10» solo no dice qué es. Completo se avisa pero NO bloquea: la
+    // ocupación de `opciones` no descuenta la unidad propia del animal, que el
+    // validador sí descuenta, así que la última palabra la tiene el POST.
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual', categorias: [
+        { id: 12, nombre: 'Mayor', propia: false, habilitada: true, cupo: 10, ocupacion: 7, lista_espera: false },
+        { id: 13, nombre: 'Menor', propia: false, habilitada: true, cupo: 10, ocupacion: 10, lista_espera: false },
+      ] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    expect(utils.getByText('Cupo 7/10')).toBeTruthy();
+    expect(utils.getByText('Cupo completo')).toBeTruthy();
+
+    fireEvent.press(utils.getByLabelText('Menor'));
+    expect(await utils.findByText('Elegir jinete')).toBeTruthy();
+  });
+
+  test('sin cupo configurado no se muestra ningún cupo', async () => {
+    // `cupo` 0 o null es «sin límite» (CupoService:113), no «no quedan».
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual',
+        categorias: [{ id: 12, nombre: 'Mayor', propia: false, habilitada: true, cupo: 0, ocupacion: 0, lista_espera: false }] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    expect(utils.queryByText(/Cupo/)).toBeNull();
   });
 
   test('una prueba elegida ofrece jinete y domador', async () => {

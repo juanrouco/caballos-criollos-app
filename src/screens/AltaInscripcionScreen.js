@@ -893,6 +893,16 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   );
 }
 
+// El cupo de una categoría, rotulado: «2/5» solo no dice qué es. `cupo` 0 o
+// null es «sin límite configurado» (CupoService:113) y no se muestra.
+//
+// ⚠️ Completo NO impide elegirla: la última palabra la tiene el POST (422
+// CupoLleno). La ocupación que devuelve `opciones` no descuenta la unidad
+// propia del animal, cosa que el validador sí hace (CupoService:116), así que
+// bloquear acá podría frenar una inscripción que el servidor aceptaría.
+const completa = (c) => c.cupo > 0 && (c.ocupacion ?? 0) >= c.cupo;
+const cupoTexto = (c) => (completa(c) ? 'Cupo completo' : `Cupo ${c.ocupacion ?? 0}/${c.cupo}`);
+
 // Una categoría: checkbox, etiqueta y el cupo (o «lista de espera»), todo en
 // una línea.
 function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada }) {
@@ -914,7 +924,7 @@ function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada 
       </Text>
       {c.listaEspera
         ? <Chip t={t} label="Lista de espera" />
-        : c.cupo != null && <Chip t={t} label={`${c.ocupacion ?? 0}/${c.cupo}`} />}
+        : c.cupo > 0 && <Chip t={t} label={cupoTexto(c)} tono={completa(c) ? 'lleno' : null} />}
     </TouchableOpacity>
   );
 }
@@ -1029,10 +1039,11 @@ function SelectorJinete({ t, jinete, onPress, rol, contexto }) {
   );
 }
 
-function Chip({ t, label }) {
+function Chip({ t, label, tono }) {
+  const color = tono === 'lleno' ? t.live : t.accent;
   return (
-    <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, backgroundColor: withAlpha(t.accent, 0.13) }}>
-      <Text style={{ fontFamily: F.bodyMed, fontSize: 10.5, color: t.accent }}>{label}</Text>
+    <View style={{ paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, backgroundColor: withAlpha(color, 0.13) }}>
+      <Text style={{ fontFamily: F.bodyMed, fontSize: 10.5, color }}>{label}</Text>
     </View>
   );
 }
