@@ -482,6 +482,98 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.getByLabelText('Menor')).toBeTruthy();
   });
 
+  // ── Varias categorías de la misma prueba ──────────────────────────
+  //
+  // Una sola común más cualquier cantidad de propias (src/reglasAlta.js). La
+  // prueba 3 tiene dos comunes; la 1 (F.Z.B.) las tiene todas propias.
+  const DOS_COMUNES = {
+    ...OPCIONES,
+    pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual', categorias: [
+      { id: 12, nombre: 'Mayor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 13, nombre: 'Menor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+    ] }],
+  };
+  const FZB = {
+    ...OPCIONES,
+    pruebas: [{ prueba: { id: 1, nombre: 'F.Z.B.' }, modalidad: 'individual', categorias: [
+      { id: 101, nombre: 'Mayor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 102, nombre: 'Menor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+    ] }],
+  };
+
+  // Elige un jinete desde el selector que indica el rótulo accesible. Con dos
+  // categorías de la misma prueba hay dos «Elegir jinete», y cada uno se
+  // distingue por la categoría.
+  async function jineteDe(utils, label, nombre = 'Gómez Ana') {
+    fireEvent.press(await utils.findByLabelText(label));
+    fireEvent.changeText(await utils.findByLabelText('Apellido'), 'x');
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText(nombre));
+    return utils.findByText('Pruebas');
+  }
+
+  test('de dos categorías comunes queda elegida una sola', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(DOS_COMUNES);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Mayor'));
+    fireEvent.press(utils.getByLabelText('Menor'));
+    // Si las dos quedaran elegidas habría dos selectores de jinete.
+    expect(utils.getAllByText('Elegir jinete')).toHaveLength(1);
+
+    await ponerJinete(utils);
+    fireEvent.press(await utils.findByText('Continuar'));
+    fireEvent.press(await utils.findByText('Confirmar inscripción'));
+    expect(api.crearInscripcion.mock.calls[0][0].pruebas).toEqual([
+      expect.objectContaining({ prueba: 3, categoria: 13 }),
+    ]);
+  });
+
+  test('F.Z.B. acumula varias categorías, cada una con su jinete', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+    api.buscarJinetes.mockResolvedValue([
+      { id: 7, nombre: 'Ana', apellido: 'Gómez', documento: '1', tiene_deuda: false },
+      { id: 8, nombre: 'Luis', apellido: 'Pérez', documento: '2', tiene_deuda: false },
+    ]);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Mayor'));
+    fireEvent.press(utils.getByLabelText('Menor'));
+    expect(utils.getAllByText('Elegir jinete')).toHaveLength(2);
+
+    await jineteDe(utils, 'Elegir jinete · Mayor', 'Gómez Ana');
+    await jineteDe(utils, 'Elegir jinete · Menor', 'Pérez Luis');
+    fireEvent.press(await utils.findByText('Continuar'));
+    fireEvent.press(await utils.findByText('Confirmar inscripción'));
+
+    expect(api.crearInscripcion.mock.calls[0][0].pruebas).toEqual([
+      expect.objectContaining({ prueba: 1, categoria: 101, jinete: 7 }),
+      expect.objectContaining({ prueba: 1, categoria: 102, jinete: 8 }),
+    ]);
+  });
+
+  test('con dos categorías de la misma prueba, el aviso dice cuál', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Mayor'));
+    fireEvent.press(utils.getByLabelText('Menor'));
+    expect(await utils.findByText('Falta el jinete de F.Z.B. · Mayor, el jinete de F.Z.B. · Menor.')).toBeTruthy();
+  });
+
+  test('al destildar una categoría la otra conserva su jinete', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Mayor'));
+    fireEvent.press(utils.getByLabelText('Menor'));
+    await jineteDe(utils, 'Elegir jinete · Mayor');
+    fireEvent.press(utils.getByLabelText('Menor')); // se destilda
+
+    expect(await utils.findByText('Gómez Ana')).toBeTruthy();
+    expect(utils.queryByText('Elegir jinete')).toBeNull();
+  });
+
   test('una prueba elegida ofrece jinete y domador', async () => {
     const utils = renderAlta();
     await hastaParticipacion(utils);

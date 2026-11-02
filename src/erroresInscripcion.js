@@ -45,6 +45,9 @@ const TEXTOS = {
   JineteNoDisponible: 'Este jinete no está disponible.',
   EquipoInexistente: 'El equipo elegido ya no existe.',
   PruebaNoOfrecida: 'Esta prueba no se ofrece para este animal.',
+  // Dos categorías «comunes» de la misma prueba: se elige una sola. Las
+  // «propias» sí se acumulan (ver src/reglasAlta.js).
+  PruebaCategoriaUnica: 'De esta prueba se puede elegir una sola de estas categorías.',
 };
 
 // Para un código que no conocemos, un texto honesto antes que uno inventado: la

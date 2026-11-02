@@ -4,6 +4,7 @@ import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../component
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
 import { describirErrores } from '../erroresInscripcion';
+import { alternarCategoria } from '../reglasAlta';
 import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload,
@@ -77,7 +78,9 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
   };
 
   const parchearPrueba = (cambios) => set({
-    pruebas: sel.pruebas.map((p) => (p.prueba === destinoUnidad.prueba ? { ...p, ...cambios } : p)),
+    pruebas: sel.pruebas.map((p) => (
+      p.prueba === destinoUnidad.prueba && p.categoria === destinoUnidad.categoria ? { ...p, ...cambios } : p
+    )),
   });
 
   const guardarCompaniero = (candidato) => {
@@ -106,7 +109,9 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
     if (destinoJinete?.tipo === 'morfologia') set({ morfologia: { jinete: persona } });
     if (destinoJinete?.tipo === 'tipoAptitud') set({ tipoAptitud: { jinete: persona } });
     if (destinoJinete?.tipo === 'prueba') {
-      set({ pruebas: sel.pruebas.map((p) => (p.prueba === destinoJinete.id ? { ...p, [rol]: persona } : p)) });
+      set({ pruebas: sel.pruebas.map((p) => (
+        p.prueba === destinoJinete.id && p.categoria === destinoJinete.categoria ? { ...p, [rol]: persona } : p
+      )) });
     }
     setDestinoJinete(null);
     setPaso('participacion');
@@ -722,35 +727,53 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   if (error) return <ErrorCard t={t} texto={error} />;
   if (!opciones) return <Cargando t={t} />;
 
+  // Por prueba se puede elegir una categoría común más cualquier cantidad de
+  // propias (src/reglasAlta.js). Tocar una común reemplaza a la común anterior;
+  // tocar una propia se suma. Cada categoría lleva su propio jinete, domador y
+  // compañero, así que las ya elegidas se conservan tal como estaban.
   const togglePrueba = (prueba, categoria) => {
-    const yaEsta = sel.pruebas.find((p) => p.prueba === prueba.id && p.categoria === categoria.id);
-    if (yaEsta) return set({ pruebas: sel.pruebas.filter((p) => p !== yaEsta) });
-    // Una misma prueba no puede ir dos veces: cambiar de categoría reemplaza.
-    const sinEsaPrueba = sel.pruebas.filter((p) => p.prueba !== prueba.id);
-    set({ pruebas: [...sinEsaPrueba, {
-      prueba: prueba.id, categoria: categoria.id, modalidad: prueba.modalidad,
-      nombre: prueba.nombre, categoriaNombre: categoria.nombre,
-      jinete: null, domador: null, companiero: null, companiero2: null, equipo: null,
-    }] });
+    const actuales = sel.pruebas.filter((p) => p.prueba === prueba.id).map((p) => p.categoria);
+    const quedan = alternarCategoria(prueba.id, actuales, categoria.id);
+    const otrasPruebas = sel.pruebas.filter((p) => p.prueba !== prueba.id);
+    const deEsta = quedan.map((catId) => {
+      const previa = sel.pruebas.find((p) => p.prueba === prueba.id && p.categoria === catId);
+      if (previa) return previa;
+      const cat = prueba.categorias.find((c) => c.id === catId);
+      return {
+        prueba: prueba.id, categoria: catId, modalidad: prueba.modalidad,
+        nombre: prueba.nombre, categoriaNombre: cat?.nombre || null,
+        jinete: null, domador: null, companiero: null, companiero2: null, equipo: null,
+      };
+    });
+    set({ pruebas: [...otrasPruebas, ...deEsta] });
   };
 
   const algoElegido = !!sel.morfologia || !!sel.tipoAptitud || sel.pruebas.length > 0;
 
+  // Cómo nombrar una prueba en los avisos: con la categoría cuando hay varias
+  // elegidas de la misma prueba, porque si no no se sabe a cuál le falta algo.
+  const rotulo = (p) => (
+    sel.pruebas.filter((x) => x.prueba === p.prueba).length > 1 && p.categoriaNombre
+      ? `${p.nombre} · ${p.categoriaNombre}`
+      : p.nombre
+  );
+
   // El jinete es obligatorio en morfología, en tipo y aptitud y en cada prueba
   // (el servidor lo valida con JineteMorfologia y JineteFaltante). Avisarlo acá
   // evita que el socio cargue todo y se entere recién con un 422.
+  //
   // Qué le falta a una prueba, según su modalidad.
   const faltaDe = (p) => {
     if (p.modalidad === 'equipo') {
-      if (!p.equipo) return `el equipo de ${p.nombre}`;
+      if (!p.equipo) return `el equipo de ${rotulo(p)}`;
       // J-4: el trío se arma con los dos compañeros y el jinete del propio
       // animal, todos del padrón. El POST sólo exige el equipo, así que un
       // trío incompleto pasaría y quedaría mal inscripto.
-      if (!p.companiero || !p.companiero2 || !p.jinete) return `el trío completo de ${p.nombre}`;
+      if (!p.companiero || !p.companiero2 || !p.jinete) return `el trío completo de ${rotulo(p)}`;
       return null;
     }
-    if (p.modalidad === 'yunta' && !p.companiero) return `el compañero de ${p.nombre}`;
-    if (!p.jinete) return `el jinete de ${p.nombre}`;
+    if (p.modalidad === 'yunta' && !p.companiero) return `el compañero de ${rotulo(p)}`;
+    if (!p.jinete) return `el jinete de ${rotulo(p)}`;
     return null;
   };
 
@@ -789,12 +812,25 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
       <SectionLabel t={t} style={{ marginTop: 26 }}>Pruebas</SectionLabel>
       <View style={{ marginHorizontal: 20, gap: 14 }}>
         {opciones.pruebas.map((p) => {
-          const elegida = sel.pruebas.find((x) => x.prueba === p.id);
-          // Una prueba con una sola categoría se dibuja en UNA línea: el
-          // nombre de la prueba hace de etiqueta del checkbox. Varias de esas
+          const entradaDe = (catId) => sel.pruebas.find((x) => x.prueba === p.id && x.categoria === catId);
+          // Una prueba con una sola categoría se dibuja en UNA línea: el nombre
+          // de la prueba hace de etiqueta del checkbox. Varias de esas
           // categorías vienen sin nombre, y la fila quedaba con un checkbox
           // suelto y el cupo, sin decir de qué.
           const unica = p.categorias.length === 1 ? p.categorias[0] : null;
+          const elegidas = sel.pruebas.filter((x) => x.prueba === p.id);
+          const actores = (c) => {
+            const entrada = entradaDe(c.id);
+            if (!entrada) return null;
+            return (
+              <Actores
+                t={t} prueba={p} elegida={entrada}
+                contexto={elegidas.length > 1 ? c.nombre : null}
+                onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, categoria: c.id, rol })}
+                onUnidad={() => onUnidad({ prueba: p.id, categoria: c.id, modalidad: p.modalidad })}
+              />
+            );
+          };
           return (
             <Card key={p.id} t={t} style={{ padding: 14 }}>
               {!unica && (
@@ -804,40 +840,31 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
                 <>
                   <FilaCategoria
                     t={t}
-                    // Con nombre de categoría, los dos; sin nombre, sólo la
-                    // prueba (si no, la fila no dice de qué es el checkbox).
                     etiqueta={unica.nombre ? `${p.nombre} · ${unica.nombre}` : p.nombre}
                     categoria={unica}
-                    marcada={elegida?.categoria === unica.id}
+                    marcada={!!entradaDe(unica.id)}
                     onPress={() => togglePrueba(p, unica)}
                     destacada
                   />
-                  {elegida && (
-                    <Actores
-                      t={t} prueba={p} elegida={elegida}
-                      onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })}
-                      onUnidad={() => onUnidad({ prueba: p.id, categoria: elegida.categoria, modalidad: p.modalidad })}
-                    />
-                  )}
+                  {actores(unica)}
                 </>
               ) : (
                 <View style={{ gap: 8, marginTop: 10 }}>
+                  {/* Cada categoría elegida lleva sus propios actores debajo:
+                      con varias de la misma prueba, un bloque suelto al pie no
+                      diría a cuál pertenece el jinete. */}
                   {p.categorias.map((c) => (
-                    <FilaCategoria
-                      key={c.id} t={t}
-                      etiqueta={c.nombre || p.nombre}
-                      categoria={c}
-                      marcada={elegida?.categoria === c.id}
-                      onPress={() => togglePrueba(p, c)}
-                    />
+                    <View key={c.id}>
+                      <FilaCategoria
+                        t={t}
+                        etiqueta={c.nombre || p.nombre}
+                        categoria={c}
+                        marcada={!!entradaDe(c.id)}
+                        onPress={() => togglePrueba(p, c)}
+                      />
+                      {actores(c)}
+                    </View>
                   ))}
-                  {elegida && (
-                    <Actores
-                      t={t} prueba={p} elegida={elegida}
-                      onActor={(rol) => onJinete({ tipo: 'prueba', id: p.id, rol })}
-                      onUnidad={() => onUnidad({ prueba: p.id, categoria: elegida.categoria, modalidad: p.modalidad })}
-                    />
-                  )}
                 </View>
               )}
             </Card>
@@ -896,18 +923,22 @@ function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada 
 //  - yunta: lo mismo más el compañero
 //  - equipo: SÓLO el equipo. El jinete no se elige — sale del padrón del equipo
 //    (regla 3.1: obligatorio salvo en Aparte Campero, «donde sale del equipo»).
-function Actores({ t, prueba, elegida, onActor, onUnidad }) {
+//
+// `contexto` es el nombre de la categoría, y va sólo cuando de la misma prueba
+// hay varias elegidas: ahí se repiten los selectores y «Elegir jinete» solo no
+// dice de cuál.
+function Actores({ t, prueba, elegida, contexto, onActor, onUnidad }) {
   const esEquipo = prueba.modalidad === 'equipo';
   return (
     <>
       {esEquipo ? (
-        <SelectorUnidad t={t} elegida={elegida} modalidad="equipo" onPress={onUnidad} />
+        <SelectorUnidad t={t} elegida={elegida} modalidad="equipo" contexto={contexto} onPress={onUnidad} />
       ) : (
         <>
-          <SelectorJinete t={t} jinete={elegida.jinete} onPress={() => onActor('jinete')} />
-          <SelectorJinete t={t} jinete={elegida.domador} rol="domador" onPress={() => onActor('domador')} />
+          <SelectorJinete t={t} jinete={elegida.jinete} contexto={contexto} onPress={() => onActor('jinete')} />
+          <SelectorJinete t={t} jinete={elegida.domador} rol="domador" contexto={contexto} onPress={() => onActor('domador')} />
           {prueba.modalidad === 'yunta' && (
-            <SelectorUnidad t={t} elegida={elegida} modalidad="yunta" onPress={onUnidad} />
+            <SelectorUnidad t={t} elegida={elegida} modalidad="yunta" contexto={contexto} onPress={onUnidad} />
           )}
         </>
       )}
@@ -916,15 +947,16 @@ function Actores({ t, prueba, elegida, onActor, onUnidad }) {
 }
 
 // El compañero de yunta, o el equipo con el trío que trae.
-function SelectorUnidad({ t, elegida, modalidad, onPress }) {
+function SelectorUnidad({ t, elegida, modalidad, contexto, onPress }) {
   const esEquipo = modalidad === 'equipo';
   const elegido = esEquipo ? elegida.equipo : elegida.companiero;
+  const vacio = esEquipo ? 'Elegir equipo' : 'Elegir compañero de yunta';
   return (
     <>
-      <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
+      <TouchableOpacity onPress={onPress} accessibilityLabel={rotular(vacio, contexto)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
         <Icon name={esEquipo ? 'building' : 'tree'} size={16} color={t.accent} />
         <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13, color: elegido ? t.text : t.textMute }} numberOfLines={1}>
-          {elegido ? elegido.nombre : (esEquipo ? 'Elegir equipo' : 'Elegir compañero de yunta')}
+          {elegido ? elegido.nombre : vacio}
         </Text>
         <Icon name="arrow" size={15} color={t.textMute} />
       </TouchableOpacity>
@@ -977,14 +1009,19 @@ function Participacion({ t, titulo, datos, valor, onToggle, onJinete }) {
   );
 }
 
-function SelectorJinete({ t, jinete, onPress, rol }) {
+// El rótulo accesible de un selector: lo que dice, más la categoría cuando hace
+// falta distinguirlo de otro igual.
+const rotular = (texto, contexto) => (contexto ? `${texto} · ${contexto}` : texto);
+
+function SelectorJinete({ t, jinete, onPress, rol, contexto }) {
+  const vacio = rol === 'domador' ? 'Elegir domador (opcional)' : 'Elegir jinete';
   return (
-    <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
+    <TouchableOpacity onPress={onPress} accessibilityLabel={rotular(vacio, contexto)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
       <Icon name="user" size={16} color={t.accent} />
       <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13, color: jinete ? t.text : t.textMute }}>
         {jinete
           ? `${jinete.apellido || ''} ${jinete.nombre || ''}`.trim()
-          : (rol === 'domador' ? 'Elegir domador (opcional)' : 'Elegir jinete')}
+          : vacio}
       </Text>
       <Icon name="arrow" size={15} color={t.textMute} />
     </TouchableOpacity>
