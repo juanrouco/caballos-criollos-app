@@ -484,20 +484,20 @@ describe('AltaInscripcionScreen — paso a paso', () => {
 
   // ── Varias categorías de la misma prueba ──────────────────────────
   //
-  // Una sola común más cualquier cantidad de propias (src/reglasAlta.js). La
-  // prueba 3 tiene dos comunes; la 1 (F.Z.B.) las tiene todas propias.
+  // Una sola común más cualquier cantidad de propias, según el `propia` que
+  // trae cada categoría.
   const DOS_COMUNES = {
     ...OPCIONES,
     pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual', categorias: [
-      { id: 12, nombre: 'Mayor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
-      { id: 13, nombre: 'Menor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 12, nombre: 'Mayor', propia: false, habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 13, nombre: 'Menor', propia: false, habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
     ] }],
   };
-  const FZB = {
+  const DOS_PROPIAS = {
     ...OPCIONES,
     pruebas: [{ prueba: { id: 1, nombre: 'F.Z.B.' }, modalidad: 'individual', categorias: [
-      { id: 101, nombre: 'Mayor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
-      { id: 102, nombre: 'Menor', habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 101, nombre: 'Mayor', propia: true, habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
+      { id: 102, nombre: 'Menor', propia: true, habilitada: true, cupo: 30, ocupacion: 0, lista_espera: false },
     ] }],
   };
 
@@ -529,8 +529,8 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     ]);
   });
 
-  test('F.Z.B. acumula varias categorías, cada una con su jinete', async () => {
-    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+  test('las categorías propias se acumulan, cada una con su jinete', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue(DOS_PROPIAS);
     api.buscarJinetes.mockResolvedValue([
       { id: 7, nombre: 'Ana', apellido: 'Gómez', documento: '1', tiene_deuda: false },
       { id: 8, nombre: 'Luis', apellido: 'Pérez', documento: '2', tiene_deuda: false },
@@ -553,7 +553,7 @@ describe('AltaInscripcionScreen — paso a paso', () => {
   });
 
   test('con dos categorías de la misma prueba, el aviso dice cuál', async () => {
-    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+    api.fetchOpcionesAlta.mockResolvedValue(DOS_PROPIAS);
     const utils = renderAlta();
     await hastaParticipacion(utils);
     fireEvent.press(utils.getByLabelText('Mayor'));
@@ -562,7 +562,7 @@ describe('AltaInscripcionScreen — paso a paso', () => {
   });
 
   test('al destildar una categoría la otra conserva su jinete', async () => {
-    api.fetchOpcionesAlta.mockResolvedValue(FZB);
+    api.fetchOpcionesAlta.mockResolvedValue(DOS_PROPIAS);
     const utils = renderAlta();
     await hastaParticipacion(utils);
     fireEvent.press(utils.getByLabelText('Mayor'));

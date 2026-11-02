@@ -109,6 +109,11 @@ function mapCategoria(c) {
   return {
     id: c.id,
     nombre: texto(c.nombre),
+    // Si tiene su propio SI/NO: varias `propia` de la misma prueba se eligen
+    // juntas, las comunes se reemplazan entre sí (ver src/reglasAlta.js). Lo
+    // calcula la misma función que el POST usa para el 422
+    // PruebaCategoriaUnica, con el evento de la consulta.
+    propia: !!c.propia,
     habilitada: !!c.habilitada,
     cupo: c.cupo ?? null,
     ocupacion: c.ocupacion ?? null,

@@ -2108,7 +2108,9 @@ A2. Parámetros: `sba` y/o `rp` (al menos uno), `sexo` 0/1/2, `evento` (opcional
 
 #### `GET /inscripciones/eventos/{id}/opciones`
 
-A3. Parámetros: `animal`, `sexo` 0/1/2, `presentacion` C/M. Devuelve `{morfologia: {categoria: {id, nombre} | null, habilitada}, tipo_aptitud: {…}, pruebas: [{prueba: {id, nombre}, modalidad: individual | yunta | equipo, categorias: [{id, nombre, habilitada, cupo, ocupacion, lista_espera}]}]}`: lo que paso5 ofrece para ese animal. No reemplaza al POST: «habilitada» acá y un `422` después pueden coexistir (otoño, concurrencia del cupo).
+A3. Parámetros: `animal`, `sexo` 0/1/2, `presentacion` C/M. Devuelve `{morfologia: {categoria: {id, nombre} | null, habilitada}, tipo_aptitud: {…}, pruebas: [{prueba: {id, nombre}, modalidad: individual | yunta | equipo, categorias: [{id, nombre, propia, habilitada, cupo, ocupacion, lista_espera}]}]}`: lo que paso5 ofrece para ese animal. No reemplaza al POST: «habilitada» acá y un `422` después pueden coexistir (otoño, concurrencia del cupo).
+
+`propia` dice si esa categoría tiene su propio SI/NO: las `true` de una misma prueba se acumulan, las `false` se reemplazan entre sí (una sola común por prueba). Lo calcula la misma función que el POST usa para el `422` `PruebaCategoriaUnica`, con el evento de la consulta, así que **es el único lugar de donde sacar el dato**: la regla tiene cuatro cláusulas y una depende del evento, por lo que no se puede replicar en la app.
 
 #### `GET /jinetes`
 

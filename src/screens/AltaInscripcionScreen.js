@@ -728,12 +728,13 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   if (!opciones) return <Cargando t={t} />;
 
   // Por prueba se puede elegir una categoría común más cualquier cantidad de
-  // propias (src/reglasAlta.js). Tocar una común reemplaza a la común anterior;
-  // tocar una propia se suma. Cada categoría lleva su propio jinete, domador y
-  // compañero, así que las ya elegidas se conservan tal como estaban.
+  // propias (src/reglasAlta.js, con el `propia` que trae cada categoría). Tocar
+  // una común reemplaza a la común anterior; tocar una propia se suma. Cada
+  // categoría lleva su propio jinete, domador y compañero, así que las ya
+  // elegidas se conservan tal como estaban.
   const togglePrueba = (prueba, categoria) => {
     const actuales = sel.pruebas.filter((p) => p.prueba === prueba.id).map((p) => p.categoria);
-    const quedan = alternarCategoria(prueba.id, actuales, categoria.id, sel.evento.id);
+    const quedan = alternarCategoria(prueba.categorias, actuales, categoria.id);
     const otrasPruebas = sel.pruebas.filter((p) => p.prueba !== prueba.id);
     const deEsta = quedan.map((catId) => {
       const previa = sel.pruebas.find((p) => p.prueba === prueba.id && p.categoria === catId);

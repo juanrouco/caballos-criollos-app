@@ -57,13 +57,18 @@ describe('mappers del alta', () => {
         { prueba: { id: 1, nombre: 'Rienda' }, modalidad: 'individual',
           categorias: [{ id: 12, nombre: 'Mayor', habilitada: true, cupo: 30, ocupacion: 12, lista_espera: false }] },
         { prueba: { id: 5, nombre: 'Freno de Oro' }, modalidad: 'individual',
-          categorias: [{ id: 9, nombre: 'Mayor', habilitada: true, cupo: 0, ocupacion: 40, lista_espera: true }] },
+          categorias: [{ id: 9, nombre: 'Mayor', propia: true, habilitada: true, cupo: 0, ocupacion: 40, lista_espera: true }] },
       ],
     });
     expect(o.morfologia).toEqual({ categoria: { id: 12, nombre: 'Potrancas' }, habilitada: true });
     expect(o.tipoAptitud).toEqual({ categoria: null, habilitada: false });
     expect(o.pruebas[0]).toMatchObject({ id: 1, nombre: 'Rienda', modalidad: 'individual' });
     expect(o.pruebas[0].categorias[0]).toMatchObject({ cupo: 30, ocupacion: 12, listaEspera: false });
+    // `propia` dice si la categoría se acumula con otras de la misma prueba:
+    // es el dato con el que la pantalla arma los checkboxes. Sin el campo
+    // (una API vieja) queda false, que es el lado seguro: una sola.
+    expect(o.pruebas[0].categorias[0].propia).toBe(false);
+    expect(o.pruebas[1].categorias[0].propia).toBe(true);
     // Freno de Oro es lista de espera: no bloquea aunque la ocupación pase el cupo.
     expect(o.pruebas[1].categorias[0].listaEspera).toBe(true);
   });
