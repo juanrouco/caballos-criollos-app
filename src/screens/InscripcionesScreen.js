@@ -10,6 +10,7 @@ import {
   mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf,
 } from '../api';
 import { descargarArchivo, compartirArchivo } from '../descargas';
+import AltaInscripcionScreen from './AltaInscripcionScreen';
 
 // Sección "Mis inscripciones": las del socio logueado, su detalle y el
 // certificado. Overlay del menú lateral, así que recibe t / topInset / onBack
@@ -32,6 +33,19 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
 
   React.useEffect(() => { if (status === 'out') setVista({ nombre: 'lista' }); }, [status]);
 
+  // El alta trae su propio header: tiene navegación por pasos y el botón de
+  // volver tiene que retroceder un paso, no cerrar la sección.
+  if (status === 'in' && vista.nombre === 'alta') {
+    return (
+      <AltaInscripcionScreen
+        t={t}
+        topInset={topInset}
+        onSalir={() => setVista({ nombre: 'lista' })}
+        onHecho={() => setVista({ nombre: 'lista', recarga: Date.now() })}
+      />
+    );
+  }
+
   const titulo = vista.nombre === 'certificado' ? 'Certificado'
     : vista.nombre === 'detalle' ? 'Inscripción'
     : 'Mis inscripciones';
@@ -49,6 +63,17 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
         <Text style={{ fontFamily: F.display, fontSize: 24, color: t.text, flex: 1 }} numberOfLines={1}>{titulo}</Text>
+        {/* Inscribir vive en el header y no al pie del listado: al pie hay que
+            scrollear todas las inscripciones anteriores para llegar. */}
+        {status === 'in' && vista.nombre === 'lista' && (
+          <TouchableOpacity
+            onPress={() => setVista({ nombre: 'alta' })}
+            accessibilityLabel="Inscribir un animal"
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="plus" size={20} color={t.bg} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {status === 'loading' ? (
@@ -60,7 +85,11 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
       ) : vista.nombre === 'detalle' ? (
         <DetalleView t={t} id={vista.id} onCertificado={() => setVista({ nombre: 'certificado', id: vista.id })} />
       ) : (
-        <ListaView t={t} onAbrir={(id) => setVista({ nombre: 'detalle', id })} />
+        <ListaView
+          t={t}
+          recarga={vista.recarga}
+          onAbrir={(id) => setVista({ nombre: 'detalle', id })}
+        />
       )}
     </View>
   );
@@ -116,9 +145,9 @@ function Estado({ t, error, onReintentar }) {
 
 // ── Listado ────────────────────────────────────────────────────────
 
-function ListaView({ t, onAbrir }) {
+function ListaView({ t, recarga, onAbrir }) {
   const { dato, error, reintentar } = useCarga(
-    () => fetchInscripciones().then(mapListado), [],
+    () => fetchInscripciones().then(mapListado), [recarga],
   );
 
   if (!dato) return <Estado t={t} error={error} onReintentar={reintentar} />;
@@ -159,6 +188,7 @@ function ListaView({ t, onAbrir }) {
           </View>
         </>
       )}
+
     </ScrollView>
   );
 }

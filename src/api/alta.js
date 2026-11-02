@@ -1,0 +1,194 @@
+// El alta de inscripción: las lecturas con que se arma el formulario y el POST
+// que la confirma.
+//
+// Las 7 lecturas (#149) pasan por el mismo núcleo que la web, así que lo que
+// ofrecen es lo que la web ofrece. Ninguna escribe y ninguna trae precios: el
+// precio lo devuelve el 201 del POST.
+//
+// ⚠️ El `evento` del alta NO es el id de `GET /eventos` (ese lista los eventos
+// del sitio, otra base). Es el `IdEvento` de inscripciones, y el único lugar de
+// donde sacarlo es `fetchEventosAlta()`.
+//
+// Las reglas de negocio NO están acá: las valida el servidor antes de escribir
+// (ver docs/README.md §Inscripciones). Estas lecturas existen para que el socio
+// elija bien, no para decidir si puede.
+
+import { apiGetAuth, apiPostAuth } from './client';
+import { fixCp1252 } from '../format';
+
+const texto = (s) => (s ? fixCp1252(String(s)) : null);
+
+// A1 — los eventos donde el socio puede inscribir hoy (ventana abierta, más los
+// cerrados con un «rehacer» habilitado).
+export function fetchEventosAlta() {
+  return apiGetAuth('/inscripciones/eventos');
+}
+
+export function mapEventoAlta(e) {
+  return {
+    id: e.id,
+    nombre: texto(e.nombre),
+    inscripcionHasta: e.inscripcion_hasta || null,
+    eventoDesde: e.evento_desde || null,
+    porRehacer: !!e.por_rehacer,
+    // Si el evento no lo pide, el campo Renspa ni se muestra.
+    pideRenspa: !!e.pide_renspa,
+    // Condiciones del evento (tblEventos.Alerta2 / Alerta3): el HTML de
+    // expositores_alerta2.php y alerta3.php, las páginas que la web muestra
+    // después de elegir el evento. String o null.
+    alerta2: e.alerta2 || null,
+    alerta3: e.alerta3 || null,
+    // Avisos del evento, con título: los popups. HTML crudo, como el resto.
+    alertas: Array.isArray(e.alertas)
+      ? e.alertas.map((a) => ({ titulo: texto(a.titulo), html: a.texto || null }))
+      : [],
+  };
+}
+
+// Las alertas generales que la web muestra ANTES de elegir el evento
+// (expositores_alerta1.php). Sin nada que mostrar devuelve
+// {terminos: null, alertas: []} con 200, y ahí la app saltea la pantalla, como
+// la web, que redirige directo al paso 1.
+export function fetchAlertasAlta() {
+  return apiGetAuth('/inscripciones/alertas');
+}
+
+export function mapAlertas(r) {
+  const alertas = Array.isArray(r?.alertas)
+    ? r.alertas.map((a) => ({ titulo: texto(a.titulo), html: a.texto || null }))
+    : [];
+  return {
+    alertas,
+    // ⚠️ `terminos` NO es necesariamente el texto de términos y condiciones: la
+    // web imprime ahí el cuerpo de la ÚLTIMA alerta por un defecto del bucle de
+    // popups, y la API lo replica a propósito para que los dos muestren lo
+    // mismo. Por eso se muestra tal cual y sin rotularlo como términos.
+    terminos: r?.terminos || null,
+    hayAlgo: alertas.length > 0 || !!r?.terminos,
+  };
+}
+
+// Las cabañas que este usuario ya usó en sus inscripciones: las del select del
+// paso 4 de la web. Son STRINGS, no objetos — no es un catálogo de cabañas, y
+// por eso una cabaña nueva tipeada en el alta aparece sola la próxima vez (sale
+// de las inscripciones, no de una tabla aparte). Sin ninguna: [].
+export function fetchCabanias() {
+  return apiGetAuth('/inscripciones/cabanias');
+}
+
+// A2 — candidatos por S.B.A. y/o R.P. Hace falta al menos uno de los dos.
+export function buscarAnimalesAlta({ sba, rp, sexo, evento }) {
+  return apiGetAuth('/inscripciones/animales', { sba, rp, sexo, evento });
+}
+
+export function mapAnimalAlta(a) {
+  return {
+    id: a.id,
+    nombre: texto(a.nombre),
+    sba: a.sba || null,
+    rp: a.rp || null,
+    sexo: a.sexo,
+    fechaNacimiento: a.fecha_nacimiento || null,
+    pelo: texto(a.pelo),
+    propio: !!a.propio,
+    // null si la búsqueda fue sin evento. Con una inscripción rechazada también
+    // es true: el rechazo es definitivo para ese evento.
+    yaInscripto: a.ya_inscripto ?? null,
+  };
+}
+
+// A3 — lo que el evento ofrece para ESE animal: morfología, tipo y aptitud, y
+// las pruebas con sus categorías.
+export function fetchOpcionesAlta(evento, { animal, sexo, presentacion }) {
+  return apiGetAuth(`/inscripciones/eventos/${encodeURIComponent(evento)}/opciones`, {
+    animal, sexo, presentacion,
+  });
+}
+
+function mapCategoria(c) {
+  return {
+    id: c.id,
+    nombre: texto(c.nombre),
+    habilitada: !!c.habilitada,
+    cupo: c.cupo ?? null,
+    ocupacion: c.ocupacion ?? null,
+    // La prueba 5 (Freno de Oro) es lista de espera y no bloquea por cupo.
+    listaEspera: !!c.lista_espera,
+  };
+}
+
+export function mapOpciones(r) {
+  const participacion = (p) =>
+    p ? { categoria: p.categoria ? { id: p.categoria.id, nombre: texto(p.categoria.nombre) } : null, habilitada: !!p.habilitada } : null;
+  return {
+    morfologia: participacion(r?.morfologia),
+    tipoAptitud: participacion(r?.tipo_aptitud),
+    pruebas: Array.isArray(r?.pruebas)
+      ? r.pruebas.map((p) => ({
+          id: p?.prueba?.id,
+          nombre: texto(p?.prueba?.nombre),
+          // 'individual' | 'yunta' | 'equipo'
+          modalidad: p?.modalidad || 'individual',
+          categorias: Array.isArray(p?.categorias) ? p.categorias.map(mapCategoria) : [],
+        }))
+      : [],
+  };
+}
+
+// A4 — jinetes disponibles y validados. `tiene_deuda` se evalúa a la fecha del
+// evento, no a la de hoy, y un jinete con deuda no se puede elegir.
+export function buscarJinetes({ nombre, apellido, documento, evento }) {
+  return apiGetAuth('/jinetes', { nombre, apellido, documento, evento });
+}
+
+export function mapJinete(j) {
+  return {
+    id: j.id,
+    nombre: texto(j.nombre),
+    apellido: texto(j.apellido),
+    documento: j.documento || null,
+    tieneDeuda: !!j.tiene_deuda,
+  };
+}
+
+// A5 — domadores.
+export function buscarDomadores({ nombre, apellido, documento }) {
+  return apiGetAuth('/domadores', { nombre, apellido, documento });
+}
+
+// El id compuesto de `GET /animales` ("exis:9059010") → el par {tabla, id} que
+// pide el POST. Es la única traducción de ids que hace el alta.
+const TABLA_POR_FUENTE = { pdre: 'IdPdre', exis: 'IdExis', extr: 'IdExtr' };
+
+export function animalAPayload(id) {
+  const [fuente, local] = String(id || '').split(':');
+  const tabla = TABLA_POR_FUENTE[fuente];
+  if (!tabla || !local) return null;
+  return { tabla, id: Number(local) };
+}
+
+// POST — el único endpoint que escribe. Un 201 es un alta confirmada SIEMPRE,
+// incluso si viene con `pruebas: null`: reintentar daría 409.
+export function crearInscripcion(payload) {
+  return apiPostAuth('/inscripciones', payload);
+}
+
+export function mapAltaCreada(r) {
+  const i = r?.inscripcion;
+  if (!i) return null;
+  return {
+    id: i.id,
+    estado: i.estado,
+    estadoNombre: texto(i.estado_nombre),
+    rechazoFuncional: !!i.rechazo_funcional,
+    // Puede ser null con un tipo de socio raro: la pantalla no muestra "0".
+    precio: i.precio ?? null,
+    // null cuando la lectura posterior al alta falló; el alta se hizo igual.
+    pruebas: Array.isArray(i.pruebas)
+      ? i.pruebas.map((p) => ({
+          prueba: p.prueba, categoria: p.categoria,
+          listaEspera: !!p.lista_espera, precio: p.precio ?? null,
+        }))
+      : null,
+  };
+}

@@ -10,6 +10,12 @@ export {
   fetchInscripciones, fetchInscripcion, fetchCertificado,
   mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf,
 } from './inscripciones';
+export {
+  fetchEventosAlta, fetchAlertasAlta, fetchCabanias,
+  buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores,
+  crearInscripcion, animalAPayload,
+  mapEventoAlta, mapAlertas, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada,
+} from './alta';
 export { registerPushToken } from './push';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,

@@ -147,6 +147,12 @@ describe('InscripcionesScreen', () => {
     expect(await findByText('LA ÑANDÚ')).toBeTruthy();
   });
 
+  test('el botón de inscribir está en el header, no al pie del listado', async () => {
+    // Al pie hay que scrollear todas las anteriores para llegar.
+    const { getByLabelText } = await renderLogueada();
+    expect(getByLabelText('Inscribir un animal')).toBeTruthy();
+  });
+
   test('tocar una inscripción abre su detalle', async () => {
     const { getByText, findByText } = await renderLogueada();
     fireEvent.press(getByText('LA TROPILLA'));

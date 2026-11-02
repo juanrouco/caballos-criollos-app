@@ -38,12 +38,16 @@ export const OFFLINE_MSG = 'Sin conexión. Revisá tu internet e intentá de nue
 // la pantalla). `code` es el string estable que trae `/auth/*` e
 // `/inscripciones` para elegir qué mostrar sin parsear el mensaje.
 export class ApiError extends Error {
-  constructor({ path, status, detail, code }) {
+  constructor({ path, status, detail, code, errores }) {
     super(`${path} → HTTP ${status}${detail ? `: ${detail}` : ''}`);
     this.name = 'ApiError';
     this.status = status;
     this.detail = detail || '';
     this.code = code || '';
+    // El 422 de POST /inscripciones trae la lista de reglas que no se
+    // cumplieron ({codigo, campo, prueba, categoria}), sin texto: el mensaje
+    // que ve el socio lo pone la app (src/erroresInscripcion.js).
+    this.errores = Array.isArray(errores) ? errores : null;
   }
 }
 
@@ -71,12 +75,14 @@ function queryString(params) {
 async function raise(res, path) {
   let detail = '';
   let code = '';
+  let errores = null;
   try {
     const body = await res.json();
     detail = body?.message || '';
     code = body?.code || '';
+    errores = body?.errores || null;
   } catch {}
-  throw new ApiError({ path, status: res.status, detail, code });
+  throw new ApiError({ path, status: res.status, detail, code, errores });
 }
 
 export async function apiGet(path, params, headers) {
