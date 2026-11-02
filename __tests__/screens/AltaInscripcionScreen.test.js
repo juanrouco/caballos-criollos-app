@@ -574,10 +574,8 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.queryByText('Elegir jinete')).toBeNull();
   });
 
-  test('el cupo dice que es el cupo, y avisa cuando está completo', async () => {
-    // «10/10» solo no dice qué es. Completo se avisa pero NO bloquea: la
-    // ocupación de `opciones` no descuenta la unidad propia del animal, que el
-    // validador sí descuenta, así que la última palabra la tiene el POST.
+  test('el cupo dice que es el cupo, y la categoría completa no se elige', async () => {
+    // «10/10» solo no dice qué es, y una completa daría 422 CupoLleno.
     api.fetchOpcionesAlta.mockResolvedValue({
       ...OPCIONES,
       pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual', categorias: [
@@ -591,6 +589,23 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.getByText('Cupo completo')).toBeTruthy();
 
     fireEvent.press(utils.getByLabelText('Menor'));
+    expect(utils.queryByText('Elegir jinete')).toBeNull();
+    // La que tiene lugar sí.
+    fireEvent.press(utils.getByLabelText('Mayor'));
+    expect(await utils.findByText('Elegir jinete')).toBeTruthy();
+  });
+
+  test('lista de espera se elige aunque pase el cupo', async () => {
+    // Freno de Oro admite más que el cupo: ahí el cupo no bloquea.
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      pruebas: [{ prueba: { id: 5, nombre: 'Freno de Oro' }, modalidad: 'individual',
+        categorias: [{ id: 24, nombre: 'Machos', propia: false, habilitada: true, cupo: 15, ocupacion: 19, lista_espera: true }] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    expect(utils.getByText('Lista de espera')).toBeTruthy();
+    fireEvent.press(utils.getByLabelText('Freno de Oro · Machos'));
     expect(await utils.findByText('Elegir jinete')).toBeTruthy();
   });
 

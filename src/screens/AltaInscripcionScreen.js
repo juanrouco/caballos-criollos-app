@@ -896,28 +896,34 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
 // El cupo de una categoría, rotulado: «2/5» solo no dice qué es. `cupo` 0 o
 // null es «sin límite configurado» (CupoService:113) y no se muestra.
 //
-// ⚠️ Completo NO impide elegirla: la última palabra la tiene el POST (422
-// CupoLleno). La ocupación que devuelve `opciones` no descuenta la unidad
-// propia del animal, cosa que el validador sí hace (CupoService:116), así que
-// bloquear acá podría frenar una inscripción que el servidor aceptaría.
+// Completa con el mismo criterio que el validador: ocupación >= cupo
+// (CupoService:122). Una categoría completa no se puede elegir.
+//
+// ⚠️ Salvo lista de espera (Freno de Oro), que admite más que el cupo y por eso
+// nunca bloquea. Y hay un caso límite conocido: la ocupación de `opciones` NO
+// descuenta la unidad propia del animal, cosa que el validador sí hace
+// (CupoService:116), así que una categoría justo en el límite donde el animal
+// ya cuenta se ve completa acá y el POST la aceptaría. Es a propósito: se
+// prefiere no ofrecer algo que casi seguro termina en 422 CupoLleno.
 const completa = (c) => c.cupo > 0 && (c.ocupacion ?? 0) >= c.cupo;
 const cupoTexto = (c) => (completa(c) ? 'Cupo completo' : `Cupo ${c.ocupacion ?? 0}/${c.cupo}`);
+const sePuedeElegir = (c) => c.habilitada && (c.listaEspera || !completa(c));
 
 // Una categoría: checkbox, etiqueta y el cupo (o «lista de espera»), todo en
 // una línea.
 function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada }) {
   return (
     <TouchableOpacity
-      onPress={() => c.habilitada && onPress()}
-      disabled={!c.habilitada}
+      onPress={() => sePuedeElegir(c) && onPress()}
+      disabled={!sePuedeElegir(c)}
       accessibilityLabel={etiqueta}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}
     >
-      <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: marcada ? t.accent : t.border, backgroundColor: marcada ? t.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: marcada ? t.accent : withAlpha(t.border, sePuedeElegir(c) ? 1 : 0.5), backgroundColor: marcada ? t.accent : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
         {marcada && <Icon name="check" size={13} color={t.bg} stroke={3} />}
       </View>
       <Text
-        style={{ flex: 1, fontFamily: destacada ? F.display : F.body, fontSize: destacada ? 15 : 13.5, color: c.habilitada ? t.text : t.textDim }}
+        style={{ flex: 1, fontFamily: destacada ? F.display : F.body, fontSize: destacada ? 15 : 13.5, color: sePuedeElegir(c) ? t.text : t.textDim }}
         numberOfLines={1}
       >
         {etiqueta}
