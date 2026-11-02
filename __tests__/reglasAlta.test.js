@@ -15,6 +15,14 @@ describe('esPropia', () => {
     expect(esPropia(9, 40)).toBe(true);
   });
 
+  test('la prueba 2 es propia sólo en el evento 2130', () => {
+    // La cuarta cláusula de PruebaConCategoriaPropia: depende del evento, así
+    // que sin el evento no se puede responder bien.
+    expect(esPropia(2, 7, 2130)).toBe(true);
+    expect(esPropia(2, 7, 9059001)).toBe(false);
+    expect(esPropia(2, 7)).toBe(false);
+  });
+
   test('el resto es común', () => {
     expect(esPropia(3, 12)).toBe(false);
     expect(esPropia(9, 7)).toBe(false);
@@ -24,6 +32,7 @@ describe('esPropia', () => {
     expect(esPropia('1', '101')).toBe(true);
     expect(esPropia('3', '22')).toBe(true);
     expect(esPropia('3', '12')).toBe(false);
+    expect(esPropia('2', '7', '2130')).toBe(true);
   });
 });
 
@@ -44,6 +53,12 @@ describe('alternarCategoria', () => {
     const uno = alternarCategoria(1, [], 101);
     const dos = alternarCategoria(1, uno, 102);
     expect(alternarCategoria(1, dos, 103)).toEqual([101, 102, 103]);
+  });
+
+  test('en el evento 2130 las categorías de la prueba 2 se acumulan', () => {
+    expect(alternarCategoria(2, [7], 8, 2130)).toEqual([7, 8]);
+    // En cualquier otro evento, la segunda reemplaza a la primera.
+    expect(alternarCategoria(2, [7], 8, 9059001)).toEqual([8]);
   });
 
   test('tocar una ya elegida la destilda, sea común o propia', () => {

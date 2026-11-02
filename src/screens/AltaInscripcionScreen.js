@@ -733,7 +733,7 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   // compañero, así que las ya elegidas se conservan tal como estaban.
   const togglePrueba = (prueba, categoria) => {
     const actuales = sel.pruebas.filter((p) => p.prueba === prueba.id).map((p) => p.categoria);
-    const quedan = alternarCategoria(prueba.id, actuales, categoria.id);
+    const quedan = alternarCategoria(prueba.id, actuales, categoria.id, sel.evento.id);
     const otrasPruebas = sel.pruebas.filter((p) => p.prueba !== prueba.id);
     const deEsta = quedan.map((catId) => {
       const previa = sel.pruebas.find((p) => p.prueba === prueba.id && p.categoria === catId);

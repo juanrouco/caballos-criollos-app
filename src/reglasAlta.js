@@ -8,7 +8,9 @@
 //
 // Una categoría propia tiene su propio SI/NO y se marca junto con otras de la
 // misma prueba; las comunes comparten un grupo de radios y se elige una sola.
-// La web lo decide en `paso5:2166`.
+// La web lo decide en `paso5:2166`, y el servidor repite esa cuenta en
+// `ReglasInscripcion::PruebaConCategoriaPropia($prueba, $categoria, $evento)`
+// antes de dar 422 PruebaCategoriaUnica.
 //
 // ⚠️ ESTO ES UN ESPEJO, NO LA FUENTE. `GET /inscripciones/eventos/{id}/opciones`
 // devuelve `{id, nombre, habilitada, cupo, ocupacion, lista_espera}` por
@@ -29,9 +31,15 @@ const PRUEBAS_TODAS_PROPIAS = [1];
 // en Rodeos.
 const CATEGORIAS_PROPIAS = [22, 40];
 
-export function esPropia(pruebaId, categoriaId) {
+// Y una cláusula que depende del evento: la prueba 2 es propia SÓLO en el
+// evento 2130. Es el mejor argumento para que el dato venga de la API: una
+// regla por evento no se puede tener completa en la app.
+const PRUEBA_PROPIA_POR_EVENTO = { 2130: [2] };
+
+export function esPropia(pruebaId, categoriaId, eventoId) {
   return PRUEBAS_TODAS_PROPIAS.includes(Number(pruebaId))
-    || CATEGORIAS_PROPIAS.includes(Number(categoriaId));
+    || CATEGORIAS_PROPIAS.includes(Number(categoriaId))
+    || (PRUEBA_PROPIA_POR_EVENTO[Number(eventoId)] || []).includes(Number(pruebaId));
 }
 
 // Qué queda elegido al tocar una categoría, dado lo que ya estaba elegido de esa
@@ -40,8 +48,8 @@ export function esPropia(pruebaId, categoriaId) {
 //  - ya estaba ⇒ se destilda
 //  - propia ⇒ se suma a lo que haya
 //  - común ⇒ se suma y saca la común anterior, si había (una sola por prueba)
-export function alternarCategoria(pruebaId, elegidas, categoriaId) {
+export function alternarCategoria(pruebaId, elegidas, categoriaId, eventoId) {
   if (elegidas.includes(categoriaId)) return elegidas.filter((c) => c !== categoriaId);
-  if (esPropia(pruebaId, categoriaId)) return [...elegidas, categoriaId];
-  return [...elegidas.filter((c) => esPropia(pruebaId, c)), categoriaId];
+  if (esPropia(pruebaId, categoriaId, eventoId)) return [...elegidas, categoriaId];
+  return [...elegidas.filter((c) => esPropia(pruebaId, c, eventoId)), categoriaId];
 }
