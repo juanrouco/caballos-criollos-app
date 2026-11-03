@@ -215,6 +215,56 @@ export function mapEquipo(e) {
   };
 }
 
+// A8 — crear un equipo: el `equipo_agregar.php` de la web, que es de donde
+// salen todas las reglas de abajo. Queda a nombre del usuario del token y en el
+// año en curso (`anio` no se manda).
+//
+// Exactamente 3 animales, en orden, cada uno con su jinete — también el animal
+// que se está inscribiendo, cuyo jinete acá SÍ lo elige el socio (distinto del
+// alta, donde sale del padrón del equipo: regla J-3).
+//
+// `evento` es obligatorio y conviene mandar también `prueba` y `categoria`: el
+// 201 es el mismo elemento que daría `GET /equipos` con esos parámetros, y
+// `habilitado` / `bloqueado` sólo se evalúan con ellos. Un equipo recién creado
+// puede venir bloqueado (un integrante ya está en otro equipo de esa prueba).
+//
+// El 422 es `code: equipo_invalido` — NO `inscripcion_invalida` — con
+// `errores: [{codigo, campo}]` sin texto (src/erroresInscripcion.js los
+// traduce). Un `animal` o `jinete` faltante también es 422, no 400.
+export function crearEquipo(payload) {
+  return apiPostAuth('/equipos', payload);
+}
+
+// El equipo creado, listo para dejarlo elegido sin volver a pedir la lista.
+//
+// ⚠️ Si el equipo se creó pero la lectura posterior falló, el 201 trae sólo
+// `{equipo: {id}}`. Eso NO se puede mapear como un equipo vacío — `mapEquipo`
+// devolvería un trío sin integrantes y habilitado —, así que se marca
+// `incompleto` y la pantalla refresca con `GET /equipos`.
+export function mapEquipoCreado(r) {
+  const e = r?.equipo;
+  if (!e?.id) return null;
+  if (!Array.isArray(e.animales)) return { id: e.id, incompleto: true };
+  return { ...mapEquipo(e), incompleto: false };
+}
+
+// El integrante como lo pide el payload.
+//
+// ⚠️ El `sexo` NO es el de la yunta: es la etiqueta que eligió el socio al
+// buscar el animal (el `data-sexo` del popup de la web), y admite el 0 —
+// `IdExis` 2; `IdPdre` 1 o 0 (castrado); `IdExtr` 0, 1 o 2. Los castrados en
+// `IdPdre` son cuatro de cada diez integrantes reales, así que forzar 1 como
+// hace `companieroAPayload` dejaría la mayoría afuera.
+export function integranteAPayload(animal, sexo) {
+  const base = animalAPayload(animal?.id);
+  if (!base) return null;
+  // Sin castear: `Number(null)` es 0, y 0 es un sexo válido (castrado), así que
+  // un casillero sin sexo se mandaría como castrado en vez de fallar.
+  const s = base.tabla === 'IdExis' ? 2 : sexo;
+  if (s !== 0 && s !== 1 && s !== 2) return null;
+  return { ...base, sexo: s };
+}
+
 // A5 — domadores.
 export function buscarDomadores({ nombre, apellido, documento }) {
   return apiGetAuth('/domadores', { nombre, apellido, documento });

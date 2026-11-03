@@ -2128,6 +2128,40 @@ A6. Parámetros: `sba`, `sexo` 1/2; opcionales `evento`, `prueba`, `categoria`, 
 
 A7. Parámetros: `animal`, `evento`; opcionales `prueba`, `categoria`. Devuelve `[{id, nombre, anio, animales: [{id, nombre, sba, rp, sexo, jinete: {id, nombre, apellido} | null}], habilitado, jinetes_inhabilitados: [nombres], bloqueado, bloqueado_por}]`: los equipos del animal del año en curso; `habilitado` = ningún jinete con deuda; `bloqueado` (sólo con prueba y categoría; si no, `null`) = un integrante ya está en OTRO equipo en esa prueba, y `bloqueado_por` su nombre.
 
+#### `POST /equipos`
+
+Crea un equipo de Aparte Campero: el `equipo_agregar.php` de la web, de donde salen todas las reglas. Protegido; queda a nombre del usuario del token y en el año en curso (`anio` no se manda). Body:
+
+```json
+{
+  "nombre": "LOS FRASQUEADOS",
+  "evento": 2130, "prueba": 6, "categoria": 15,
+  "animales": [
+    { "animal": { "tabla": "IdExis", "id": 9059010, "sexo": 2 }, "jinete": 7 },
+    { "animal": { "tabla": "IdPdre", "id": 134355, "sexo": 0 }, "jinete": 8 },
+    { "animal": { "tabla": "IdExtr", "id": 6703,   "sexo": 1 }, "jinete": 9 }
+  ]
+}
+```
+
+- `nombre`: texto UTF-8 hasta 255 bytes en CP1252 (lo que no existe en CP1252 es 400); se guarda recortado.
+- `evento` es obligatorio; `prueba` y `categoria` son opcionales, pero conviene mandarlas: el 201 es **exactamente** el elemento que daría `GET /equipos` con esos parámetros, y `habilitado` / `bloqueado` sólo se evalúan con ellas. Un equipo recién creado puede venir bloqueado (un integrante ya está en otro equipo de esa prueba).
+- `animales`: exactamente 3, en el orden del equipo. Un `animal` o `jinete` faltante es 422, no 400.
+- ⚠️ El `sexo` **no es el de la yunta**: es la etiqueta que eligió el socio al buscar el animal (el `data-sexo` del popup de la web) y admite el 0 — `IdExis` 2; `IdPdre` 1 o 0 (castrado); `IdExtr` 0, 1 o 2. Cuatro de cada diez integrantes reales son castrados en `IdPdre`, así que forzar el 1 como hace la yunta (`companieroAPayload`) dejaría afuera a la mayoría. Por eso los integrantes se buscan con la A2 (`GET /inscripciones/animales`, que acepta `sexo` 0) y no con la A6.
+- El animal se guarda por su superviviente (el id unificado), y `GET /equipos` lo encuentra por los dos.
+
+Respuesta **201**: `{"equipo": {…}}`, el mismo elemento de `GET /equipos`, así que la app lo deja elegido sin volver a pedir la lista. ⚠️ Si el equipo quedó creado pero esa lectura falló, viene sólo `{"equipo": {"id": N}}`: eso **no** se puede mapear como equipo (saldría un trío vacío y habilitado), hay que refrescar con `GET /equipos`.
+
+| status | `code` | cuándo |
+|---|---|---|
+| `400` | `entrada_invalida` | el body no tiene la forma (con `campo`, p. ej. `animales[1].animal.sexo`) |
+| `403` | `usuario_solo_web` / `usuario_no_habilitado` | usuarios 1278 y 1610, que operan sólo por la web / el usuario del token no está habilitado |
+| `404` | `evento_inexistente` | el `evento` del body no existe |
+| `422` | `equipo_invalido` | `errores: [{codigo, campo}]`, todos juntos y en el orden de la web |
+| `503` | `base_no_disponible` | la base no respondió, o había otro alta en curso. Seguro de reintentar: nunca queda un equipo a medias |
+
+⚠️ El `code` del 422 es `equipo_invalido`, **no** `inscripcion_invalida`, y los códigos son otros, así que los textos van en su propia tabla (`TEXTOS_EQUIPO` en `src/erroresInscripcion.js`): `NombreFaltante`, `NombreRepetido` (mismo nombre en el año, sin distinguir caja, acentos ni espacios finales, y entre todos los socios), `AnimalFaltante`, `JineteFaltante`, `AnimalInexistente`, `JineteNoDisponible`, `AnimalRepetido` (también un absorbido contra su superviviente), `EquipoDuplicado` (ya existe un equipo del año con las mismas 3 ternas animal/tabla/jinete; con otro jinete no es duplicado) y `AnimalAjeno`. La pertenencia se valida pero alcanza con **1 de los 3** animales propio: exigir los tres habría bloqueado el 69% de los equipos reales del año. Dos pedidos simultáneos con el mismo nombre crean un solo equipo; el otro recibe `NombreRepetido`.
+
 ### Perfil
 
 Los datos básicos del usuario logueado para la pantalla de perfil de la app: identidad, contacto y número y categoría de socio. Plan:

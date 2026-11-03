@@ -12,9 +12,12 @@ jest.mock('../../src/api', () => {
     buscarDomadores: jest.fn(),
     buscarYuntaCandidatos: jest.fn(),
     fetchEquipos: jest.fn(),
+    crearEquipo: jest.fn(),
     mapYuntaCandidato: alta.mapYuntaCandidato,
     mapEquipo: alta.mapEquipo,
+    mapEquipoCreado: alta.mapEquipoCreado,
     companieroAPayload: alta.companieroAPayload,
+    integranteAPayload: alta.integranteAPayload,
     crearInscripcion: jest.fn(),
     fetchAnimalPedigree: jest.fn(),
     fetchAlertasAlta: jest.fn(),
@@ -105,6 +108,19 @@ beforeEach(() => {
     { id: 'pdre:9059012', nombre: 'EL COMPAÑERO', sba: '99', rp: '12', sexo: 1, permitido: true },
   ]);
   api.fetchEquipos.mockReset().mockResolvedValue([EQUIPO]);
+  api.crearEquipo.mockReset().mockResolvedValue({
+    equipo: {
+      id: 9059041, nombre: 'LOS FRASQUEADOS', anio: 2026,
+      animales: [
+        EQUIPO.animales[0],
+        { id: 'pdre:134355', nombre: 'EL CASTRADO', sba: '99', rp: '7', sexo: 0,
+          jinete: { id: 8, nombre: 'Luis', apellido: 'Pérez' } },
+        { id: 'extr:6703', nombre: 'EL EXTRANJERO', sba: '88', rp: '8', sexo: 1,
+          jinete: { id: 9, nombre: 'Juan', apellido: 'Díaz' } },
+      ],
+      habilitado: true, jinetes_inhabilitados: [], bloqueado: false, bloqueado_por: null,
+    },
+  });
   // Sin alertas: el asistente saltea esa pantalla y arranca en el evento.
   api.fetchAlertasAlta.mockReset().mockResolvedValue({ terminos: null, alertas: [] });
   api.fetchCabanias.mockReset().mockResolvedValue(['LA ESTANCIA', 'LA SOÑADA']);
@@ -1021,5 +1037,180 @@ describe('AltaInscripcionScreen — confirmación', () => {
     fireEvent.press(utils.getByText('Confirmar inscripción'));
     expect(await utils.findByText('La base no responde')).toBeTruthy();
     expect(utils.queryByText('No se pudo inscribir')).toBeNull();
+  });
+});
+
+describe('AltaInscripcionScreen — equipo nuevo', () => {
+  const CON_EQUIPO = {
+    ...OPCIONES,
+    pruebas: [{ prueba: { id: 6, nombre: 'Aparte Campero' }, modalidad: 'equipo',
+      categorias: [{ id: 9, nombre: 'Mayor', habilitada: true, cupo: 20, ocupacion: 2, lista_espera: false }] }],
+  };
+
+  // Los dos compañeros que se cargan a mano. El segundo es un castrado de
+  // IdPdre: el caso más común entre los integrantes reales, y el que se
+  // guardaría con el sexo equivocado si la app no ofreciera «Castrado».
+  const SEGUNDO = { id: 'pdre:134355', nombre: 'EL CASTRADO', sba: '99', rp: '7', sexo: 0 };
+  const TERCERO = { id: 'extr:6703', nombre: 'EL EXTRANJERO', sba: '88', rp: '8', sexo: 1 };
+  const LUIS = { id: 8, nombre: 'Luis', apellido: 'Pérez', documento: '2', tiene_deuda: false };
+  const JUAN = { id: 9, nombre: 'Juan', apellido: 'Díaz', documento: '3', tiene_deuda: false };
+
+  // El 201: el mismo elemento que daría GET /equipos, con el padrón completo.
+  const CREADO = {
+    id: 9059041, nombre: 'LOS FRASQUEADOS', anio: 2026,
+    animales: [
+      { ...EQUIPO.animales[0] },
+      { ...SEGUNDO, jinete: { id: 8, nombre: 'Luis', apellido: 'Pérez' } },
+      { ...TERCERO, jinete: { id: 9, nombre: 'Juan', apellido: 'Díaz' } },
+    ],
+    habilitado: true, jinetes_inhabilitados: [], bloqueado: false, bloqueado_por: null,
+  };
+
+  // Hasta la pantalla de equipo nuevo, desde la lista de equipos.
+  async function hastaNuevo(utils) {
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    fireEvent.press(await utils.findByLabelText('Cargar un equipo nuevo'));
+    return utils.findByLabelText('Nombre del equipo');
+  }
+
+  async function elegirAnimal(utils, rotulo, animal, sexo = 'Macho') {
+    api.buscarAnimalesAlta.mockResolvedValueOnce([animal]);
+    fireEvent.press(utils.getByLabelText(`Elegir animal · ${rotulo}`));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A. del integrante'), animal.sba);
+    fireEvent.press(utils.getByText(sexo));
+    fireEvent.press(utils.getByText('Buscar'));
+    // Por label: el nombre del animal puede estar también en otro casillero.
+    fireEvent.press(await utils.findByLabelText(`Elegir ${animal.nombre}`));
+  }
+
+  async function elegirJinete(utils, rotulo, persona) {
+    api.buscarJinetes.mockResolvedValueOnce([persona]);
+    fireEvent.press(utils.getByLabelText(`Elegir jinete · ${rotulo}`));
+    fireEvent.changeText(await utils.findByLabelText('Apellido'), 'x');
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText(`${persona.apellido} ${persona.nombre}`));
+  }
+
+  // El trío completo, con el nombre puesto.
+  async function completar(utils) {
+    fireEvent.changeText(utils.getByLabelText('Nombre del equipo'), '  LOS FRASQUEADOS  ');
+    await elegirJinete(utils, 'El que inscribís', { id: 7, nombre: 'Ana', apellido: 'Gómez', tiene_deuda: false });
+    await elegirAnimal(utils, 'Segundo animal', SEGUNDO, 'Castrado');
+    await elegirJinete(utils, 'Segundo animal', LUIS);
+    await elegirAnimal(utils, 'Tercer animal', TERCERO, 'Macho');
+    await elegirJinete(utils, 'Tercer animal', JUAN);
+  }
+
+  test('se puede cargar un equipo nuevo aunque el animal ya tenga equipos', async () => {
+    const utils = renderAlta();
+    api.fetchOpcionesAlta.mockResolvedValue(CON_EQUIPO);
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    expect(await utils.findByText('EL TRÍO')).toBeTruthy();
+    expect(utils.getByLabelText('Cargar un equipo nuevo')).toBeTruthy();
+  });
+
+  test('el animal que se inscribe va primero y fijo, pero su jinete se elige acá', async () => {
+    // Al revés que al elegir un equipo ya cargado, donde el jinete sale del
+    // padrón (J-3): en el equipo nuevo todavía no hay padrón.
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    expect(utils.getByText('LA ÑANDÚ')).toBeTruthy();
+    expect(utils.getByLabelText('Elegir animal · El que inscribís').props.accessibilityState?.disabled).toBe(true);
+    expect(utils.getByLabelText('Elegir jinete · El que inscribís')).toBeTruthy();
+  });
+
+  test('el payload lleva los tres animales con su tabla, su sexo y su jinete', async () => {
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await completar(utils);
+    fireEvent.press(utils.getByText('Crear el equipo'));
+
+    await utils.findByText('Pruebas');
+    expect(api.crearEquipo).toHaveBeenCalledWith({
+      nombre: 'LOS FRASQUEADOS', // recortado
+      evento: 9059001, prueba: 6, categoria: 9,
+      animales: [
+        { animal: { tabla: 'IdExis', id: 9059010, sexo: 2 }, jinete: 7 },
+        // Castrado: el 0 es el que eligió el socio, no el 1 de la yunta.
+        { animal: { tabla: 'IdPdre', id: 134355, sexo: 0 }, jinete: 8 },
+        { animal: { tabla: 'IdExtr', id: 6703, sexo: 1 }, jinete: 9 },
+      ],
+    });
+  });
+
+  test('el equipo creado queda elegido en la prueba, como uno de la lista', async () => {
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await completar(utils);
+    fireEvent.press(utils.getByText('Crear el equipo'));
+
+    expect(await utils.findByText('LOS FRASQUEADOS')).toBeTruthy();
+    // El padrón del 201 completa los dos compañeros y el jinete propio.
+    expect(utils.getByText(/EL CASTRADO · EL EXTRANJERO — jinete Gómez Ana/)).toBeTruthy();
+  });
+
+  test('sin el nombre y los seis casilleros no postea', async () => {
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    fireEvent.changeText(utils.getByLabelText('Nombre del equipo'), 'LOS FRASQUEADOS');
+    await elegirAnimal(utils, 'Segundo animal', SEGUNDO, 'Castrado');
+    fireEvent.press(utils.getByText('Crear el equipo'));
+    expect(api.crearEquipo).not.toHaveBeenCalled();
+    expect(utils.getByText('Falta el nombre, los tres animales y el jinete de cada uno.')).toBeTruthy();
+  });
+
+  test('un animal repetido se avisa antes de postear', async () => {
+    // El POST lo rechaza con AnimalRepetido; decirlo acá ahorra el viaje.
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await elegirAnimal(utils, 'Segundo animal', ANIMAL, 'Hembra');
+    expect(await utils.findByText(/ya está en el equipo/)).toBeTruthy();
+    // Y el casillero quedó vacío: no se guardó el repetido.
+    expect(utils.queryByText('Falta el nombre, los tres animales y el jinete de cada uno.')).toBeTruthy();
+  });
+
+  test('el 422 de equipos muestra cada regla traducida', async () => {
+    api.crearEquipo.mockRejectedValueOnce(new ApiError({
+      path: '/equipos', status: 422, detail: 'x', code: 'equipo_invalido',
+      errores: [{ codigo: 'NombreRepetido', campo: 'nombre' }, { codigo: 'AnimalAjeno', campo: 'animales' }],
+    }));
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await completar(utils);
+    fireEvent.press(utils.getByText('Crear el equipo'));
+
+    expect(await utils.findByText('Ya hay un equipo con ese nombre este año. Elegí otro.')).toBeTruthy();
+    expect(utils.getByText('Al menos uno de los tres animales tiene que figurar a tu nombre.')).toBeTruthy();
+  });
+
+  test('un 201 que trae sólo el id vuelve a la lista en vez de elegir un trío vacío', async () => {
+    api.crearEquipo.mockResolvedValueOnce({ equipo: { id: 9059041 } });
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await completar(utils);
+    fireEvent.press(utils.getByText('Crear el equipo'));
+
+    // La lista se vuelve a pedir: el equipo nuevo ya figura ahí.
+    expect(await utils.findByText('EL TRÍO')).toBeTruthy();
+    expect(api.fetchEquipos).toHaveBeenCalledTimes(2);
+  });
+
+  test('un equipo creado pero bloqueado dice por qué y no queda elegido', async () => {
+    api.crearEquipo.mockResolvedValueOnce({
+      equipo: { ...CREADO, bloqueado: true, bloqueado_por: 'EL CASTRADO' },
+    });
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    await completar(utils);
+    fireEvent.press(utils.getByText('Crear el equipo'));
+
+    expect(await utils.findByText('EL CASTRADO ya está inscripto en esta prueba con otro equipo')).toBeTruthy();
+    fireEvent.press(utils.getByText('Volver a los equipos'));
+    expect(await utils.findByText('EL TRÍO')).toBeTruthy();
   });
 });

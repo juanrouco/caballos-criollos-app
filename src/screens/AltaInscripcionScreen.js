@@ -3,19 +3,21 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Key
 import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
-import { describirErrores } from '../erroresInscripcion';
+import { describirErrores, describirErroresEquipo } from '../erroresInscripcion';
 import { alternarCategoria } from '../reglasAlta';
 import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload,
   fetchAnimalPedigree, fetchAlertasAlta, fetchCabanias, mapAlertas,
   buscarYuntaCandidatos, fetchEquipos, mapYuntaCandidato, mapEquipo, companieroAPayload,
+  crearEquipo, mapEquipoCreado, integranteAPayload,
 } from '../api';
 import HtmlBody from '../HtmlBody';
 
 // Alta de inscripción, en pasos: evento → animal → datos → participación →
-// confirmar. Primer tramo: morfología y pruebas individuales con jinete. Las
-// pruebas de yunta y de equipo se listan pero no se pueden elegir todavía.
+// confirmar. Cada participación lleva lo suyo: la individual un jinete, la
+// yunta un compañero, el equipo un trío (que se puede elegir de los que ya
+// existen o cargar desde acá).
 //
 // Las reglas NO viven acá: las valida el servidor antes de escribir, y si algo
 // no cumple contesta 422 con la lista de códigos (docs/README.md
@@ -38,6 +40,7 @@ const TITULOS = {
   domador: 'Elegí el domador',
   yunta: 'Elegí el compañero',
   equipo: 'Elegí el equipo',
+  equipoNuevo: 'Equipo nuevo',
   listo: 'Inscripción confirmada',
 };
 
@@ -63,6 +66,7 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
     // El aviso no está en PASOS: su vuelta es a participación, y desde
     // confirmar también, para no obligar a aceptarlo de nuevo.
     if (paso === 'alerta3') return setPaso('participacion');
+    if (paso === 'equipoNuevo') return setPaso('equipo');
     if (paso === 'jinete' || paso === 'yunta' || paso === 'equipo') return setPaso('participacion');
     if (paso === 'listo') return onHecho();
     const i = PASOS.indexOf(paso);
@@ -102,6 +106,14 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
     });
     setDestinoUnidad(null);
     setPaso('participacion');
+  };
+
+  // Un equipo recién creado se deja elegido igual que uno de la lista. Sin
+  // equipo (no se pudo leer, o no sirve para esta prueba) se vuelve a la lista,
+  // que se vuelve a pedir al montarse y ya lo va a incluir.
+  const equipoCreado = (equipo) => {
+    if (equipo) return guardarEquipo(equipo);
+    setPaso('equipo');
   };
 
   const guardarJinete = (persona) => {
@@ -154,7 +166,10 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
         <PasoYunta t={t} sel={sel} destino={destinoUnidad} onElegir={guardarCompaniero} />
       )}
       {paso === 'equipo' && (
-        <PasoEquipo t={t} sel={sel} destino={destinoUnidad} onElegir={guardarEquipo} />
+        <PasoEquipo t={t} sel={sel} destino={destinoUnidad} onElegir={guardarEquipo} onNuevo={() => setPaso('equipoNuevo')} />
+      )}
+      {paso === 'equipoNuevo' && (
+        <PasoEquipoNuevo t={t} sel={sel} destino={destinoUnidad} onCreado={equipoCreado} />
       )}
       {paso === 'alerta3' && (
         <PasoAlerta3 t={t} evento={sel.evento} onSeguir={() => setPaso('confirmar')} onVolver={() => setPaso('participacion')} />
@@ -1219,7 +1234,9 @@ function PasoYunta({ t, sel, destino, onElegir }) {
 // J-2: sólo los equipos donde figura este animal, que es lo único que garantiza
 // la pertenencia — el POST apenas verifica que el equipo exista. La API los trae
 // del año en curso (qué rango vale es una decisión pendiente del negocio).
-function PasoEquipo({ t, sel, destino, onElegir }) {
+//
+// Tenga equipos o no, el socio puede cargar uno nuevo desde acá (PasoEquipoNuevo).
+function PasoEquipo({ t, sel, destino, onElegir, onNuevo }) {
   const [equipos, setEquipos] = React.useState(null);
   const [error, setError] = React.useState(null);
 
@@ -1237,16 +1254,14 @@ function PasoEquipo({ t, sel, destino, onElegir }) {
 
   if (error) return <ErrorCard t={t} texto={error} />;
   if (!equipos) return <Cargando t={t} />;
-  if (equipos.length === 0) {
-    return (
-      <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, marginHorizontal: 20, lineHeight: 20 }}>
-        Este animal no figura en ningún equipo de este año. Los equipos se crean por la web.
-      </Text>
-    );
-  }
 
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 10 }} showsVerticalScrollIndicator={false}>
+      {equipos.length === 0 && (
+        <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20 }}>
+          Este animal no figura en ningún equipo de este año.
+        </Text>
+      )}
       {equipos.map((e) => {
         // 4.6: jinete con deuda ⇒ deshabilitado, con los nombres.
         // 4.10: bloqueado ⇒ un integrante ya está en otro equipo en esa prueba.
@@ -1272,6 +1287,275 @@ function PasoEquipo({ t, sel, destino, onElegir }) {
           </TouchableOpacity>
         );
       })}
+
+      <TouchableOpacity
+        onPress={onNuevo} accessibilityLabel="Cargar un equipo nuevo"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: equipos.length ? 8 : 18, padding: 14, borderRadius: 12, backgroundColor: withAlpha(t.accent, 0.1), borderWidth: 1, borderColor: t.accent }}
+      >
+        <Icon name="plus" size={16} color={t.accent} />
+        <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13.5, color: t.accent }}>Cargar un equipo nuevo</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+// Crear un equipo desde la app: el `equipo_agregar.php` de la web. Tres
+// animales, cada uno con su jinete, y un nombre que no esté usado este año.
+//
+// El primero es el animal que se está inscribiendo, y acá su jinete SÍ lo elige
+// el socio — al revés que en el alta, donde sale del padrón del equipo (J-3).
+//
+// Las reglas las decide el POST (422 `equipo_invalido`, docs/README.md
+// §POST /equipos): de este lado sólo se evita mandar lo que seguro no pasa
+// (nombre vacío, un casillero sin llenar, el mismo animal dos veces).
+function PasoEquipoNuevo({ t, sel, destino, onCreado }) {
+  const [nombre, setNombre] = React.useState('');
+  // El animal del alta va primero y fijo, con el sexo con que se lo buscó.
+  const [integrantes, setIntegrantes] = React.useState([
+    { animal: sel.animal, sexo: sel.sexo, jinete: null },
+    { animal: null, sexo: null, jinete: null },
+    { animal: null, sexo: null, jinete: null },
+  ]);
+  // Qué casillero está eligiendo animal o jinete: {i, tipo}.
+  const [eligiendo, setEligiendo] = React.useState(null);
+  const [enviando, setEnviando] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [errores, setErrores] = React.useState([]);
+  // Creado pero inservible para esta prueba: ya no se puede reintentar.
+  const [trabado, setTrabado] = React.useState(null);
+
+  const parchear = (i, cambios) => setIntegrantes((xs) => xs.map((x, j) => (j === i ? { ...x, ...cambios } : x)));
+
+  const elegirAnimal = (i, animal, sexo) => {
+    setEligiendo(null);
+    // El POST lo rechaza con `AnimalRepetido` (la web no lo miraba): mejor
+    // decirlo al toque que después de cargar los tres.
+    if (integrantes.some((x, j) => j !== i && x.animal?.id === animal.id)) {
+      return setError('Ese animal ya está en el equipo: el trío son tres distintos.');
+    }
+    setError(null);
+    parchear(i, { animal, sexo });
+  };
+
+  const completo = !!nombre.trim() && integrantes.every((x) => x.animal && x.jinete);
+
+  const crear = async () => {
+    if (!completo || enviando) return;
+    Keyboard.dismiss();
+    setEnviando(true); setError(null); setErrores([]);
+    try {
+      const r = await crearEquipo({
+        nombre: nombre.trim(),
+        // `evento` es obligatorio; prueba y categoría van para que el 201
+        // traiga `habilitado` y `bloqueado` ya evaluados.
+        evento: sel.evento?.id, prueba: destino?.prueba, categoria: destino?.categoria,
+        animales: integrantes.map((x) => ({
+          animal: integranteAPayload(x.animal, x.sexo),
+          jinete: x.jinete?.id ?? null,
+        })),
+      });
+      const equipo = mapEquipoCreado(r);
+      // Desde acá el equipo YA existe: reintentar daría `NombreRepetido`. Si no
+      // se puede dejar elegido, se vuelve a la lista, que lo va a mostrar.
+      if (!equipo || equipo.incompleto) return onCreado(null);
+      if (!equipo.habilitado || equipo.bloqueado) return setTrabado(equipo);
+      onCreado(equipo);
+    } catch (e) {
+      if (e?.code === 'equipo_invalido') setErrores(describirErroresEquipo(e.errores));
+      else setError(mensaje(e));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (trabado) {
+    return (
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <Card t={t} style={{ padding: 16 }}>
+          <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{trabado.nombre}</Text>
+          <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textMute, marginTop: 8, lineHeight: 19 }}>
+            El equipo quedó creado, pero no se puede inscribir en esta prueba:
+          </Text>
+          {!trabado.habilitado && (
+            <Text style={{ fontFamily: F.bodyMed, fontSize: 12.5, color: t.live, marginTop: 8, lineHeight: 18 }}>
+              Jinetes no vigentes: {trabado.jinetesInhabilitados.join(', ') || 'sin detalle'}
+            </Text>
+          )}
+          {trabado.bloqueado && (
+            <Text style={{ fontFamily: F.bodyMed, fontSize: 12.5, color: t.live, marginTop: 8, lineHeight: 18 }}>
+              {trabado.bloqueadoPor || 'Un integrante'} ya está inscripto en esta prueba con otro equipo
+            </Text>
+          )}
+        </Card>
+        <Boton t={t} label="Volver a los equipos" onPress={() => onCreado(null)} style={{ marginTop: 18 }} />
+      </ScrollView>
+    );
+  }
+
+  return (
+    <>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Field t={t} label="Nombre del equipo" placeholder="Como lo van a nombrar" value={nombre} onChange={setNombre} />
+        <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textMute, marginTop: 8, lineHeight: 18 }}>
+          No puede repetir el nombre de otro equipo de este año.
+        </Text>
+
+        <SectionLabel t={t} style={{ marginTop: 22, paddingHorizontal: 0 }}>Los tres integrantes</SectionLabel>
+        <View style={{ gap: 10 }}>
+          {integrantes.map((x, i) => (
+            <Card key={i} t={t} style={{ padding: 14 }}>
+              <Text style={{ fontFamily: F.bodyBold, fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase' }}>
+                {ROTULO_INTEGRANTE[i]}
+              </Text>
+              <SelectorIntegrante
+                t={t} animal={x.animal} contexto={ROTULO_INTEGRANTE[i]} fijo={i === 0}
+                onPress={() => setEligiendo({ i, tipo: 'animal' })}
+              />
+              <SelectorJinete
+                t={t} jinete={x.jinete} contexto={ROTULO_INTEGRANTE[i]}
+                onPress={() => setEligiendo({ i, tipo: 'jinete' })}
+              />
+            </Card>
+          ))}
+        </View>
+
+        {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}
+        {errores.length > 0 && (
+          <Card t={t} style={{ padding: 16, marginTop: 16, borderColor: t.live }}>
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: t.live, letterSpacing: 0.5 }}>No se pudo crear el equipo</Text>
+            {errores.map((e, i) => (
+              <Text key={i} style={{ fontFamily: F.body, fontSize: 13, color: t.text, marginTop: 8, lineHeight: 19 }}>{e.texto}</Text>
+            ))}
+          </Card>
+        )}
+      </ScrollView>
+
+      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 10, backgroundColor: t.bg, borderTopWidth: 1, borderTopColor: t.border }}>
+        {!completo && (
+          <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, marginBottom: 10 }}>
+            Falta el nombre, los tres animales y el jinete de cada uno.
+          </Text>
+        )}
+        <Boton t={t} label="Crear el equipo" onPress={crear} disabled={!completo || enviando} loading={enviando} />
+      </View>
+
+      <Modal visible={!!eligiendo} animationType="slide" statusBarTranslucent onRequestClose={() => setEligiendo(null)}>
+        <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: 54 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 14 }}>
+            <TouchableOpacity onPress={() => setEligiendo(null)} accessibilityLabel="Cerrar" style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="x" size={18} color={t.text} />
+            </TouchableOpacity>
+            <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text, flex: 1 }} numberOfLines={1}>
+              {eligiendo?.tipo === 'jinete' ? TITULOS.jinete : 'Elegí el animal'}
+            </Text>
+          </View>
+          {eligiendo?.tipo === 'jinete' ? (
+            <PasoJinete
+              t={t} evento={sel.evento}
+              onElegir={(j) => { parchear(eligiendo.i, { jinete: j }); setEligiendo(null); }}
+            />
+          ) : (
+            <BuscarIntegrante t={t} onElegir={(a, s) => elegirAnimal(eligiendo.i, a, s)} />
+          )}
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+const ROTULO_INTEGRANTE = ['El que inscribís', 'Segundo animal', 'Tercer animal'];
+
+function SelectorIntegrante({ t, animal, contexto, fijo, onPress }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress} disabled={fijo} accessibilityLabel={rotular('Elegir animal', contexto)}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}
+    >
+      <Icon name="tree" size={16} color={t.accent} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: animal ? t.text : t.textMute }} numberOfLines={1}>
+          {animal?.nombre || 'Elegir animal'}
+        </Text>
+        {animal && (animal.sba || animal.rp) && (
+          <Text style={{ fontFamily: F.body, fontSize: 11, color: t.textMute, marginTop: 2 }}>
+            {[animal.sba && `S.B.A. ${animal.sba}`, animal.rp && `R.P. ${animal.rp}`].filter(Boolean).join(' · ')}
+          </Text>
+        )}
+      </View>
+      {!fijo && <Icon name="arrow" size={15} color={t.textMute} />}
+    </TouchableOpacity>
+  );
+}
+
+// Los integrantes se buscan con la misma A2 que el animal del alta, que es la
+// misma búsqueda del popup de la web (hembra en Exis + Extr; macho y castrado
+// en Pdre + Extr). Sin `evento`: que un integrante ya esté inscripto no le
+// impide estar en el equipo.
+//
+// ⚠️ El sexo es la ETIQUETA que elige el socio, no un dato del animal — la API
+// devuelve el mismo que se buscó, y es el que viaja en el payload. Por eso acá
+// hay que ofrecer «Castrado», que la yunta no ofrece: los castrados son cuatro
+// de cada diez integrantes reales, y buscarlos como machos los guardaría con el
+// sexo equivocado.
+function BuscarIntegrante({ t, onElegir }) {
+  const [sba, setSba] = React.useState('');
+  const [rp, setRp] = React.useState('');
+  const [sexo, setSexo] = React.useState(null);
+  const [resultados, setResultados] = React.useState(null);
+  const [buscando, setBuscando] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const puedeBuscar = (!!sba.trim() || !!rp.trim()) && sexo !== null && !buscando;
+
+  const buscar = async () => {
+    if (!puedeBuscar) return;
+    Keyboard.dismiss();
+    setBuscando(true); setError(null); setResultados(null);
+    try {
+      const r = await buscarAnimalesAlta({ sba: sba.trim(), rp: rp.trim(), sexo });
+      setResultados((Array.isArray(r) ? r : r?.data || []).map(mapAnimalAlta));
+    } catch (e) {
+      setError(mensaje(e));
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <View style={{ gap: 14 }}>
+        <Field t={t} label="S.B.A. del integrante" placeholder="Número de S.B.A." value={sba} onChange={setSba} keyboardType="number-pad" />
+        <Field t={t} label="R.P. del integrante" placeholder="Número de R.P." value={rp} onChange={setRp} keyboardType="number-pad" />
+        <View>
+          <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 6 }}>Sexo</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {SEXOS.map((s) => (
+              <Opcion key={s.v} t={t} label={s.label} activa={sexo === s.v} onPress={() => setSexo(s.v)} />
+            ))}
+          </View>
+        </View>
+      </View>
+      <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
+
+      {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}
+      {resultados && resultados.length === 0 && (
+        <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textMute, marginTop: 18 }}>
+          No encontramos animales con esos datos.
+        </Text>
+      )}
+
+      <View style={{ marginTop: 18, gap: 10 }}>
+        {(resultados || []).map((a) => (
+          <TouchableOpacity key={a.id} onPress={() => onElegir(a, sexo)} accessibilityLabel={`Elegir ${a.nombre}`} activeOpacity={0.8}>
+            <Card t={t} style={{ padding: 14 }}>
+              <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{a.nombre}</Text>
+              <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>
+                {[a.sba && `S.B.A. ${a.sba}`, a.rp && `R.P. ${a.rp}`].filter(Boolean).join(' · ')}
+              </Text>
+            </Card>
+          </TouchableOpacity>
+        ))}
+      </View>
     </ScrollView>
   );
 }

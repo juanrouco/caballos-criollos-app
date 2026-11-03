@@ -1,11 +1,14 @@
 import {
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload, mapAlertas,
-  mapYuntaCandidato, mapEquipo, companieroAPayload,
-  buscarAnimalesAlta, fetchOpcionesAlta, crearInscripcion,
+  mapYuntaCandidato, mapEquipo, companieroAPayload, integranteAPayload, mapEquipoCreado,
+  buscarAnimalesAlta, fetchOpcionesAlta, crearInscripcion, crearEquipo,
 } from '../../src/api/alta';
 import { API_BASE } from '../../src/api/client';
 import { setSession, clearSession } from '../../src/api/session';
-import { textoErrorInscripcion, describirErrores, CODIGOS_CONOCIDOS } from '../../src/erroresInscripcion';
+import {
+  textoErrorInscripcion, describirErrores, CODIGOS_CONOCIDOS,
+  textoErrorEquipo, describirErroresEquipo,
+} from '../../src/erroresInscripcion';
 
 const okJson = (body) => ({ ok: true, status: 200, json: async () => body });
 const viva = () => ({ accessToken: 'acc1', refreshToken: 'ref1', expiresAt: Date.now() + 3600e3 });
@@ -215,5 +218,97 @@ describe('yunta y equipo', () => {
     expect(companieroAPayload({ id: 'extr:1', sexo: 0 })).toBeNull(); // castrado no vale de compañero
     expect(companieroAPayload({ id: '9059011' })).toBeNull();
     expect(companieroAPayload(null)).toBeNull();
+  });
+});
+
+describe('crear equipo (POST /equipos)', () => {
+  test('integranteAPayload admite el castrado, que la yunta no', () => {
+    // El sexo es la etiqueta que eligió el socio, no la tabla: cuatro de cada
+    // diez integrantes reales son castrados en IdPdre.
+    expect(integranteAPayload({ id: 'pdre:134355' }, 0)).toEqual({ tabla: 'IdPdre', id: 134355, sexo: 0 });
+    expect(integranteAPayload({ id: 'pdre:134355' }, 1)).toEqual({ tabla: 'IdPdre', id: 134355, sexo: 1 });
+    expect(integranteAPayload({ id: 'extr:6703' }, 0)).toEqual({ tabla: 'IdExtr', id: 6703, sexo: 0 });
+    expect(integranteAPayload({ id: 'extr:6703' }, 2)).toEqual({ tabla: 'IdExtr', id: 6703, sexo: 2 });
+  });
+
+  test('integranteAPayload fuerza el 2 de Exis y rechaza lo que no puede armar', () => {
+    // Un par tabla/sexo incoherente da 400.
+    expect(integranteAPayload({ id: 'exis:9059010' }, 1)).toEqual({ tabla: 'IdExis', id: 9059010, sexo: 2 });
+    expect(integranteAPayload({ id: 'pdre:1' }, null)).toBeNull();
+    expect(integranteAPayload({ id: '9059010' }, 1)).toBeNull();
+    expect(integranteAPayload(null, 1)).toBeNull();
+  });
+
+  test('mapEquipoCreado devuelve el equipo del 201 listo para elegir', () => {
+    const e = mapEquipoCreado({
+      equipo: {
+        id: 40, nombre: 'LOS FRASQUEADOS', anio: 2026,
+        animales: [{ id: 'exis:1', nombre: 'UNA', sba: '1', sexo: 2, jinete: { id: 7, nombre: 'Ana', apellido: 'Gómez' } }],
+        habilitado: true, jinetes_inhabilitados: [], bloqueado: false, bloqueado_por: null,
+      },
+    });
+    expect(e).toMatchObject({ id: 40, nombre: 'LOS FRASQUEADOS', habilitado: true, incompleto: false });
+    expect(e.animales[0].jinete.apellido).toBe('Gómez');
+  });
+
+  test('mapEquipoCreado marca incompleto el 201 que trae sólo el id', () => {
+    // Si el equipo se creó pero la lectura posterior falló viene {equipo: {id}}:
+    // mapearlo como equipo daría un trío vacío y habilitado.
+    const e = mapEquipoCreado({ equipo: { id: 40 } });
+    expect(e).toEqual({ id: 40, incompleto: true });
+    expect(mapEquipoCreado({})).toBeNull();
+  });
+
+  test('cada código del 422 de equipos tiene su texto, distinto del de la prueba', () => {
+    const codigos = [
+      'NombreFaltante', 'NombreRepetido', 'AnimalFaltante', 'JineteFaltante',
+      'AnimalInexistente', 'JineteNoDisponible', 'AnimalRepetido', 'EquipoDuplicado', 'AnimalAjeno',
+    ];
+    const generico = textoErrorEquipo('CodigoQueNoExiste');
+    codigos.forEach((c) => expect(textoErrorEquipo(c)).not.toBe(generico));
+    // JineteFaltante habla del integrante del equipo, no de la prueba.
+    expect(textoErrorEquipo('JineteFaltante')).not.toBe(textoErrorInscripcion('JineteFaltante'));
+    expect(describirErroresEquipo([{ codigo: 'NombreRepetido', campo: 'nombre' }])).toEqual([
+      { codigo: 'NombreRepetido', texto: textoErrorEquipo('NombreRepetido'), campo: 'nombre' },
+    ]);
+    expect(describirErroresEquipo(null)).toEqual([]);
+  });
+
+  describe('request', () => {
+    beforeEach(() => { clearSession(); global.fetch = jest.fn(); setSession(viva()); });
+    afterEach(() => { clearSession(); delete global.fetch; });
+
+    test('crearEquipo postea a /equipos con el token y el payload tal cual', async () => {
+      fetch.mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ equipo: { id: 40 } }) });
+      const payload = {
+        nombre: 'LOS FRASQUEADOS', evento: 2130, prueba: 6, categoria: 15,
+        animales: [
+          { animal: { tabla: 'IdExis', id: 9059010, sexo: 2 }, jinete: 7 },
+          { animal: { tabla: 'IdPdre', id: 134355, sexo: 0 }, jinete: 8 },
+          { animal: { tabla: 'IdExtr', id: 6703, sexo: 1 }, jinete: 9 },
+        ],
+      };
+      await crearEquipo(payload);
+      const [url, opts] = fetch.mock.calls[0];
+      expect(url).toBe(`${API_BASE}/equipos`);
+      expect(opts.method).toBe('POST');
+      expect(opts.headers.Authorization).toBe('Bearer acc1');
+      expect(JSON.parse(opts.body)).toEqual(payload);
+    });
+
+    test('el 422 de equipos llega con su propio code y sus códigos', async () => {
+      // `equipo_invalido`, no `inscripcion_invalida`: otra pantalla, otra tabla.
+      fetch.mockResolvedValueOnce({
+        ok: false, status: 422,
+        json: async () => ({
+          error: true, status: 422, message: 'x', code: 'equipo_invalido',
+          errores: [{ codigo: 'NombreRepetido', campo: 'nombre' }, { codigo: 'AnimalAjeno', campo: 'animales' }],
+        }),
+      });
+      await expect(crearEquipo({})).rejects.toMatchObject({
+        status: 422, code: 'equipo_invalido',
+        errores: [{ codigo: 'NombreRepetido' }, { codigo: 'AnimalAjeno' }],
+      });
+    });
   });
 });

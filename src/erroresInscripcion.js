@@ -1,4 +1,4 @@
-// Los códigos del 422 de POST /inscripciones, en castellano.
+// Los códigos del 422 de POST /inscripciones y de POST /equipos, en castellano.
 //
 // La API manda `errores: [{codigo, campo, prueba, categoria}]` SIN texto, a
 // propósito: el mensaje que lee el socio lo pone la app. Son las reglas del
@@ -72,3 +72,41 @@ export function describirErrores(errores) {
 }
 
 export const CODIGOS_CONOCIDOS = Object.keys(TEXTOS);
+
+// ── El 422 de POST /equipos ─────────────────────────────────────────
+//
+// Otro `code` (`equipo_invalido`, no `inscripcion_invalida`) y otros códigos,
+// así que otra tabla: acá `JineteFaltante` habla de un integrante del equipo y
+// no de la prueba, y los dos textos no pueden ser el mismo. Son las
+// validaciones de `equipo_agregar.php`, más las tres que la web no hacía
+// (`AnimalInexistente`, `AnimalRepetido`, `AnimalAjeno`).
+const TEXTOS_EQUIPO = {
+  NombreFaltante: 'Ponele un nombre al equipo.',
+  NombreRepetido: 'Ya hay un equipo con ese nombre este año. Elegí otro.',
+  AnimalFaltante: 'El equipo lleva tres animales: falta elegir alguno.',
+  JineteFaltante: 'Cada animal del equipo necesita su jinete.',
+  AnimalInexistente: 'No encontramos uno de los animales en el stud book.',
+  JineteNoDisponible: 'Uno de los jinetes no está disponible.',
+  AnimalRepetido: 'Hay un animal repetido: el equipo lleva tres distintos.',
+  EquipoDuplicado: 'Ya existe un equipo de este año con estos tres animales y estos tres jinetes.',
+  // Alcanza con uno propio: exigir los tres dejaría afuera a la mayoría de los
+  // equipos reales.
+  AnimalAjeno: 'Al menos uno de los tres animales tiene que figurar a tu nombre.',
+};
+
+const GENERICO_EQUIPO = 'Este equipo no cumple una regla del sistema.';
+
+export function textoErrorEquipo(codigo) {
+  return TEXTOS_EQUIPO[codigo] || GENERICO_EQUIPO;
+}
+
+// Los errores del 422 de equipos, listos para mostrar. Vienen todos juntos y en
+// el orden de la web, así que se listan tal cual.
+export function describirErroresEquipo(errores) {
+  if (!Array.isArray(errores)) return [];
+  return errores.map((e) => ({
+    codigo: e?.codigo || null,
+    texto: textoErrorEquipo(e?.codigo),
+    campo: e?.campo || null,
+  }));
+}
