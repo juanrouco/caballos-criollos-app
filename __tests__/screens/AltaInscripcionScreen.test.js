@@ -251,6 +251,33 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(getByText('Buscar')).toBeTruthy();
   });
 
+  test('un S.B.A. con letras no se busca, y buscar sólo por R.P. sigue andando', async () => {
+    // La API castea a 0 lo que no es número: con un S.B.A. así busca por 0 y
+    // contesta animales que no tienen nada que ver, sin ningún aviso. El R.P. no
+    // se valida, que es alfanumérico.
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    await utils.findByLabelText('S.B.A.');
+    fireEvent.press(utils.getByText('Hembra'));
+
+    for (const malo of ['abc', '0', '12 34', '-1']) {
+      fireEvent.changeText(utils.getByLabelText('S.B.A.'), malo);
+      fireEvent.press(utils.getByText('Buscar'));
+      expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+    }
+    // Tampoco con el R.P. puesto: los dos campos van en la misma consulta.
+    fireEvent.changeText(utils.getByLabelText('R.P.'), 'QA1');
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(api.buscarAnimalesAlta).not.toHaveBeenCalled();
+
+    // Vacío sí vale: el S.B.A. es opcional acá.
+    fireEvent.changeText(utils.getByLabelText('S.B.A.'), '');
+    expect(utils.queryByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeNull();
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(await utils.findByText('LA ÑANDÚ')).toBeTruthy();
+    expect(api.buscarAnimalesAlta).toHaveBeenCalledWith(expect.objectContaining({ sba: '', rp: 'QA1' }));
+  });
+
   test('al buscar se cierra el teclado, que si no tapa los resultados', async () => {
     const cerrar = jest.spyOn(Keyboard, 'dismiss');
     const utils = renderAlta();
@@ -451,6 +478,29 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     fireEvent.press(utils.getByText('EL TOMADO'));
     // No lo eligió: sigue en el buscador.
     expect(utils.getByLabelText('S.B.A. del compañero')).toBeTruthy();
+  });
+
+  test('un S.B.A. que no es un número no se busca', async () => {
+    // La API castea a 0 lo que no es número, y con sba=0 devolvía un fatal de
+    // PHP: status 200 con HTML, que la pantalla mostraba como «JSON Parse
+    // error». No tiene sentido mandarlo.
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Paleteada · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir compañero de yunta'));
+    fireEvent.press(utils.getByText('Macho'));
+
+    for (const malo of ['abc', '0', '12 34', '-1']) {
+      fireEvent.changeText(utils.getByLabelText('S.B.A. del compañero'), malo);
+      fireEvent.press(utils.getByText('Buscar'));
+      expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+    }
+    expect(api.buscarYuntaCandidatos).not.toHaveBeenCalled();
+
+    fireEvent.changeText(utils.getByLabelText('S.B.A. del compañero'), '99');
+    expect(utils.queryByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeNull();
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(await utils.findByText('EL COMPAÑERO')).toBeTruthy();
   });
 
   test('el compañero elegido viaja con su tabla y su sexo', async () => {
@@ -1229,6 +1279,25 @@ describe('AltaInscripcionScreen — equipo nuevo', () => {
     expect(await utils.findByText('EL CASTRADO ya está inscripto en esta prueba con otro equipo')).toBeTruthy();
     fireEvent.press(utils.getByText('Volver a los equipos'));
     expect(await utils.findByText('EL TRÍO')).toBeTruthy();
+  });
+
+  test('el S.B.A. del integrante se valida igual que los otros dos', async () => {
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    fireEvent.press(utils.getByLabelText('Elegir animal · Segundo animal'));
+    await utils.findByLabelText('S.B.A. del integrante');
+    fireEvent.press(utils.getByText('Macho'));
+    api.buscarAnimalesAlta.mockClear();
+
+    fireEvent.changeText(utils.getByLabelText('S.B.A. del integrante'), 'abc');
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+    expect(api.buscarAnimalesAlta).not.toHaveBeenCalled();
+
+    api.buscarAnimalesAlta.mockResolvedValueOnce([SEGUNDO]);
+    fireEvent.changeText(utils.getByLabelText('S.B.A. del integrante'), SEGUNDO.sba);
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(await utils.findByLabelText(`Elegir ${SEGUNDO.nombre}`)).toBeTruthy();
   });
 });
 

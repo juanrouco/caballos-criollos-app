@@ -85,10 +85,28 @@ async function raise(res, path) {
   throw new ApiError({ path, status: res.status, detail, code, errores });
 }
 
+// Un 2xx que no trae JSON no es una respuesta usable, y pasa: un error fatal de
+// PHP sale con status 200 y cuerpo HTML, y cualquier proxy puede meter su propia
+// página de error. `res.json()` tira ahí un SyntaxError crudo («JSON Parse
+// error: Unexpected character: <») que las pantallas pintaban tal cual en la
+// card de error. Lo convertimos en un ApiError como cualquier otro, para que el
+// socio lea algo que pueda hacer. El 204 (y el 205) no traen cuerpo a propósito
+// — `/auth/logout` es uno — así que esos valen vacíos.
+export const RESPUESTA_RARA_MSG = 'El servidor respondió algo que no entendemos. Probá de nuevo en un rato.';
+
+async function leerJson(res, path) {
+  try {
+    return await res.json();
+  } catch {
+    if (res.status === 204 || res.status === 205) return {};
+    throw new ApiError({ path, status: res.status, detail: RESPUESTA_RARA_MSG });
+  }
+}
+
 export async function apiGet(path, params, headers) {
   const res = await safeFetch(`${API_BASE}${path}${queryString(params)}`, headers ? { headers } : undefined);
   if (!res.ok) await raise(res, path);
-  return res.json();
+  return leerJson(res, path);
 }
 
 export async function apiPost(path, body, headers) {
@@ -99,7 +117,7 @@ export async function apiPost(path, body, headers) {
   });
   if (!res.ok) await raise(res, path);
   // /auth/logout responde 204 sin body; el resto devuelve JSON.
-  return res.json().catch(() => ({}));
+  return leerJson(res, path);
 }
 
 // ── Requests protegidos ────────────────────────────────────────────

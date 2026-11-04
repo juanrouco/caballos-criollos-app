@@ -46,6 +46,25 @@ const TITULOS = {
 
 const SEXOS = [{ v: 1, label: 'Macho' }, { v: 2, label: 'Hembra' }, { v: 0, label: 'Castrado' }];
 
+// El S.B.A. es un entero positivo, y conviene validarlo acá: el teclado es
+// numérico pero pegar texto lo saltea, y la API castea a 0 lo que no es número.
+// Con eso `yunta-candidatos` devolvía un fatal de PHP (200 con HTML) en vez de
+// una lista, y `animales` es peor en silencio — busca por S.B.A. 0 y contesta
+// animales que no son los pedidos, sin ningún aviso. El R.P. no se valida: ese
+// sí es alfanumérico (hay R.P. con letras).
+const sbaValido = (v) => /^\d+$/.test(v.trim()) && Number(v.trim()) > 0;
+
+// Los tres buscadores que piden un S.B.A. avisan igual. Con el campo vacío no
+// dice nada: en dos de los tres el S.B.A. es opcional.
+function AvisoSba({ t, sba }) {
+  if (!sba.trim() || sbaValido(sba)) return null;
+  return (
+    <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textDim, marginTop: 10, lineHeight: 18 }}>
+      El S.B.A. es un número: escribilo sin letras ni espacios.
+    </Text>
+  );
+}
+
 export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho }) {
   const [paso, setPaso] = React.useState('alertas');
   const [sel, setSel] = React.useState({
@@ -487,7 +506,10 @@ function PasoAnimal({ t, evento, onElegir }) {
   const [elegido, setElegido] = React.useState(null);
   const [presentacion, setPresentacion] = React.useState(null);
 
-  const puedeBuscar = (!!sba.trim() || !!rp.trim()) && sexo !== null && !buscando;
+  // El S.B.A. vacío vale, que se puede buscar sólo por R.P.; con letras no se
+  // busca aunque el R.P. alcance, porque los dos campos van en la misma consulta.
+  const sbaListo = !sba.trim() || sbaValido(sba);
+  const puedeBuscar = sbaListo && (!!sba.trim() || !!rp.trim()) && sexo !== null && !buscando;
 
   const buscar = async () => {
     if (!puedeBuscar) return;
@@ -520,6 +542,7 @@ function PasoAnimal({ t, evento, onElegir }) {
         </View>
       </View>
 
+      <AvisoSba t={t} sba={sba} />
       <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
 
       {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}
@@ -1200,7 +1223,10 @@ function PasoYunta({ t, sel, destino, onElegir }) {
 
   // El sexo decide en qué tabla se busca (hembra en Exis, el resto en Pdre; en
   // los dos casos también en Extr), así que es obligatorio.
-  const puedeBuscar = !!sba.trim() && (sexo === 1 || sexo === 2) && !buscando;
+  //
+  // Acá el S.B.A. es el único dato para buscar, así que además de válido tiene
+  // que estar: vacío no sirve.
+  const puedeBuscar = sbaValido(sba) && (sexo === 1 || sexo === 2) && !buscando;
 
   const buscar = async () => {
     if (!puedeBuscar) return;
@@ -1232,6 +1258,7 @@ function PasoYunta({ t, sel, destino, onElegir }) {
           </View>
         </View>
       </View>
+      <AvisoSba t={t} sba={sba} />
       <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
 
       {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}
@@ -1547,7 +1574,8 @@ function BuscarIntegrante({ t, onElegir }) {
   const [buscando, setBuscando] = React.useState(false);
   const [error, setError] = React.useState(null);
 
-  const puedeBuscar = (!!sba.trim() || !!rp.trim()) && sexo !== null && !buscando;
+  const sbaListo = !sba.trim() || sbaValido(sba);
+  const puedeBuscar = sbaListo && (!!sba.trim() || !!rp.trim()) && sexo !== null && !buscando;
 
   const buscar = async () => {
     if (!puedeBuscar) return;
@@ -1577,6 +1605,7 @@ function BuscarIntegrante({ t, onElegir }) {
           </View>
         </View>
       </View>
+      <AvisoSba t={t} sba={sba} />
       <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
 
       {error && <View style={{ marginTop: 16 }}><ErrorCard t={t} texto={error} /></View>}

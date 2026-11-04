@@ -1,4 +1,4 @@
-import { apiGet, apiPost, API_BASE, OFFLINE_MSG } from '../../src/api/client';
+import { apiGet, apiPost, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG } from '../../src/api/client';
 
 const okJson = (body) => ({ ok: true, json: async () => body });
 const errJson = (status, body) => ({
@@ -82,5 +82,33 @@ describe('apiPost', () => {
   test('falla de red: también traduce a OFFLINE_MSG', async () => {
     fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
     await expect(apiPost('/push/register', { token: 'x' })).rejects.toThrow(OFFLINE_MSG);
+  });
+});
+
+describe('un 2xx que no trae JSON', () => {
+  // Pasó de verdad: `GET /inscripciones/yunta-candidatos` con un sba no
+  // numérico devolvía status 200 con la página HTML de un fatal de PHP, y la
+  // pantalla terminaba mostrando «JSON Parse error: Unexpected character: <».
+  const html200 = () => ({
+    ok: true, status: 200,
+    json: async () => { throw new SyntaxError('JSON Parse error: Unexpected character: <'); },
+  });
+
+  test('apiGet lo convierte en un ApiError con un mensaje legible', async () => {
+    fetch.mockResolvedValueOnce(html200());
+    await expect(apiGet('/inscripciones/yunta-candidatos')).rejects.toThrow(RESPUESTA_RARA_MSG);
+  });
+
+  test('apiPost tampoco lo hace pasar por una respuesta vacía', async () => {
+    fetch.mockResolvedValueOnce(html200());
+    await expect(apiPost('/inscripciones', { a: 1 })).rejects.toThrow(RESPUESTA_RARA_MSG);
+  });
+
+  test('un 204 sigue valiendo vacío: no trae cuerpo a propósito', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true, status: 204,
+      json: async () => { throw new Error('sin body'); },
+    });
+    await expect(apiPost('/auth/logout', { refresh_token: 'r' })).resolves.toEqual({});
   });
 });
