@@ -416,7 +416,7 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     fireEvent.changeText(await utils.findByLabelText('Buscar o escribir una nueva'), 'LA QA');
     fireEvent.press(await utils.findByText('Usar «LA QA»'));
 
-    const aviso = 'El Renspa tiene 17 caracteres, con los puntos y la barra: 00.000.0.00000/00.';
+    const aviso = 'El Renspa tiene 13 números — los puntos y la barra los pone la app: 00.000.0.00000/00.';
     fireEvent.changeText(renspa, '123');
     expect(utils.getByText(aviso)).toBeTruthy();
     fireEvent.press(utils.getByText('Continuar'));
@@ -426,6 +426,41 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.queryByText(aviso)).toBeNull();
     fireEvent.press(utils.getByText('Continuar'));
     expect(await utils.findByText('Pruebas')).toBeTruthy();
+  });
+
+  test('el Renspa se enmascara como en la web', async () => {
+    // La web descarta todo lo que no sea número y arma el formato sola
+    // (expositores_inscripcion_paso4.php:1007). La app hace lo mismo, así que
+    // pegar texto o tipear letras no deja pasar nada raro, y los puntos y la
+    // barra no se escriben a mano.
+    api.fetchEventosAlta.mockResolvedValue([{ ...EVENTO, pide_renspa: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    fireEvent.press(await utils.findByText('Cabestro'));
+    fireEvent.press(utils.getByText('Continuar'));
+    const renspa = await utils.findByLabelText('Renspa');
+
+    const casos = [
+      ['2', '2'],
+      ['21', '21'],
+      ['211', '21.1'],
+      ['2112345', '21.123.4.5'],
+      ['2112345678901', '21.123.4.56789/01'],
+      // Los números de más se cortan, como el substring de la web.
+      ['21123456789012345', '21.123.4.56789/01'],
+      // Letras y símbolos se descartan; los separadores los pone la máscara.
+      ['21.123.4.56789/01', '21.123.4.56789/01'],
+      ['ab21cd123', '21.123'],
+      ['XXXXXXXXXXXXXXXXX', ''],
+    ];
+    for (const [tecleado, esperado] of casos) {
+      fireEvent.changeText(renspa, tecleado);
+      expect(renspa.props.value).toBe(esperado);
+    }
   });
 
   // Deja el asistente en el paso de datos, con el selector de cabaña a mano.

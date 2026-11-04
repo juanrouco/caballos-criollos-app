@@ -54,16 +54,34 @@ const SEXOS = [{ v: 1, label: 'Macho' }, { v: 2, label: 'Hembra' }, { v: 0, labe
 // sí es alfanumérico (hay R.P. con letras).
 const sbaValido = (v) => /^\d+$/.test(v.trim()) && Number(v.trim()) > 0;
 
-// El Renspa se escribe `00.000.0.00000/00`, 17 caracteres con los puntos y la
-// barra. Lo único que valida el backend es el largo (class.preparacionalta.php:
-// 124: strlen distinto de 17 ⇒ RenspaInvalido); el formato no lo mira nadie, así
-// que 17 caracteres cualesquiera entran. Acá copiamos esa misma regla, ni más
-// ni menos: ser más estricto que la API rechazaría altas que la API aceptaría.
-// Sin esto el socio se enteraba recién al confirmar, dos pantallas después del
-// campo, con un «no tiene un formato válido» que no dice cuál es el formato.
+// El Renspa se escribe `00.000.0.00000/00`: 13 números, con los puntos y la
+// barra que los separan — 17 caracteres en total.
+//
+// En el servidor lo único que se valida es el largo, y está duplicado: la API en
+// class.preparacionalta.php:124 y la web otra vez en
+// expositores_inscripcion_paso4.php:133, las dos con `strlen != 17`. El formato
+// no lo mira ninguna, así que un POST directo con 17 caracteres cualesquiera
+// entra (probado: «XXXXXXXXXXXXXXXXX» creó un alta).
+//
+// Lo que sí es estricto es el navegador: la web pone una máscara
+// (`formatearInputEspecial`, paso4:1007) que descarta todo lo que no sea número
+// y arma el formato sola. Copiamos esa máscara en vez de validar un patrón, para
+// que la app deje tipear exactamente lo mismo que la web — ni más permisiva ni
+// más estricta. Con la máscara puesta, pedir 17 caracteres es pedir 13 números.
 const RENSPA_LARGO = 17;
 const RENSPA_EJEMPLO = '00.000.0.00000/00';
 const renspaValido = (v) => v.trim().length === RENSPA_LARGO;
+
+// Igual que la web: los dígitos, cortados en 13, con los separadores puestos.
+function enmascararRenspa(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  let r = d.slice(0, 2);
+  if (d.length > 2) r += `.${d.slice(2, 5)}`;
+  if (d.length > 5) r += `.${d.slice(5, 6)}`;
+  if (d.length > 6) r += `.${d.slice(6, 11)}`;
+  if (d.length > 11) r += `/${d.slice(11, 13)}`;
+  return r;
+}
 
 // Los tres buscadores que piden un S.B.A. avisan igual. Con el campo vacío no
 // dice nada: en dos de los tres el S.B.A. es opcional.
@@ -685,10 +703,10 @@ function PasoDatos({ t, sel, set, onSeguir }) {
         <Field t={t} label="Localidad" placeholder="Localidad" value={sel.localidad} onChange={(v) => set({ localidad: v })} />
         {pideRenspa && (
           <View>
-            <Field t={t} label="Renspa" placeholder={RENSPA_EJEMPLO} value={sel.renspa} onChange={(v) => set({ renspa: v })} />
+            <Field t={t} label="Renspa" placeholder={RENSPA_EJEMPLO} value={sel.renspa} keyboardType="number-pad" onChange={(v) => set({ renspa: enmascararRenspa(v) })} />
             {!!sel.renspa.trim() && !renspaValido(sel.renspa) && (
               <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textDim, marginTop: 8, lineHeight: 18 }}>
-                El Renspa tiene {RENSPA_LARGO} caracteres, con los puntos y la barra: {RENSPA_EJEMPLO}.
+                El Renspa tiene 13 números — los puntos y la barra los pone la app: {RENSPA_EJEMPLO}.
               </Text>
             )}
           </View>
