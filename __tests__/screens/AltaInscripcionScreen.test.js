@@ -675,6 +675,42 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByText('Elegir jinete')).toBeTruthy();
   });
 
+  test('una categoría que se completa mientras se inscribe se puede desmarcar', async () => {
+    // La carrera por el último cupo, probada contra el ambiente: se marca una
+    // categoría en x-1/x, otro socio toma el lugar, y al confirmar vuelve el 422
+    // CupoLleno. Al volver atrás las opciones se piden de nuevo y ya llegan
+    // completas — y ahí la elección tiene que poder sacarse. Mientras estuvo
+    // bloqueada no había salida: Confirmar fallaba siempre y el alta quedaba
+    // trabada. La regla es sobre elegir, no sobre desmarcar.
+    const conLugar = {
+      ...OPCIONES,
+      pruebas: [{ prueba: { id: 3, nombre: 'Rienda' }, modalidad: 'individual',
+        categorias: [{ id: 12, nombre: 'Mayor', propia: false, habilitada: true, cupo: 3, ocupacion: 2, lista_espera: false }] }],
+    };
+    const completa = {
+      ...conLugar,
+      pruebas: [{ ...conLugar.pruebas[0],
+        categorias: [{ ...conLugar.pruebas[0].categorias[0], ocupacion: 3 }] }],
+    };
+    api.fetchOpcionesAlta.mockReset().mockResolvedValueOnce(conLugar).mockResolvedValue(completa);
+
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    expect(utils.getByText('Cupo 2/3')).toBeTruthy();
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    expect(await utils.findByText('Elegir jinete')).toBeTruthy();
+
+    // Salir y volver vuelve a pedir las opciones: ahora está completa.
+    fireEvent.press(utils.getByLabelText('Volver'));
+    fireEvent.press(await utils.findByText('Continuar'));
+    expect(await utils.findByText('Cupo completo')).toBeTruthy();
+    // Sigue elegida, con su jinete pendiente.
+    expect(utils.getByText('Elegir jinete')).toBeTruthy();
+
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    expect(utils.queryByText('Elegir jinete')).toBeNull();
+  });
+
   test('sin cupo configurado no se muestra ningún cupo', async () => {
     // `cupo` 0 o null es «sin límite» (CupoService:113), no «no quedan».
     api.fetchOpcionesAlta.mockResolvedValue({

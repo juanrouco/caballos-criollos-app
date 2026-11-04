@@ -969,11 +969,20 @@ const sePuedeElegir = (c) => c.habilitada && (c.listaEspera || !completa(c));
 
 // Una categoría: checkbox, etiqueta y el cupo (o «lista de espera»), todo en
 // una línea.
+//
+// Una ya marcada se puede tocar siempre, aunque haya dejado de ser elegible: la
+// regla es sobre ELEGIR, no sobre desmarcar. El caso real es la carrera por el
+// último cupo — se marca una categoría en x-1/x, otro socio la completa, y al
+// confirmar vuelve el 422 CupoLleno. Al volver atrás las opciones se piden de
+// nuevo y la categoría ya se ve completa, pero seguía marcada y bloqueada: no
+// había forma de sacarla, Confirmar fallaba siempre y el alta quedaba trabada
+// sin más salida que empezar de cero.
 function FilaCategoria({ t, etiqueta, categoria: c, marcada, onPress, destacada }) {
+  const sePuedeTocar = marcada || sePuedeElegir(c);
   return (
     <TouchableOpacity
-      onPress={() => sePuedeElegir(c) && onPress()}
-      disabled={!sePuedeElegir(c)}
+      onPress={() => sePuedeTocar && onPress()}
+      disabled={!sePuedeTocar}
       accessibilityLabel={etiqueta}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}
     >
