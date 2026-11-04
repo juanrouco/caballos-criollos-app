@@ -38,12 +38,16 @@ export const OFFLINE_MSG = 'Sin conexión. Revisá tu internet e intentá de nue
 // la pantalla). `code` es el string estable que trae `/auth/*` e
 // `/inscripciones` para elegir qué mostrar sin parsear el mensaje.
 export class ApiError extends Error {
-  constructor({ path, status, detail, code, errores }) {
+  constructor({ path, status, detail, code, campo, errores }) {
     super(`${path} → HTTP ${status}${detail ? `: ${detail}` : ''}`);
     this.name = 'ApiError';
     this.status = status;
     this.detail = detail || '';
     this.code = code || '';
+    // El 400 `entrada_invalida` dice en qué parámetro falló. El `message` que
+    // lo acompaña está escrito para quien programa («se esperaba un entero
+    // positivo»), así que las pantallas traducen por `campo` y no lo muestran.
+    this.campo = campo || '';
     // El 422 de POST /inscripciones trae la lista de reglas que no se
     // cumplieron ({codigo, campo, prueba, categoria}), sin texto: el mensaje
     // que ve el socio lo pone la app (src/erroresInscripcion.js).
@@ -75,14 +79,16 @@ function queryString(params) {
 async function raise(res, path) {
   let detail = '';
   let code = '';
+  let campo = '';
   let errores = null;
   try {
     const body = await res.json();
     detail = body?.message || '';
     code = body?.code || '';
+    campo = body?.campo || '';
     errores = body?.errores || null;
   } catch {}
-  throw new ApiError({ path, status: res.status, detail, code, errores });
+  throw new ApiError({ path, status: res.status, detail, code, campo, errores });
 }
 
 // Un 2xx que no trae JSON no es una respuesta usable, y pasa: un error fatal de

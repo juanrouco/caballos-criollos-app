@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Key
 import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
-import { describirErrores, describirErroresEquipo } from '../erroresInscripcion';
+import { describirErrores, describirErroresEquipo, textoEntradaInvalida } from '../erroresInscripcion';
 import { alternarCategoria } from '../reglasAlta';
 import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
@@ -270,7 +270,17 @@ function ErrorCard({ t, texto, onReintentar }) {
   );
 }
 
-const mensaje = (e) => e?.detail || e?.message || 'No se pudo completar la operación';
+// El texto de un error, listo para el socio.
+//
+// El 400 `entrada_invalida` se traduce por `campo`: su `detail` viene redactado
+// para quien programa («rp en blanco o '0'») y no tiene por qué llegar a la
+// pantalla. El resto de los errores sí muestran lo que manda el backend — los
+// de `/auth` y los 422 están escritos para el socio.
+const mensaje = (e) => (
+  e?.code === 'entrada_invalida'
+    ? textoEntradaInvalida(e.campo)
+    : e?.detail || e?.message || 'No se pudo completar la operación'
+);
 
 // ¿Este HTML tiene algo para mostrar? Sin tags ni espacios duros no queda nada
 // en varios avisos guardados (`<p>&nbsp;</p>`, `<br>`), y pintarlos igual deja

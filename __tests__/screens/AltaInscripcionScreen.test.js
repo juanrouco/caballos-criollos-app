@@ -316,6 +316,39 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(api.buscarAnimalesAlta).toHaveBeenCalledWith(expect.objectContaining({ sba: '', rp: 'QA1' }));
   });
 
+  test('un 400 del borde de la API no le muestra la jerga al socio', async () => {
+    // El contrato puede rechazar algo que la app dejó pasar (pasó con el #240 y
+    // los ceros a la izquierda). Cuando pasa, el socio ve qué revisar, no
+    // «sba: se esperaba un entero positivo».
+    api.buscarAnimalesAlta.mockRejectedValueOnce({
+      status: 400, code: 'entrada_invalida', campo: 'rp',
+      detail: "rp: rp en blanco o '0'",
+      message: "/inscripciones/animales → HTTP 400: rp: rp en blanco o '0'",
+    });
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('R.P.'), '0');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('Revisá el R.P. que escribiste.')).toBeTruthy();
+    expect(utils.queryByText(/en blanco o/)).toBeNull();
+    expect(utils.queryByText(/HTTP 400/)).toBeNull();
+  });
+
+  test('un error que no es del borde se sigue mostrando tal cual', async () => {
+    // Los 422 y los de /auth están redactados para el socio: ésos no se tocan.
+    api.buscarAnimalesAlta.mockRejectedValueOnce({
+      status: 503, detail: 'El sistema está en mantenimiento.', message: 'x',
+    });
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    expect(await utils.findByText('El sistema está en mantenimiento.')).toBeTruthy();
+  });
+
   test('al buscar se cierra el teclado, que si no tapa los resultados', async () => {
     const cerrar = jest.spyOn(Keyboard, 'dismiss');
     const utils = renderAlta();

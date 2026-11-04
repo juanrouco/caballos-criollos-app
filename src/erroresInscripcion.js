@@ -76,6 +76,45 @@ export function describirErrores(errores) {
 
 export const CODIGOS_CONOCIDOS = Object.keys(TEXTOS);
 
+// ── El 400 `entrada_invalida` ───────────────────────────────────────
+//
+// El borde de apiv2 rechaza parámetros que no cumplen el contrato y contesta
+// 400 con `{code: 'entrada_invalida', campo, message}`. Ese `message` está
+// escrito para quien programa —«se esperaba un entero positivo», «rp en blanco
+// o '0'»— y no se le muestra al socio.
+//
+// Traducimos por `campo` y nunca por el texto ni por el valor: así, cuando el
+// backend cambie una regla (al #240 ya le pasó dos veces en un día), la app no
+// se entera y el socio no ve jerga. La contra es que perdemos el detalle, pero
+// el detalle de un `entrada_invalida` no le sirve a nadie que no programe.
+//
+// La distinción que importa: hay campos que el socio escribió y puede corregir,
+// y hay campos que arma la app sola (el evento, la prueba, la categoría, el
+// animal). Pedirle que «revise» algo que nunca tipeó lo manda a buscar un error
+// que no cometió — ahí el texto dice que el problema es nuestro.
+const CAMPOS_DEL_SOCIO = {
+  sba: 'Revisá el S.B.A.: es un número, sin letras, sin espacios y sin ceros adelante.',
+  rp: 'Revisá el R.P. que escribiste.',
+  renspa: 'Revisá el Renspa: son 13 números, con el formato 00.000.0.00000/00.',
+  nombre: 'Revisá el nombre que escribiste.',
+  apellido: 'Revisá el apellido que escribiste.',
+  documento: 'Revisá el número de documento.',
+  cabania: 'Revisá el nombre de la cabaña.',
+  provincia: 'Revisá la provincia.',
+  localidad: 'Revisá la localidad.',
+};
+
+// Un `entrada_invalida` en un campo que el socio no tipeó es un error nuestro:
+// la app mandó algo que el contrato no acepta. Se dice así, sin echarle la
+// culpa, y sin el texto del backend.
+const ENTRADA_INVALIDA_APP = 'No pudimos hacer esta consulta. Probá de nuevo y, si sigue, avisanos.';
+
+export function textoEntradaInvalida(campo) {
+  return CAMPOS_DEL_SOCIO[campo] || ENTRADA_INVALIDA_APP;
+}
+
+export const CAMPOS_ENTRADA_INVALIDA = Object.keys(CAMPOS_DEL_SOCIO);
+
 // ── El 422 de POST /equipos ─────────────────────────────────────────
 //
 // Otro `code` (`equipo_invalido`, no `inscripcion_invalida`) y otros códigos,

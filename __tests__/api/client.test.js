@@ -85,6 +85,27 @@ describe('apiPost', () => {
   });
 });
 
+describe('el 400 entrada_invalida', () => {
+  test('el ApiError lleva el campo que falló, para traducirlo sin leer el texto', async () => {
+    // El borde de apiv2 contesta `{code, campo, message}` y el `message` está
+    // escrito para quien programa. Las pantallas traducen por `campo`.
+    fetch.mockResolvedValueOnce(errJson(400, {
+      error: true, status: 400, code: 'entrada_invalida', campo: 'sba',
+      message: 'sba: se esperaba un entero positivo',
+    }));
+    await expect(apiGet('/inscripciones/animales', { sba: '0123' })).rejects.toMatchObject({
+      status: 400,
+      code: 'entrada_invalida',
+      campo: 'sba',
+    });
+  });
+
+  test('sin campo en el cuerpo, campo queda vacío y no rompe', async () => {
+    fetch.mockResolvedValueOnce(errJson(400, { error: true, status: 400, code: 'entrada_invalida' }));
+    await expect(apiGet('/x')).rejects.toMatchObject({ code: 'entrada_invalida', campo: '' });
+  });
+});
+
 describe('un 2xx que no trae JSON', () => {
   // Pasó de verdad: `GET /inscripciones/yunta-candidatos` con un sba no
   // numérico devolvía status 200 con la página HTML de un fatal de PHP, y la
