@@ -401,21 +401,32 @@ function PasoAlertas({ t, onSeguir, onSalir }) {
   );
 }
 
+// Las pantallas del alta que se quedan en blanco si la lectura falla necesitan
+// un reintento propio: sin él, una caída de red deja al socio en una pantalla
+// muerta y la única salida es abandonar el alta. `intento` dispara de nuevo el
+// efecto; cada pantalla lo agrega a sus dependencias.
+function useReintento() {
+  const [intento, setIntento] = React.useState(0);
+  return [intento, () => setIntento((n) => n + 1)];
+}
+
 // ── 1. Evento ──────────────────────────────────────────────────────
 
 function PasoEvento({ t, onElegir }) {
   const [eventos, setEventos] = React.useState(null);
   const [error, setError] = React.useState(null);
+  const [intento, reintentar] = useReintento();
 
   React.useEffect(() => {
     let cancelado = false;
+    setError(null);
     fetchEventosAlta()
       .then((r) => { if (!cancelado) setEventos((Array.isArray(r) ? r : r?.data || []).map(mapEventoAlta)); })
       .catch((e) => { if (!cancelado) setError(mensaje(e)); });
     return () => { cancelado = true; };
-  }, []);
+  }, [intento]);
 
-  if (error) return <ErrorCard t={t} texto={error} />;
+  if (error) return <ErrorCard t={t} texto={error} onReintentar={reintentar} />;
   if (!eventos) return <Cargando t={t} />;
   if (eventos.length === 0) {
     return (
@@ -807,16 +818,18 @@ function SelectorCabania({ t, cabanias, valor, onElegir }) {
 function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
   const [opciones, setOpciones] = React.useState(null);
   const [error, setError] = React.useState(null);
+  const [intento, reintentar] = useReintento();
 
   React.useEffect(() => {
     let cancelado = false;
+    setError(null);
     fetchOpcionesAlta(sel.evento.id, { animal: sel.animal.id, sexo: sel.sexo, presentacion: sel.presentacion })
       .then((r) => { if (!cancelado) setOpciones(mapOpciones(r)); })
       .catch((e) => { if (!cancelado) setError(mensaje(e)); });
     return () => { cancelado = true; };
-  }, [sel.evento.id, sel.animal.id, sel.sexo, sel.presentacion]);
+  }, [sel.evento.id, sel.animal.id, sel.sexo, sel.presentacion, intento]);
 
-  if (error) return <ErrorCard t={t} texto={error} />;
+  if (error) return <ErrorCard t={t} texto={error} onReintentar={reintentar} />;
   if (!opciones) return <Cargando t={t} />;
 
   // Por prueba se puede elegir una categoría común más cualquier cantidad de
@@ -1353,9 +1366,11 @@ function PasoYunta({ t, sel, destino, onElegir }) {
 function PasoEquipo({ t, sel, destino, onElegir, onNuevo }) {
   const [equipos, setEquipos] = React.useState(null);
   const [error, setError] = React.useState(null);
+  const [intento, reintentar] = useReintento();
 
   React.useEffect(() => {
     let cancelado = false;
+    setError(null);
     fetchEquipos({
       animal: sel.animal?.id, evento: sel.evento?.id,
       prueba: destino?.prueba, categoria: destino?.categoria,
@@ -1364,9 +1379,9 @@ function PasoEquipo({ t, sel, destino, onElegir, onNuevo }) {
       .catch((e) => { if (!cancelado) setError(mensaje(e)); });
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [intento]);
 
-  if (error) return <ErrorCard t={t} texto={error} />;
+  if (error) return <ErrorCard t={t} texto={error} onReintentar={reintentar} />;
   if (!equipos) return <Cargando t={t} />;
 
   return (

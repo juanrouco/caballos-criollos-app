@@ -243,6 +243,44 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByLabelText('S.B.A.')).toBeTruthy();
   });
 
+  test('si la lista de eventos falla, se puede reintentar sin salir del alta', async () => {
+    // Probado cortándole la API a la app: sin reintento, un hipo de red dejaba
+    // la pantalla muerta y la única salida era abandonar el alta. Lo mismo vale
+    // para las opciones de participación y la lista de equipos, que también se
+    // quedan en blanco cuando la lectura falla.
+    api.fetchEventosAlta.mockRejectedValueOnce(new Error('Sin conexión. Revisá tu internet e intentá de nuevo.'));
+    const utils = renderAlta();
+
+    expect(await utils.findByText('Sin conexión. Revisá tu internet e intentá de nuevo.')).toBeTruthy();
+    expect(utils.queryByText('Expo Palermo 2026')).toBeNull();
+
+    fireEvent.press(utils.getByText('Reintentar'));
+    expect(await utils.findByText('Expo Palermo 2026')).toBeTruthy();
+    expect(utils.queryByText('Reintentar')).toBeNull();
+    expect(api.fetchEventosAlta).toHaveBeenCalledTimes(2);
+  });
+
+  test('si las opciones de participación fallan, se puede reintentar', async () => {
+    api.fetchOpcionesAlta.mockRejectedValueOnce(new Error('Sin conexión. Revisá tu internet e intentá de nuevo.'));
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    fireEvent.press(await utils.findByText('Cabestro'));
+    fireEvent.press(utils.getByText('Continuar'));
+    fireEvent.press(await utils.findByLabelText('Cabaña'));
+    fireEvent.press(await utils.findByText('LA ESTANCIA'));
+    fireEvent.changeText(utils.getByLabelText('Provincia'), 'Córdoba');
+    fireEvent.changeText(utils.getByLabelText('Localidad'), 'Jesús María');
+    fireEvent.press(utils.getByText('Continuar'));
+
+    expect(await utils.findByText('Sin conexión. Revisá tu internet e intentá de nuevo.')).toBeTruthy();
+    fireEvent.press(utils.getByText('Reintentar'));
+    expect(await utils.findByText('Pruebas')).toBeTruthy();
+  });
+
   test('no busca animales sin S.B.A./R.P. y sexo', async () => {
     const { findByText, getByText } = renderAlta();
     fireEvent.press(await findByText('Expo Palermo 2026'));
