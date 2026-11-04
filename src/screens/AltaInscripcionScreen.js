@@ -147,7 +147,20 @@ export default function AltaInscripcionScreen({ t, topInset, onSalir, onHecho })
       )}
       {paso === 'animal' && (
         <PasoAnimal t={t} evento={sel.evento} onElegir={(animal, sexo, presentacion) => {
-          set({ animal, sexo, presentacion }); setPaso('datos');
+          // Volver atrás y cambiar el animal, el sexo o la presentación deja sin
+          // sentido lo ya elegido: las opciones las calcula el servidor con esos
+          // tres datos. Lo más visible es tipo y aptitud, que con cabestro suele
+          // quedar sin categoría: la pantalla lo informa y ya no lo ofrece, pero
+          // la elección seguía viva y el pie pedía un jinete que no se podía
+          // elegir — sin forma de desmarcarlo, el alta quedaba trabada. Las
+          // pruebas son peor: sus categorías, compañeros y equipos son de otro
+          // animal. Si los tres datos no cambiaron, no se toca nada: volver a
+          // mirar el animal no es rehacer la inscripción.
+          const otro = animal.id !== sel.animal?.id || sexo !== sel.sexo || presentacion !== sel.presentacion;
+          set(otro
+            ? { animal, sexo, presentacion, morfologia: null, tipoAptitud: null, pruebas: [] }
+            : { animal, sexo, presentacion });
+          setPaso('datos');
         }} />
       )}
       {paso === 'datos' && <PasoDatos t={t} sel={sel} set={set} onSeguir={() => setPaso('participacion')} />}

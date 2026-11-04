@@ -1317,3 +1317,65 @@ describe('AltaInscripcionScreen — qué muestra antes de confirmar', () => {
     )).toBeTruthy();
   });
 });
+
+describe('AltaInscripcionScreen — volver y cambiar el animal', () => {
+  // Las opciones las calcula el servidor con animal + sexo + presentación, así
+  // que al cambiar cualquiera de los tres lo ya elegido deja de valer. Lo más
+  // visible era tipo y aptitud: con la otra presentación el evento puede no
+  // tener categoría, la pantalla deja de ofrecerla — y la elección seguía viva,
+  // con el pie pidiendo un jinete que no había dónde elegir ni cómo desmarcar.
+  async function volverAlAnimal(utils) {
+    fireEvent.press(utils.getByLabelText('Volver')); // participación → datos
+    fireEvent.press(utils.getByLabelText('Volver')); // datos → animal
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+  }
+
+  // Los datos (cabaña, provincia, localidad) ya quedaron cargados, así que de
+  // vuelta sólo hay que pasar las dos pantallas.
+  async function hastaParticipacionDeNuevo(utils) {
+    fireEvent.press(utils.getByText('Continuar'));
+    fireEvent.press(await utils.findByText('Continuar'));
+    return utils.findByText('Pruebas');
+  }
+
+  test('cambiar la presentación borra lo elegido con la anterior', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      tipo_aptitud: { categoria: { id: 9, nombre: 'Adulta mayor' }, habilitada: true },
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    fireEvent.press(utils.getAllByText('No participa')[1]); // tipo y aptitud
+    expect(await utils.findByText('Falta el jinete de tipo y aptitud, el jinete de Rienda.')).toBeTruthy();
+
+    await volverAlAnimal(utils);
+    // Montado: con esta presentación el evento no tiene categoría de T&A.
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      tipo_aptitud: { categoria: null, habilitada: true },
+    });
+    fireEvent.press(await utils.findByText('Montado'));
+    await hastaParticipacionDeNuevo(utils);
+
+    expect(utils.getByText('Este evento no tiene una categoría para este animal.')).toBeTruthy();
+    // Ni la prueba ni la T&A siguen elegidas: nada que reclamar en el pie.
+    expect(utils.queryByText(/^Falta /)).toBeNull();
+  });
+
+  test('volver y elegir lo mismo no borra nada', async () => {
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    expect(await utils.findByText('Falta el jinete de Rienda.')).toBeTruthy();
+
+    await volverAlAnimal(utils);
+    fireEvent.press(await utils.findByText('Cabestro'));
+    await hastaParticipacionDeNuevo(utils);
+
+    expect(utils.getByText('Falta el jinete de Rienda.')).toBeTruthy();
+  });
+});
