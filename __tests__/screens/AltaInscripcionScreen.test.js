@@ -298,10 +298,10 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     await utils.findByLabelText('S.B.A.');
     fireEvent.press(utils.getByText('Hembra'));
 
-    for (const malo of ['abc', '0', '12 34', '-1']) {
+    for (const malo of ['abc', '0', '12 34', '-1', '0123']) {
       fireEvent.changeText(utils.getByLabelText('S.B.A.'), malo);
       fireEvent.press(utils.getByText('Buscar'));
-      expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+      expect(utils.getByText('El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.')).toBeTruthy();
     }
     // Tampoco con el R.P. puesto: los dos campos van en la misma consulta.
     fireEvent.changeText(utils.getByLabelText('R.P.'), 'QA1');
@@ -310,7 +310,7 @@ describe('AltaInscripcionScreen — paso a paso', () => {
 
     // Vacío sí vale: el S.B.A. es opcional acá.
     fireEvent.changeText(utils.getByLabelText('S.B.A.'), '');
-    expect(utils.queryByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeNull();
+    expect(utils.queryByText('El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.')).toBeNull();
     fireEvent.press(utils.getByText('Buscar'));
     expect(await utils.findByText('LA ÑANDÚ')).toBeTruthy();
     expect(api.buscarAnimalesAlta).toHaveBeenCalledWith(expect.objectContaining({ sba: '', rp: 'QA1' }));
@@ -591,21 +591,25 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     // La API castea a 0 lo que no es número, y con sba=0 devolvía un fatal de
     // PHP: status 200 con HTML, que la pantalla mostraba como «JSON Parse
     // error». No tiene sentido mandarlo.
+    //
+    // Desde el #240 la API lo rechaza con 400 `entrada_invalida` y la regla es
+    // `/^[1-9]\d*/`: ésta es la misma, ceros a la izquierda incluidos («0123»
+    // parece un número pero la API no lo toma).
     const utils = renderAlta();
     await hastaParticipacion(utils);
     fireEvent.press(utils.getByLabelText('Paleteada · Mayor'));
     fireEvent.press(await utils.findByText('Elegir compañero de yunta'));
     fireEvent.press(utils.getByText('Macho'));
 
-    for (const malo of ['abc', '0', '12 34', '-1']) {
+    for (const malo of ['abc', '0', '12 34', '-1', '0123']) {
       fireEvent.changeText(utils.getByLabelText('S.B.A. del compañero'), malo);
       fireEvent.press(utils.getByText('Buscar'));
-      expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+      expect(utils.getByText('El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.')).toBeTruthy();
     }
     expect(api.buscarYuntaCandidatos).not.toHaveBeenCalled();
 
     fireEvent.changeText(utils.getByLabelText('S.B.A. del compañero'), '99');
-    expect(utils.queryByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeNull();
+    expect(utils.queryByText('El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.')).toBeNull();
     fireEvent.press(utils.getByText('Buscar'));
     expect(await utils.findByText('EL COMPAÑERO')).toBeTruthy();
   });
@@ -1473,7 +1477,7 @@ describe('AltaInscripcionScreen — equipo nuevo', () => {
 
     fireEvent.changeText(utils.getByLabelText('S.B.A. del integrante'), 'abc');
     fireEvent.press(utils.getByText('Buscar'));
-    expect(utils.getByText('El S.B.A. es un número: escribilo sin letras ni espacios.')).toBeTruthy();
+    expect(utils.getByText('El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.')).toBeTruthy();
     expect(api.buscarAnimalesAlta).not.toHaveBeenCalled();
 
     api.buscarAnimalesAlta.mockResolvedValueOnce([SEGUNDO]);

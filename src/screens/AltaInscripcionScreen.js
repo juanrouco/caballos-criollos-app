@@ -46,13 +46,20 @@ const TITULOS = {
 
 const SEXOS = [{ v: 1, label: 'Macho' }, { v: 2, label: 'Hembra' }, { v: 0, label: 'Castrado' }];
 
-// El S.B.A. es un entero positivo, y conviene validarlo acá: el teclado es
-// numérico pero pegar texto lo saltea, y la API castea a 0 lo que no es número.
-// Con eso `yunta-candidatos` devolvía un fatal de PHP (200 con HTML) en vez de
-// una lista, y `animales` es peor en silencio — busca por S.B.A. 0 y contesta
-// animales que no son los pedidos, sin ningún aviso. El R.P. no se valida: ese
-// sí es alfanumérico (hay R.P. con letras).
-const sbaValido = (v) => /^\d+$/.test(v.trim()) && Number(v.trim()) > 0;
+// El S.B.A. se valida con la MISMA expresión que la API: `/^[1-9]\d*/`
+// (LecturasAltaHandler::enteroPositivo, #240). O sea dígitos, sin signo, sin
+// espacios y **sin ceros a la izquierda** — «0123» no vale, aunque parezca un
+// número.
+//
+// Por qué la API es así: HBAE es numérico y castea a 0 todo lo que no sea
+// número, y buscar por S.B.A. 0 barre las ~18.000 filas sin número y se queda
+// sin memoria. Antes del #240 eso salía como un fatal de PHP (200 con HTML) en
+// `yunta-candidatos` y, peor, en silencio en `animales`: contestaba animales que
+// no eran los pedidos. Ahora la API lo rechaza con 400 `entrada_invalida`, y
+// esta validación es para que el socio no llegue hasta ahí.
+//
+// El R.P. no se valida: ese sí es alfanumérico (hay R.P. con letras).
+const sbaValido = (v) => /^[1-9]\d*$/.test(v.trim());
 
 // El Renspa se escribe `00.000.0.00000/00`: 13 números, con los puntos y la
 // barra que los separan — 17 caracteres en total.
@@ -89,7 +96,7 @@ function AvisoSba({ t, sba }) {
   if (!sba.trim() || sbaValido(sba)) return null;
   return (
     <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textDim, marginTop: 10, lineHeight: 18 }}>
-      El S.B.A. es un número: escribilo sin letras ni espacios.
+      El S.B.A. es un número: sin letras, sin espacios y sin ceros adelante.
     </Text>
   );
 }
