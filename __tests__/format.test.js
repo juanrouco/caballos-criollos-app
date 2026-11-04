@@ -12,6 +12,17 @@ describe('fixCp1252', () => {
     expect(fixCp1252('Categoria A · Clasificatoria')).toBe('Categoria A · Clasificatoria');
     expect(fixCp1252(null)).toBe('');
   });
+
+  test('saca los espacios y retornos de los bordes', () => {
+    // El catálogo de pelos trae 94 de 96 nombres terminados en retorno de
+    // carro, así que el pelo llega como "ALAZAN\r" y se pintaba con un salto
+    // de línea de más.
+    expect(fixCp1252('ALAZAN\r')).toBe('ALAZAN');
+    expect(fixCp1252('ALAZAN CLARO\r\n')).toBe('ALAZAN CLARO');
+    expect(fixCp1252('  PICAZO  ')).toBe('PICAZO');
+    // Adentro no se toca: ahí un salto es parte del texto.
+    expect(fixCp1252('dos\nlineas')).toBe('dos\nlineas');
+  });
 });
 
 describe('formatDate', () => {

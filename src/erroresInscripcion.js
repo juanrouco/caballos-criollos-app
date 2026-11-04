@@ -25,8 +25,11 @@ const TEXTOS = {
   YuntaInvalida: 'El compañero de yunta no es válido para esta prueba.',
   YuntaOcupada: 'Ese compañero ya fue elegido por otra inscripción en esta categoría.',
   EquipoFaltante: 'Falta elegir el equipo.',
-  EquipoOcupado: 'Ese equipo ya está anotado en esta prueba.',
-  AnimalEnOtroEquipo: 'Un integrante del equipo ya está anotado en esta prueba con otro equipo.',
+  // Las dos son por prueba + categoría, no por prueba: un equipo anotado en
+  // otra categoría de la misma prueba no molesta. (En Aparte, las categorías
+  // 15 y 29 cuentan como una sola porque comparten el cupo.)
+  EquipoOcupado: 'Ese equipo ya está anotado en esta categoría.',
+  AnimalEnOtroEquipo: 'Un integrante del equipo ya está anotado en esta categoría con otro equipo.',
   PruebaNoHabilitada: 'Esta prueba no está habilitada en el evento.',
   MorfologiaNoHabilitada: 'La morfología no está habilitada en el evento.',
   OtonioRegla: 'Esta inscripción no cumple las reglas del evento.',

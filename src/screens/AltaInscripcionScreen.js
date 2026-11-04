@@ -527,8 +527,13 @@ function PasoAnimal({ t, evento, onElegir }) {
                 <Card t={t} style={{ padding: 14, borderColor: activo ? t.accent : t.border }}>
                   <Text style={{ fontFamily: F.display, fontSize: 15, color: bloqueado ? t.textDim : t.text }}>{a.nombre}</Text>
                   <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>
-                    {[a.sba && `S.B.A. ${a.sba}`, a.rp && `R.P. ${a.rp}`].filter(Boolean).join(' · ')}
+                    {datosAnimal(a)}
                   </Text>
+                  {esExtranjero(a) && (
+                    <Text style={{ fontFamily: F.bodyMed, fontSize: 11, color: t.textMute, marginTop: 4 }}>
+                      Registro extranjero
+                    </Text>
+                  )}
                   {bloqueado && (
                     // También con una inscripción rechazada: el rechazo es
                     // definitivo para ese evento.
@@ -900,7 +905,9 @@ function PasoParticipacion({ t, sel, set, onJinete, onUnidad, onSeguir }) {
           </Text>
         ) : faltan.length > 0 && (
           <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textDim, marginTop: 10, textAlign: 'center', lineHeight: 18 }}>
-            Falta {faltan.join(', ')}.
+            {/* Varias pruebas terminan en punto («F.Z.B.»), así que el punto
+                final se agrega sólo si no quedó uno. */}
+            {puntoFinal(`Falta ${faltan.join(', ')}`)}
           </Text>
         )}
       </View>
@@ -997,7 +1004,7 @@ function SelectorUnidad({ t, elegida, modalidad, contexto, onPress }) {
       {esEquipo && elegida.equipo && (
         <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 6, lineHeight: 17 }}>
           {[elegida.companiero?.nombre, elegida.companiero2?.nombre].filter(Boolean).join(' · ') || 'Sin compañeros en el padrón'}
-          {elegida.jinete ? ` — jinete ${`${elegida.jinete.apellido || ''} ${elegida.jinete.nombre || ''}`.trim()}` : ' — sin jinete en el padrón'}
+          {elegida.jinete ? ` — jinete ${nombreJinete(elegida.jinete)}` : ' — sin jinete en el padrón'}
         </Text>
       )}
     </>
@@ -1045,15 +1052,37 @@ function Participacion({ t, titulo, datos, valor, onToggle, onJinete }) {
 // falta distinguirlo de otro igual.
 const rotular = (texto, contexto) => (contexto ? `${texto} · ${contexto}` : texto);
 
+// Cierra una frase sin duplicar el punto. Hace falta porque varios nombres de
+// prueba ya terminan en punto («F.Z.B.», «R.J. Dowdall» no, pero sí las
+// siglas), y quedaba «Falta el jinete de F.Z.B..».
+const puntoFinal = (s) => (s.endsWith('.') ? s : `${s}.`);
+
+// Cómo se nombra a un jinete o domador en toda la pantalla: apellido y nombre,
+// como en el padrón.
+const nombreJinete = (j) => (j ? `${j.apellido || ''} ${j.nombre || ''}`.trim() || null : null);
+
+// La línea de datos de una tarjeta de animal. Lleva lo mismo que la tabla de
+// buscar_caballos_resultado.php: S.B.A., R.P., fecha de nacimiento y pelo. Con
+// el S.B.A. y el R.P. solos no alcanza — el mismo par puede existir en dos
+// registros y las tarjetas quedan idénticas salvo por el nombre.
+const datosAnimal = (a) => [
+  a?.sba && `S.B.A. ${a.sba}`,
+  a?.rp && `R.P. ${a.rp}`,
+  a?.fechaNacimiento && formatDate(a.fechaNacimiento),
+  a?.pelo,
+].filter(Boolean).join(' · ');
+
+// Un animal de registro extranjero no se distingue por los números, así que la
+// tarjeta lo dice. La tabla sale del propio id (`extr:123`).
+const esExtranjero = (a) => animalAPayload(a?.id)?.tabla === 'IdExtr';
+
 function SelectorJinete({ t, jinete, onPress, rol, contexto }) {
   const vacio = rol === 'domador' ? 'Elegir domador (opcional)' : 'Elegir jinete';
   return (
     <TouchableOpacity onPress={onPress} accessibilityLabel={rotular(vacio, contexto)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 12, borderRadius: 10, backgroundColor: t.surface2, borderWidth: 1, borderColor: t.border }}>
       <Icon name="user" size={16} color={t.accent} />
       <Text style={{ flex: 1, fontFamily: F.bodyMed, fontSize: 13, color: jinete ? t.text : t.textMute }}>
-        {jinete
-          ? `${jinete.apellido || ''} ${jinete.nombre || ''}`.trim()
-          : vacio}
+        {jinete ? nombreJinete(jinete) : vacio}
       </Text>
       <Icon name="arrow" size={15} color={t.textMute} />
     </TouchableOpacity>
@@ -1124,7 +1153,7 @@ function PasoJinete({ t, evento, onElegir, rol }) {
           <TouchableOpacity key={j.id} onPress={() => !j.tieneDeuda && onElegir(j)} disabled={j.tieneDeuda} activeOpacity={0.8}>
             <Card t={t} style={{ padding: 14 }}>
               <Text style={{ fontFamily: F.display, fontSize: 15, color: j.tieneDeuda ? t.textDim : t.text }}>
-                {`${j.apellido || ''} ${j.nombre || ''}`.trim()}
+                {nombreJinete(j)}
               </Text>
               {j.documento && (
                 <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>Doc. {j.documento}</Text>
@@ -1208,7 +1237,7 @@ function PasoYunta({ t, sel, destino, onElegir }) {
               <Card t={t} style={{ padding: 14 }}>
                 <Text style={{ fontFamily: F.display, fontSize: 15, color: bloqueado ? t.textDim : t.text }}>{c.nombre}</Text>
                 <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>
-                  {[c.sba && `S.B.A. ${c.sba}`, c.rp && `R.P. ${c.rp}`].filter(Boolean).join(' · ')}
+                  {datosAnimal(c)}
                 </Text>
                 {propio && (
                   <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
@@ -1476,9 +1505,9 @@ function SelectorIntegrante({ t, animal, contexto, fijo, onPress }) {
         <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: animal ? t.text : t.textMute }} numberOfLines={1}>
           {animal?.nombre || 'Elegir animal'}
         </Text>
-        {animal && (animal.sba || animal.rp) && (
+        {!!datosAnimal(animal) && (
           <Text style={{ fontFamily: F.body, fontSize: 11, color: t.textMute, marginTop: 2 }}>
-            {[animal.sba && `S.B.A. ${animal.sba}`, animal.rp && `R.P. ${animal.rp}`].filter(Boolean).join(' · ')}
+            {datosAnimal(animal)}
           </Text>
         )}
       </View>
@@ -1550,8 +1579,13 @@ function BuscarIntegrante({ t, onElegir }) {
             <Card t={t} style={{ padding: 14 }}>
               <Text style={{ fontFamily: F.display, fontSize: 15, color: t.text }}>{a.nombre}</Text>
               <Text style={{ fontFamily: F.body, fontSize: 11.5, color: t.textMute, marginTop: 3 }}>
-                {[a.sba && `S.B.A. ${a.sba}`, a.rp && `R.P. ${a.rp}`].filter(Boolean).join(' · ')}
+                {datosAnimal(a)}
               </Text>
+              {esExtranjero(a) && (
+                <Text style={{ fontFamily: F.bodyMed, fontSize: 11, color: t.textMute, marginTop: 4 }}>
+                  Registro extranjero
+                </Text>
+              )}
             </Card>
           </TouchableOpacity>
         ))}
@@ -1632,12 +1666,26 @@ function PasoConfirmar({ t, sel, onHecho }) {
 
       <SectionLabel t={t} style={{ marginTop: 24, paddingHorizontal: 0 }}>Participación</SectionLabel>
       <Card t={t}>
-        <Dato t={t} label="Morfología" value={sel.morfologia ? 'Participa' : 'No participa'} />
-        <Dato t={t} label="Tipo y aptitud" value={sel.tipoAptitud ? 'Participa' : 'No participa'} last={sel.pruebas.length === 0} />
+        <Dato
+          t={t} label="Morfología"
+          value={sel.morfologia ? 'Participa' : 'No participa'}
+          detalle={sel.morfologia ? conQuien({ jinete: sel.morfologia.jinete }) : null}
+        />
+        <Dato
+          t={t} label="Tipo y aptitud"
+          value={sel.tipoAptitud ? 'Participa' : 'No participa'}
+          detalle={sel.tipoAptitud ? conQuien({ jinete: sel.tipoAptitud.jinete }) : null}
+          last={sel.pruebas.length === 0}
+        />
         {sel.pruebas.map((p, n) => (
           // Varias categorías vienen sin nombre: ahí alcanza con decir que
           // participa, en vez de mostrar un guión como si faltara el dato.
-          <Dato key={p.prueba} t={t} label={p.nombre} value={p.categoriaNombre || 'Participa'} last={n === sel.pruebas.length - 1} />
+          <Dato
+            key={p.prueba} t={t} label={p.nombre}
+            value={p.categoriaNombre || 'Participa'}
+            detalle={conQuien(p)}
+            last={n === sel.pruebas.length - 1}
+          />
         ))}
       </Card>
 
@@ -1650,11 +1698,14 @@ function PasoConfirmar({ t, sel, onHecho }) {
           <Text style={{ fontFamily: F.bodyBold, fontSize: 13, color: t.text, marginBottom: 8 }}>
             No se pudo inscribir
           </Text>
-          {errores.map((e, n) => (
-            <Text key={n} style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, lineHeight: 18, marginTop: 4 }}>
-              · {e.texto}
-            </Text>
-          ))}
+          {errores.map((e, n) => {
+            const donde = dondeFalla(sel, e);
+            return (
+              <Text key={n} style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, lineHeight: 18, marginTop: 4 }}>
+                · {donde ? `${donde}: ` : ''}{e.texto}
+              </Text>
+            );
+          })}
         </View>
       )}
       {error && <View style={{ marginTop: 20 }}><ErrorCard t={t} texto={error} /></View>}
@@ -1664,12 +1715,43 @@ function PasoConfirmar({ t, sel, onHecho }) {
   );
 }
 
-function Dato({ t, label, value, last }) {
+// Con quién corre: el jinete, el equipo y el compañero que el socio eligió.
+// El resumen mostraba sólo la categoría, así que se confirmaba sin ver a quién
+// había elegido en cada prueba. Devuelve null si no hay nada que agregar.
+function conQuien(p) {
+  const jinete = nombreJinete(p?.jinete);
+  const domador = nombreJinete(p?.domador);
+  const companieros = [p?.companiero?.nombre, p?.companiero2?.nombre].filter(Boolean);
+  return [
+    p?.equipo?.nombre && `Equipo ${p.equipo.nombre}`,
+    companieros.length > 0 && `Con ${companieros.join(' y ')}`,
+    jinete && `Jinete ${jinete}`,
+    domador && `Domador ${domador}`,
+  ].filter(Boolean).join(' · ') || null;
+}
+
+// A qué participación corresponde un error del 422. Con varias pruebas
+// elegidas, «ya está anotado» sin decir dónde no alcanza para arreglarlo: el
+// 422 trae `prueba` y `categoria`, así que los nombramos con lo que el socio
+// acaba de elegir. Si no matchea ninguna, no inventamos un rótulo.
+function dondeFalla(sel, e) {
+  if (e?.prueba == null) return null;
+  const p = (sel?.pruebas || []).find(
+    (x) => x.prueba === e.prueba && (e.categoria == null || x.categoria === e.categoria),
+  );
+  if (!p) return null;
+  return p.categoriaNombre ? `${p.nombre} · ${p.categoriaNombre}` : p.nombre;
+}
+
+function Dato({ t, label, value, detalle, last }) {
   return (
     <>
       <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
         <Text style={{ fontSize: 10, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase', fontFamily: F.bodyBold, marginBottom: 5 }}>{label}</Text>
         <Text style={{ fontFamily: F.body, fontSize: 14.5, color: value ? t.text : t.textDim }}>{value || '—'}</Text>
+        {!!detalle && (
+          <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textMute, marginTop: 4, lineHeight: 17 }}>{detalle}</Text>
+        )}
       </View>
       {!last && <Divider t={t} />}
     </>
@@ -1693,13 +1775,15 @@ function PasoListo({ t, resultado, onCerrar }) {
         )}
       </View>
 
-      {resultado?.precio != null && (
-        <Card t={t}>
-          <Dato t={t} label="Total" value={`$ ${resultado.precio}`} last={!resultado.pruebas?.length} />
-          {(resultado.pruebas || []).map((p, n) => (
-            <Dato key={n} t={t} label={p.listaEspera ? 'Prueba (lista de espera)' : 'Prueba'} value={p.precio != null ? `$ ${p.precio}` : '—'} last={n === resultado.pruebas.length - 1} />
-          ))}
-        </Card>
+      {/* El comprobante no muestra importes. El 201 los trae, pero el precio
+          de la base no es el que el socio termina pagando (las tarifas del
+          evento viven en el texto de la alerta y las sobretasas dependen de la
+          categoría de socio), así que mostrarlo confunde más de lo que ayuda.
+          La lista de espera sí se avisa: cambia si corre o no. */}
+      {(resultado?.pruebas || []).some((p) => p.listaEspera) && (
+        <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, lineHeight: 18, marginTop: 16 }}>
+          Alguna de las pruebas quedó en lista de espera: el lugar lo confirma la organización.
+        </Text>
       )}
 
       {resultado?.pruebas === null && (

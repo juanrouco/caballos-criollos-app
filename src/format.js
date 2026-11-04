@@ -23,9 +23,14 @@ const CP1252 = {
   '\u0093': '\u201C', '\u0094': '\u201D', '\u0095': '\u2022',
   '\u0096': '\u2013', '\u0097': '\u2014',
 };
+// El `trim` final es por los cat\u00E1logos viejos: en `tblPelos` 94 de los 96
+// nombres terminan en retorno de carro, as\u00ED que el pelo llega como
+// "ALAZAN\r" y se pinta con un salto de l\u00EDnea de m\u00E1s. Viene as\u00ED de
+// producci\u00F3n, no del ambiente de prueba. Mismo criterio que el mapeo de
+// arriba: lo arreglamos en el borde para no repetirlo en cada pantalla.
 export function fixCp1252(s) {
   if (s == null) return '';
-  return String(s).replace(/[\u0080-\u009F]/g, (c) => CP1252[c] ?? '');
+  return String(s).replace(/[\u0080-\u009F]/g, (c) => CP1252[c] ?? '').trim();
 }
 
 // "2026-07-16" → "16 de julio 2026" (mes en minúscula, sin coma). Si no matchea

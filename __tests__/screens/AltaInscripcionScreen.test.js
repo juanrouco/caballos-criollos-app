@@ -989,13 +989,30 @@ describe('AltaInscripcionScreen — confirmación', () => {
     });
   });
 
-  test('un 201 muestra el número de inscripción y el precio', async () => {
+  test('un 201 muestra el número de inscripción, sin importes', async () => {
+    // El 201 trae `precio`, pero el comprobante no lo muestra: el precio de la
+    // base no es el que el socio termina pagando.
     const utils = renderAlta();
     await hastaConfirmar(utils);
     fireEvent.press(utils.getByText('Confirmar inscripción'));
     expect(await utils.findByText('Inscripción N° 185901')).toBeTruthy();
     expect(utils.getByText('Definitiva')).toBeTruthy();
-    expect(utils.getByText('$ 2151')).toBeTruthy();
+    expect(utils.queryByText('$ 2151')).toBeNull();
+    expect(utils.queryByText(/\$/)).toBeNull();
+  });
+
+  test('la lista de espera sí se avisa en el comprobante', async () => {
+    api.crearInscripcion.mockResolvedValue({
+      inscripcion: {
+        id: 185903, estado: 1, estado_nombre: 'Definitiva', precio: 2151,
+        pruebas: [{ prueba: 5, categoria: 14, lista_espera: true, precio: 0 }],
+      },
+    });
+    const utils = renderAlta();
+    await hastaConfirmar(utils);
+    fireEvent.press(utils.getByText('Confirmar inscripción'));
+    expect(await utils.findByText(/lista de espera/)).toBeTruthy();
+    expect(utils.queryByText(/\$/)).toBeNull();
   });
 
   test('un 201 con pruebas null igual confirma el alta', async () => {
@@ -1212,5 +1229,91 @@ describe('AltaInscripcionScreen — equipo nuevo', () => {
     expect(await utils.findByText('EL CASTRADO ya está inscripto en esta prueba con otro equipo')).toBeTruthy();
     fireEvent.press(utils.getByText('Volver a los equipos'));
     expect(await utils.findByText('EL TRÍO')).toBeTruthy();
+  });
+});
+
+// Lo que el socio ve antes de decidir: las tarjetas de animal, el resumen y el
+// 422. Todo esto salió de probar el alta contra una copia de la base real.
+describe('AltaInscripcionScreen — qué muestra antes de confirmar', () => {
+  test('la tarjeta del animal trae fecha y pelo, y marca el registro extranjero', async () => {
+    // Dos registros distintos pueden traer el mismo S.B.A. y el mismo R.P.:
+    // con esos dos datos solos las tarjetas quedaban idénticas. Es lo mismo
+    // que muestra la web en buscar_caballos_resultado.php.
+    api.buscarAnimalesAlta.mockResolvedValue([
+      { id: 'exis:9061101', nombre: 'QA YEGUA', sba: '9061101', rp: 'QA101', sexo: 2,
+        fecha_nacimiento: '2015-03-02', pelo: 'ALAZAN\r', ya_inscripto: false },
+      { id: 'extr:9061101', nombre: 'QA EXTRANJERO', sba: '9061101', rp: 'QA101', sexo: 2,
+        fecha_nacimiento: '2016-04-03', pelo: 'ZAINO\r', ya_inscripto: false },
+    ]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '9061101');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    // El pelo viene del catálogo con un retorno de carro al final.
+    expect(await utils.findByText('S.B.A. 9061101 · R.P. QA101 · 02/03/2015 · ALAZAN')).toBeTruthy();
+    expect(utils.getByText('S.B.A. 9061101 · R.P. QA101 · 03/04/2016 · ZAINO')).toBeTruthy();
+    expect(utils.getAllByText('Registro extranjero')).toHaveLength(1);
+  });
+
+  test('el pie no duplica el punto de una prueba que ya termina en punto', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      morfologia: { categoria: null, habilitada: false },
+      tipo_aptitud: { categoria: null, habilitada: false },
+      pruebas: [{ prueba: { id: 1, nombre: 'F.Z.B.' }, modalidad: 'individual',
+        categorias: [{ id: 6, nombre: 'A', habilitada: true, cupo: 20, ocupacion: 0, lista_espera: false }] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('F.Z.B. · A'));
+    expect(await utils.findByText('Falta el jinete de F.Z.B.')).toBeTruthy();
+  });
+
+  test('el resumen dice el jinete de la participación', async () => {
+    // Antes decía sólo «Participa»: se confirmaba sin ver a quién se eligió.
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByText('No participa'));
+    await ponerJinete(utils);
+    fireEvent.press(utils.getByText('Continuar'));
+    await utils.findByText('Confirmar inscripción');
+    expect(utils.getByText('Jinete Gómez Ana')).toBeTruthy();
+  });
+
+  test('el resumen nombra el equipo, sus compañeros y el jinete', async () => {
+    api.fetchOpcionesAlta.mockResolvedValue({
+      ...OPCIONES,
+      morfologia: { categoria: null, habilitada: false },
+      tipo_aptitud: { categoria: null, habilitada: false },
+      pruebas: [{ prueba: { id: 6, nombre: 'Aparte Campero' }, modalidad: 'equipo',
+        categorias: [{ id: 9, nombre: 'Mayor', habilitada: true, cupo: 20, ocupacion: 2, lista_espera: false }] }],
+    });
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Aparte Campero · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir equipo'));
+    fireEvent.press(await utils.findByText('EL TRÍO'));
+    fireEvent.press(await utils.findByText('Continuar'));
+    await utils.findByText('Confirmar inscripción');
+    expect(utils.getByText('Equipo EL TRÍO · Con EL PRIMERO y LA SEGUNDA · Jinete Gómez Ana')).toBeTruthy();
+  });
+
+  test('el 422 dice en qué prueba y categoría falló', async () => {
+    api.crearInscripcion.mockRejectedValueOnce(new ApiError({
+      path: '/inscripciones', status: 422, detail: 'x', code: 'inscripcion_invalida',
+      errores: [{ codigo: 'AnimalEnOtroEquipo', campo: null, prueba: 1, categoria: 12 }],
+    }));
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    await ponerJinete(utils);
+    fireEvent.press(utils.getByText('Continuar'));
+    fireEvent.press(await utils.findByText('Confirmar inscripción'));
+
+    expect(await utils.findByText(
+      '· Rienda · Mayor: Un integrante del equipo ya está anotado en esta categoría con otro equipo.',
+    )).toBeTruthy();
   });
 });

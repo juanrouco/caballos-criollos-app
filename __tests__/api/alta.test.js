@@ -163,6 +163,16 @@ describe('textos de los errores del 422', () => {
     });
   });
 
+  test('los choques de equipo hablan de categoría, no de prueba', () => {
+    // Las dos reglas son por prueba + categoría: un equipo anotado en otra
+    // categoría de la misma prueba no molesta. Decir «en esta prueba» mandaba
+    // al socio a cambiar la prueba entera.
+    expect(textoErrorInscripcion('EquipoOcupado')).toMatch(/en esta categoría/);
+    expect(textoErrorInscripcion('AnimalEnOtroEquipo')).toMatch(/en esta categoría/);
+    expect(textoErrorInscripcion('EquipoOcupado')).not.toMatch(/en esta prueba/);
+    expect(textoErrorInscripcion('AnimalEnOtroEquipo')).not.toMatch(/en esta prueba/);
+  });
+
   test('sin errores devuelve lista vacía, no revienta', () => {
     expect(describirErrores(undefined)).toEqual([]);
     expect(describirErrores(null)).toEqual([]);
