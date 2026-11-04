@@ -43,7 +43,7 @@ const TEXTOS = {
   CabaniaFaltante: 'Falta el nombre de la cabaña.',
   UbicacionFaltante: 'Faltan la provincia y la localidad.',
   RenspaFaltante: 'Este evento pide el Renspa y quedó vacío.',
-  RenspaInvalido: 'El Renspa no tiene un formato válido.',
+  RenspaInvalido: 'El Renspa tiene que quedar como 00.000.0.00000/00: 13 números.',
   CategoriaSinCalcular: 'No pudimos calcular la categoría morfológica de este animal.',
   JineteNoDisponible: 'Este jinete no está disponible.',
   EquipoInexistente: 'El equipo elegido ya no existe.',
@@ -114,6 +114,31 @@ export function textoEntradaInvalida(campo) {
 }
 
 export const CAMPOS_ENTRADA_INVALIDA = Object.keys(CAMPOS_DEL_SOCIO);
+
+// ── Los 503 del servicio ────────────────────────────────────────────
+//
+// `mantenimiento` y `base_no_disponible` también traen un `message` de sistema
+// («Base de datos no disponible», «No se pudo escribir la inscripción», «No se
+// pudo tomar el lock de equipos»): dicen qué falló por dentro, no qué puede
+// hacer el socio. Desde #241 el alta contesta `base_no_disponible` también
+// cuando no consigue el lock del evento en 5 segundos — o sea, cuando hay otra
+// alta del mismo evento en curso, que es lo más probable de los tres. En todos
+// los casos la base no escribió nada y reintentar es seguro.
+const TEXTOS_SERVICIO = {
+  mantenimiento: 'La inscripción está cerrada por mantenimiento. Probá más tarde.',
+  base_no_disponible: 'No pudimos completar la operación. Probá de nuevo en un rato.',
+};
+
+// En el alta se agrega lo único que el socio necesita saber para animarse a
+// reintentar: que no quedó anotado. Sin eso, el que vuelve a confirmar teme
+// inscribir dos veces el mismo animal.
+export const SERVICIO_ALTA = 'No pudimos guardar la inscripción y no quedó nada anotado. Probá de nuevo en un rato.';
+
+export function textoServicio(code) {
+  return TEXTOS_SERVICIO[code] || null;
+}
+
+export const CODIGOS_SERVICIO = Object.keys(TEXTOS_SERVICIO);
 
 // ── El 422 de POST /equipos ─────────────────────────────────────────
 //

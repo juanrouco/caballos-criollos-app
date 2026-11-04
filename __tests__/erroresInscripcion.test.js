@@ -1,6 +1,9 @@
 import {
   textoEntradaInvalida,
   CAMPOS_ENTRADA_INVALIDA,
+  textoServicio,
+  CODIGOS_SERVICIO,
+  SERVICIO_ALTA,
 } from '../src/erroresInscripcion';
 
 // El 400 `entrada_invalida` trae un `message` para quien programa («rp en
@@ -35,5 +38,29 @@ describe('textoEntradaInvalida', () => {
       const texto = textoEntradaInvalida(campo);
       expect(texto).not.toMatch(/entero positivo|en blanco|se esperaba/);
     }
+  });
+});
+
+describe('los 503 del servicio', () => {
+  test('cada código tiene su texto, y ninguno cuenta qué falló por dentro', () => {
+    for (const code of CODIGOS_SERVICIO) {
+      const texto = textoServicio(code);
+      expect(texto).toBeTruthy();
+      expect(texto).not.toMatch(/lock|transacción|base de datos|escribir la inscripción/i);
+    }
+  });
+
+  test('un código que no es de servicio no inventa texto', () => {
+    // Así `mensaje()` sigue cayendo en el `detail` del backend para los
+    // errores que sí están redactados para el socio (los de /auth, los 422).
+    expect(textoServicio('inscripcion_invalida')).toBeNull();
+    expect(textoServicio('')).toBeNull();
+    expect(textoServicio(undefined)).toBeNull();
+  });
+
+  test('el del alta dice lo único que importa: que no quedó anotado', () => {
+    // Es lo que decide si el socio reintenta o llama por teléfono.
+    expect(SERVICIO_ALTA).toMatch(/no quedó nada anotado/);
+    expect(SERVICIO_ALTA).toMatch(/de nuevo/);
   });
 });

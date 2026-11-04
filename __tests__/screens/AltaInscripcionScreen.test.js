@@ -465,11 +465,11 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByLabelText('Renspa')).toBeTruthy();
   });
 
-  test('un Renspa que no tiene 17 caracteres no deja seguir, y dice cuántos van', async () => {
-    // El backend sólo mira el largo (preparacionalta:124) y lo rechaza con un
-    // 422 RenspaInvalido al confirmar, dos pantallas después del campo y sin
-    // decir qué formato espera. Probado contra el ambiente: con 16 caracteres
-    // da 422, con 17 cualesquiera entra.
+  test('un Renspa incompleto no deja seguir, y dice qué formato va', async () => {
+    // El backend exige el formato exacto (`PreparacionAlta::RenspaFormato`,
+    // #242) y lo rechaza con un 422 RenspaInvalido al confirmar, dos pantallas
+    // después del campo. Antes de #242 sólo miraba el largo: 17 caracteres
+    // cualesquiera entraban (probado contra el ambiente).
     api.fetchEventosAlta.mockResolvedValue([{ ...EVENTO, pide_renspa: true }]);
     const utils = renderAlta();
     fireEvent.press(await utils.findByText('Expo Palermo 2026'));
@@ -1316,13 +1316,42 @@ describe('AltaInscripcionScreen — confirmación', () => {
 
   test('un error que no es 422 se muestra como mensaje, sin lista de reglas', async () => {
     api.crearInscripcion.mockRejectedValueOnce(new ApiError({
-      path: '/inscripciones', status: 503, detail: 'La base no responde', code: 'base_no_disponible',
+      path: '/inscripciones', status: 500, detail: 'Algo falló', code: '',
     }));
     const utils = renderAlta();
     await hastaConfirmar(utils);
     fireEvent.press(utils.getByText('Confirmar inscripción'));
-    expect(await utils.findByText('La base no responde')).toBeTruthy();
+    expect(await utils.findByText('Algo falló')).toBeTruthy();
     expect(utils.queryByText('No se pudo inscribir')).toBeNull();
+  });
+
+  test('el 503 del alta dice que no quedó anotado, y no el texto de sistema', async () => {
+    // Desde #241 el alta contesta `base_no_disponible` también cuando no
+    // consigue el lock del evento en 5 s: hay otra alta del mismo evento en
+    // curso. El `message` de la API («No se pudo escribir la inscripción») no
+    // le dice al socio lo único que necesita para animarse a reintentar.
+    api.crearInscripcion.mockRejectedValueOnce(new ApiError({
+      path: '/inscripciones', status: 503,
+      detail: 'No se pudo escribir la inscripción', code: 'base_no_disponible',
+    }));
+    const utils = renderAlta();
+    await hastaConfirmar(utils);
+    fireEvent.press(utils.getByText('Confirmar inscripción'));
+
+    expect(await utils.findByText(/no quedó nada anotado/)).toBeTruthy();
+    expect(utils.queryByText('No se pudo escribir la inscripción')).toBeNull();
+    expect(utils.getByText('Confirmar inscripción')).toBeTruthy(); // se puede reintentar
+  });
+
+  test('el 503 de mantenimiento se traduce igual', async () => {
+    api.crearInscripcion.mockRejectedValueOnce(new ApiError({
+      path: '/inscripciones', status: 503,
+      detail: 'La inscripción está en mantenimiento', code: 'mantenimiento',
+    }));
+    const utils = renderAlta();
+    await hastaConfirmar(utils);
+    fireEvent.press(utils.getByText('Confirmar inscripción'));
+    expect(await utils.findByText(/cerrada por mantenimiento/)).toBeTruthy();
   });
 });
 

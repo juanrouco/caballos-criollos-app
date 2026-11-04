@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Key
 import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
-import { describirErrores, describirErroresEquipo, textoEntradaInvalida } from '../erroresInscripcion';
+import { describirErrores, describirErroresEquipo, textoEntradaInvalida, textoServicio, SERVICIO_ALTA } from '../erroresInscripcion';
 import { alternarCategoria } from '../reglasAlta';
 import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
@@ -75,9 +75,14 @@ const sbaValido = (v) => /^[1-9]\d*$/.test(v.trim());
 // y arma el formato sola. Copiamos esa máscara en vez de validar un patrón, para
 // que la app deje tipear exactamente lo mismo que la web — ni más permisiva ni
 // más estricta. Con la máscara puesta, pedir 17 caracteres es pedir 13 números.
-const RENSPA_LARGO = 17;
+// El Renspa se valida con la MISMA expresión que el backend:
+// `PreparacionAlta::RenspaFormato` (#242), que la API y la web comparten. La
+// máscara de abajo ya produce exactamente ese formato, así que hoy medir el
+// largo daría igual; se chequea el patrón para que la regla de la app sea la
+// de la API y no una consecuencia de la máscara.
 const RENSPA_EJEMPLO = '00.000.0.00000/00';
-const renspaValido = (v) => v.trim().length === RENSPA_LARGO;
+const RENSPA_FORMATO = /^\d{2}\.\d{3}\.\d\.\d{5}\/\d{2}$/;
+const renspaValido = (v) => RENSPA_FORMATO.test(v.trim());
 
 // Igual que la web: los dígitos, cortados en 13, con los separadores puestos.
 function enmascararRenspa(v) {
@@ -274,12 +279,13 @@ function ErrorCard({ t, texto, onReintentar }) {
 //
 // El 400 `entrada_invalida` se traduce por `campo`: su `detail` viene redactado
 // para quien programa («rp en blanco o '0'») y no tiene por qué llegar a la
-// pantalla. El resto de los errores sí muestran lo que manda el backend — los
-// de `/auth` y los 422 están escritos para el socio.
+// pantalla. Los 503 del servicio, por `code`, por lo mismo. El resto de los
+// errores sí muestran lo que manda el backend — los de `/auth` y los 422 están
+// escritos para el socio.
 const mensaje = (e) => (
   e?.code === 'entrada_invalida'
     ? textoEntradaInvalida(e.campo)
-    : e?.detail || e?.message || 'No se pudo completar la operación'
+    : textoServicio(e?.code) || e?.detail || e?.message || 'No se pudo completar la operación'
 );
 
 // ¿Este HTML tiene algo para mostrar? Sin tags ni espacios duros no queda nada
@@ -1767,6 +1773,9 @@ function PasoConfirmar({ t, sel, onHecho }) {
     } catch (e) {
       // 422: la lista de reglas que no se cumplieron, cada una con su código.
       if (e?.status === 422) setErrores(describirErrores(e.errores));
+      // El 503 de acá es el único que puede dejar al socio con la duda de si
+      // quedó inscripto: no quedó (#241), y el texto se lo dice.
+      else if (e?.code === 'base_no_disponible') setError(SERVICIO_ALTA);
       else setError(mensaje(e));
       setEnviando(false);
     }
