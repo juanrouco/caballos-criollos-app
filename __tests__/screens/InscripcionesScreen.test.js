@@ -230,6 +230,30 @@ describe('InscripcionesScreen', () => {
     expect(getByText('Jinete: PÉREZ LUIS · Lista de espera')).toBeTruthy();
   });
 
+  test('un domador con espacios de más sale parejo igual', async () => {
+    // Tal cual lo devuelve cdev para una inscripción real: '    JUAN  MANUEL
+    // VELA'. Los nombres se cargan a mano y quedan con sangría o con dobles
+    // espacios; la web no lo nota porque el HTML los colapsa, y acá se veía
+    // «Domador:   JUAN  MANUEL VELA».
+    api.fetchCertificado.mockResolvedValueOnce({
+      certificado: {
+        numero: 190045, tipo: 'Definitiva', fecha: '2026-11-04', estado_nombre: 'Definitiva',
+        evento: { id: 9061102, nombre: 'QA CDEV pide Renspa' },
+        animal: { id: 'exis:9061001', nombre: 'LA TROPILLA', sba: '9061001' },
+        pruebas: [
+          { prueba: 'F.Z.B.', categoria: 'A', lista_espera: false,
+            jinete: 'QA CDEV Vigente', domador: '    JUAN  MANUEL VELA' },
+        ],
+      },
+    });
+    const { getByText, findByText } = await renderLogueada();
+    fireEvent.press(getByText('LA TROPILLA'));
+    fireEvent.press(await findByText('Ver certificado'));
+
+    expect(await findByText('F.Z.B. · A')).toBeTruthy();
+    expect(getByText('Jinete: QA CDEV Vigente · Domador: JUAN MANUEL VELA')).toBeTruthy();
+  });
+
   test('un animal no inspeccionado lo avisa, con el texto del backend', async () => {
     // `no_inspeccionado` no frena la inscripción (queda Definitiva igual) pero
     // decide si el animal puede correr tercios y semifinales. El PDF lo imprime

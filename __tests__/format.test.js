@@ -20,8 +20,19 @@ describe('fixCp1252', () => {
     expect(fixCp1252('ALAZAN\r')).toBe('ALAZAN');
     expect(fixCp1252('ALAZAN CLARO\r\n')).toBe('ALAZAN CLARO');
     expect(fixCp1252('  PICAZO  ')).toBe('PICAZO');
-    // Adentro no se toca: ahí un salto es parte del texto.
+    // El salto adentro no se toca: ahí es parte del texto (los avisos de un
+    // evento vienen con varios).
     expect(fixCp1252('dos\nlineas')).toBe('dos\nlineas');
+  });
+
+  test('colapsa los espacios de adentro, que la web disimula y la app no', () => {
+    // Visto en cdev: el domador de una inscripción real llega como
+    // '    JUAN  MANUEL VELA'. En HTML los espacios de más se colapsan solos;
+    // en React Native se pintan, y el nombre queda desparejo.
+    expect(fixCp1252('    JUAN  MANUEL VELA')).toBe('JUAN MANUEL VELA');
+    expect(fixCp1252('LA\tÑANDÚ')).toBe('LA ÑANDÚ');
+    // Un salto sigue intacto aunque lo rodeen espacios.
+    expect(fixCp1252('dos  \n  lineas')).toBe('dos \n lineas');
   });
 });
 

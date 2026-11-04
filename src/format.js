@@ -28,9 +28,18 @@ const CP1252 = {
 // "ALAZAN\r" y se pinta con un salto de l\u00EDnea de m\u00E1s. Viene as\u00ED de
 // producci\u00F3n, no del ambiente de prueba. Mismo criterio que el mapeo de
 // arriba: lo arreglamos en el borde para no repetirlo en cada pantalla.
+// Los espacios de más son del mismo origen: los nombres se cargan a mano y
+// llegan con sangría o con dobles espacios adentro («    JUAN  MANUEL VELA»,
+// el domador de una inscripción real de cdev). La web no lo nota porque el
+// HTML colapsa los espacios; React Native los pinta todos y el nombre sale
+// desparejo. Se colapsan sólo los espacios horizontales: un salto de línea
+// adentro sí es parte del texto (los avisos del evento vienen con varios).
 export function fixCp1252(s) {
   if (s == null) return '';
-  return String(s).replace(/[\u0080-\u009F]/g, (c) => CP1252[c] ?? '').trim();
+  return String(s)
+    .replace(/[\u0080-\u009F]/g, (c) => CP1252[c] ?? '')
+    .replace(/[^\S\r\n]+/g, ' ')
+    .trim();
 }
 
 // "2026-07-16" → "16 de julio 2026" (mes en minúscula, sin coma). Si no matchea
