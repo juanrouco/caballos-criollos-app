@@ -54,6 +54,17 @@ const SEXOS = [{ v: 1, label: 'Macho' }, { v: 2, label: 'Hembra' }, { v: 0, labe
 // sí es alfanumérico (hay R.P. con letras).
 const sbaValido = (v) => /^\d+$/.test(v.trim()) && Number(v.trim()) > 0;
 
+// El Renspa se escribe `00.000.0.00000/00`, 17 caracteres con los puntos y la
+// barra. Lo único que valida el backend es el largo (class.preparacionalta.php:
+// 124: strlen distinto de 17 ⇒ RenspaInvalido); el formato no lo mira nadie, así
+// que 17 caracteres cualesquiera entran. Acá copiamos esa misma regla, ni más
+// ni menos: ser más estricto que la API rechazaría altas que la API aceptaría.
+// Sin esto el socio se enteraba recién al confirmar, dos pantallas después del
+// campo, con un «no tiene un formato válido» que no dice cuál es el formato.
+const RENSPA_LARGO = 17;
+const RENSPA_EJEMPLO = '00.000.0.00000/00';
+const renspaValido = (v) => v.trim().length === RENSPA_LARGO;
+
 // Los tres buscadores que piden un S.B.A. avisan igual. Con el campo vacío no
 // dice nada: en dos de los tres el S.B.A. es opcional.
 function AvisoSba({ t, sba }) {
@@ -652,7 +663,7 @@ function PasoDatos({ t, sel, set, onSeguir }) {
     return () => { cancelado = true; };
   }, [sel.animal.id]);
   const completo = !!sel.cabania.trim() && !!sel.provincia.trim() && !!sel.localidad.trim()
-    && (!pideRenspa || !!sel.renspa.trim());
+    && (!pideRenspa || renspaValido(sel.renspa));
 
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -673,7 +684,14 @@ function PasoDatos({ t, sel, set, onSeguir }) {
         <Field t={t} label="Provincia" placeholder="Provincia" value={sel.provincia} onChange={(v) => set({ provincia: v })} />
         <Field t={t} label="Localidad" placeholder="Localidad" value={sel.localidad} onChange={(v) => set({ localidad: v })} />
         {pideRenspa && (
-          <Field t={t} label="Renspa" placeholder="Número de Renspa" value={sel.renspa} onChange={(v) => set({ renspa: v })} />
+          <View>
+            <Field t={t} label="Renspa" placeholder={RENSPA_EJEMPLO} value={sel.renspa} onChange={(v) => set({ renspa: v })} />
+            {!!sel.renspa.trim() && !renspaValido(sel.renspa) && (
+              <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textDim, marginTop: 8, lineHeight: 18 }}>
+                El Renspa tiene {RENSPA_LARGO} caracteres, con los puntos y la barra: {RENSPA_EJEMPLO}.
+              </Text>
+            )}
+          </View>
         )}
       </View>
       <Boton t={t} label="Continuar" onPress={onSeguir} disabled={!completo} style={{ marginTop: 22 }} />
@@ -1180,8 +1198,8 @@ function PasoJinete({ t, evento, onElegir, rol }) {
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={{ gap: 14 }}>
-        <Field t={t} label="Apellido" placeholder="Apellido del jinete" value={apellido} onChange={setApellido} />
-        <Field t={t} label="Nombre" placeholder="Nombre del jinete" value={nombre} onChange={setNombre} />
+        <Field t={t} label="Apellido" placeholder={`Apellido del ${esDomador ? 'domador' : 'jinete'}`} value={apellido} onChange={setApellido} />
+        <Field t={t} label="Nombre" placeholder={`Nombre del ${esDomador ? 'domador' : 'jinete'}`} value={nombre} onChange={setNombre} />
         <Field t={t} label="Documento" placeholder="Número de documento" value={documento} onChange={setDocumento} keyboardType="number-pad" />
       </View>
       <Boton t={t} label="Buscar" onPress={buscar} disabled={!puedeBuscar} loading={buscando} style={{ marginTop: 18 }} />
@@ -1712,6 +1730,7 @@ function PasoConfirmar({ t, sel, onHecho }) {
         <Dato t={t} label="Animal" value={sel.animal?.nombre} />
         <Dato t={t} label="Presentación" value={sel.presentacion === 'C' ? 'Cabestro' : 'Montado'} />
         <Dato t={t} label="Cabaña" value={sel.cabania} />
+        {!!sel.evento?.pideRenspa && <Dato t={t} label="Renspa" value={sel.renspa} />}
         <Dato t={t} label="Ubicación" value={[sel.localidad, sel.provincia].filter(Boolean).join(', ')} last />
       </Card>
 

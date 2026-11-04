@@ -384,6 +384,35 @@ function CertificadoView({ t, id }) {
         <Dato t={t} label="Ubicación" value={dato.ubicacion} last />
       </Card>
 
+      {dato.pruebas.length > 0 && (
+        <>
+          <SectionLabel t={t} style={{ marginTop: 24, paddingHorizontal: 0 }}>Pruebas</SectionLabel>
+          <Card t={t}>
+            {dato.pruebas.map((p, i) => (
+              <Dato
+                key={`${p.nombre}-${p.categoria}-${i}`}
+                t={t}
+                label={[p.nombre, p.categoria].filter(Boolean).join(' · ')}
+                value={[
+                  p.jinete && `Jinete: ${p.jinete}`,
+                  p.domador && `Domador: ${p.domador}`,
+                  p.listaEspera && 'Lista de espera',
+                ].filter(Boolean).join(' · ')}
+                last={i === dato.pruebas.length - 1}
+              />
+            ))}
+          </Card>
+        </>
+      )}
+
+      {dato.noInspeccionado && !!dato.avisoNoInspeccionado && (
+        <Card t={t} style={{ marginTop: 18, borderColor: withAlpha(t.live, 0.4) }}>
+          <Text style={{ fontFamily: F.bodyMed, fontSize: 12.5, color: t.live, lineHeight: 19 }}>
+            {dato.avisoNoInspeccionado}
+          </Text>
+        </Card>
+      )}
+
       {(dato.pedigri?.padre || dato.pedigri?.madre) && (
         <>
           <SectionLabel t={t} style={{ marginTop: 24, paddingHorizontal: 0 }}>Pedigree</SectionLabel>

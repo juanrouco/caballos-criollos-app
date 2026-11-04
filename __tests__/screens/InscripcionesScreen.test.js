@@ -206,6 +206,58 @@ describe('InscripcionesScreen', () => {
     );
   });
 
+  test('el certificado lista las pruebas con su jinete y su domador', async () => {
+    // El PDF las imprime y el detalle también: la pantalla del certificado era
+    // la única que no, aunque la API ya las mandaba.
+    api.fetchCertificado.mockResolvedValueOnce({
+      certificado: {
+        numero: 185901, tipo: 'Definitiva', fecha: '2026-07-14', estado_nombre: 'Definitiva',
+        evento: { id: 1201, nombre: 'Expo Palermo 2026' },
+        animal: { id: 'exis:1', nombre: 'LA TROPILLA', sba: '9059101' },
+        pruebas: [
+          { prueba: 'F.Z.B.', categoria: 'A', lista_espera: false, jinete: 'PÉREZ LUIS', domador: 'VELA JUAN' },
+          { prueba: 'Freno de Oro', categoria: 'A', lista_espera: true, jinete: 'PÉREZ LUIS', domador: '' },
+        ],
+      },
+    });
+    const { getByText, findByText } = await renderLogueada();
+    fireEvent.press(getByText('LA TROPILLA'));
+    fireEvent.press(await findByText('Ver certificado'));
+
+    expect(await findByText('F.Z.B. · A')).toBeTruthy();
+    expect(getByText('Jinete: PÉREZ LUIS · Domador: VELA JUAN')).toBeTruthy();
+    expect(getByText('Freno de Oro · A')).toBeTruthy();
+    expect(getByText('Jinete: PÉREZ LUIS · Lista de espera')).toBeTruthy();
+  });
+
+  test('un animal no inspeccionado lo avisa, con el texto del backend', async () => {
+    // `no_inspeccionado` no frena la inscripción (queda Definitiva igual) pero
+    // decide si el animal puede correr tercios y semifinales. El PDF lo imprime
+    // y la app no lo mostraba en ninguna pantalla.
+    const texto = 'Importante: Animal "no inspeccionado", de persistir la irregularidad no podrá participar en tercios y semifinales de las competencias.';
+    api.fetchCertificado.mockResolvedValueOnce({
+      certificado: {
+        numero: 185901, tipo: 'Definitiva', estado_nombre: 'Definitiva',
+        evento: { id: 1201, nombre: 'Expo Palermo 2026' },
+        animal: { id: 'exis:1', nombre: 'LA TROPILLA', sba: '9059101' },
+        pruebas: [{ prueba: 'F.Z.B.', categoria: 'A', lista_espera: false, jinete: 'PÉREZ LUIS', domador: '' }],
+        no_inspeccionado: true,
+        textos: { no_inspeccionado: texto },
+      },
+    });
+    const { getByText, findByText } = await renderLogueada();
+    fireEvent.press(getByText('LA TROPILLA'));
+    fireEvent.press(await findByText('Ver certificado'));
+    expect(await findByText(texto)).toBeTruthy();
+  });
+
+  test('sin aviso de inspección no se muestra nada', async () => {
+    const { getByText, findByText, queryByText } = await renderLogueada();
+    fireEvent.press(getByText('LA TROPILLA'));
+    fireEvent.press(await findByText('Ver certificado'));
+    expect(queryByText(/no inspeccionado/)).toBeNull();
+  });
+
   test('si el teléfono no puede compartir, lo dice en vez de fallar en silencio', async () => {
     descargas.compartirArchivo.mockResolvedValueOnce(false);
     const { getByText, findByText } = await renderLogueada();

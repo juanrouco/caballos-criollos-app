@@ -394,6 +394,40 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByLabelText('Renspa')).toBeTruthy();
   });
 
+  test('un Renspa que no tiene 17 caracteres no deja seguir, y dice cuántos van', async () => {
+    // El backend sólo mira el largo (preparacionalta:124) y lo rechaza con un
+    // 422 RenspaInvalido al confirmar, dos pantallas después del campo y sin
+    // decir qué formato espera. Probado contra el ambiente: con 16 caracteres
+    // da 422, con 17 cualesquiera entra.
+    api.fetchEventosAlta.mockResolvedValue([{ ...EVENTO, pide_renspa: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    fireEvent.press(await utils.findByText('Cabestro'));
+    fireEvent.press(utils.getByText('Continuar'));
+
+    const renspa = await utils.findByLabelText('Renspa');
+    fireEvent.changeText(utils.getByLabelText('Provincia'), 'Buenos Aires');
+    fireEvent.changeText(utils.getByLabelText('Localidad'), 'Bragado');
+    fireEvent.press(utils.getByLabelText('Cabaña'));
+    fireEvent.changeText(await utils.findByLabelText('Buscar o escribir una nueva'), 'LA QA');
+    fireEvent.press(await utils.findByText('Usar «LA QA»'));
+
+    const aviso = 'El Renspa tiene 17 caracteres, con los puntos y la barra: 00.000.0.00000/00.';
+    fireEvent.changeText(renspa, '123');
+    expect(utils.getByText(aviso)).toBeTruthy();
+    fireEvent.press(utils.getByText('Continuar'));
+    expect(utils.queryByText('Pruebas')).toBeNull();
+
+    fireEvent.changeText(renspa, '21.123.4.56789/01');
+    expect(utils.queryByText(aviso)).toBeNull();
+    fireEvent.press(utils.getByText('Continuar'));
+    expect(await utils.findByText('Pruebas')).toBeTruthy();
+  });
+
   // Deja el asistente en el paso de datos, con el selector de cabaña a mano.
   async function hastaDatos(utils) {
     fireEvent.press(await utils.findByText('Expo Palermo 2026'));
@@ -731,6 +765,17 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.getByText('Elegir domador (opcional)')).toBeTruthy();
   });
 
+  test('el buscador de domador habla de domadores, no de jinetes', async () => {
+    const utils = renderAlta();
+    await hastaParticipacion(utils);
+    fireEvent.press(utils.getByLabelText('Rienda · Mayor'));
+    fireEvent.press(await utils.findByText('Elegir domador (opcional)'));
+
+    expect(await utils.findByPlaceholderText('Apellido del domador')).toBeTruthy();
+    expect(utils.getByPlaceholderText('Nombre del domador')).toBeTruthy();
+    expect(utils.queryByPlaceholderText('Apellido del jinete')).toBeNull();
+  });
+
   test('morfología muestra la categoría calculada', async () => {
     const utils = renderAlta();
     await hastaParticipacion(utils);
@@ -964,6 +1009,34 @@ describe('AltaInscripcionScreen — confirmación', () => {
     fireEvent.press(utils.getByText('Continuar'));
     await utils.findByText('Confirmar inscripción');
   }
+
+  test('el resumen muestra el Renspa cuando el evento lo pide', async () => {
+    // Es un dato que el socio tipeó dos pantallas antes y que el evento exige:
+    // tiene que poder revisarlo antes de confirmar, como la cabaña.
+    api.fetchEventosAlta.mockResolvedValue([{ ...EVENTO, pide_renspa: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    fireEvent.press(await utils.findByText('Cabestro'));
+    fireEvent.press(utils.getByText('Continuar'));
+    fireEvent.press(await utils.findByLabelText('Cabaña'));
+    fireEvent.press(await utils.findByText('LA ESTANCIA'));
+    fireEvent.changeText(utils.getByLabelText('Provincia'), 'Córdoba');
+    fireEvent.changeText(utils.getByLabelText('Localidad'), 'Jesús María');
+    fireEvent.changeText(utils.getByLabelText('Renspa'), '21.123.4.56789/01');
+    fireEvent.press(utils.getByText('Continuar'));
+    await utils.findByText('Pruebas');
+    fireEvent.press(utils.getByText('No participa'));
+    await ponerJinete(utils);
+    fireEvent.press(utils.getByText('Continuar'));
+
+    expect(await utils.findByText('Confirmar inscripción')).toBeTruthy();
+    expect(utils.getByText('Renspa')).toBeTruthy();
+    expect(utils.getByText('21.123.4.56789/01')).toBeTruthy();
+  });
 
   test('arma el payload con el evento de inscripciones y el animal como {tabla, id}', async () => {
     const utils = renderAlta();

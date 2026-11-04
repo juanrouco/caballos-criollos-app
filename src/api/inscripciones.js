@@ -145,6 +145,12 @@ export function mapCertificado(c) {
       ? [texto(c.ubicacion.localidad), texto(c.ubicacion.provincia)].filter(Boolean).join(', ') || null
       : null,
     morfologia: c.morfologia ? texto(c.morfologia.categoria) : null,
+    // El animal corre funcionales sin inspección aprobada. No frena nada — la
+    // inscripción queda Definitiva igual — pero el PDF lo imprime y el socio
+    // tiene que verlo antes de presentarse. El texto lo pone el backend
+    // (TextosCertificado::NO_INSPECCIONADO), no la app: es la redacción oficial.
+    noInspeccionado: !!c.no_inspeccionado,
+    avisoNoInspeccionado: texto(c?.textos?.no_inspeccionado),
     pruebas: Array.isArray(c.pruebas)
       ? c.pruebas.map((p) => ({
           nombre: texto(p.prueba),
