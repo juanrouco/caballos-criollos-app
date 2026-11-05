@@ -259,3 +259,46 @@ export function textoErrorBaja(e) {
 
 export const CODIGOS_BAJA = Object.keys(TEXTOS_BAJA);
 export const MOTIVOS_BAJA_CONOCIDOS = Object.keys(MOTIVOS_BAJA);
+
+// ── El carnet de socio (#63) ────────────────────────────────────────
+//
+// Las tres rutas `/perfil/carnet*` traen `code` estable. `sin_carnet` es el
+// que más se va a ver y el que peor se explica solo: la API lo usa tanto para
+// «esta cuenta no califica» (sin número de socio, o no habilitada) como para
+// «todavía no emitiste» en el PDF. Como la app emite antes de bajar el PDF, en
+// la práctica el socio que ve esto es el que no califica.
+//
+// Ojo con una asimetría del contrato: acá una cuenta no habilitada NO da el
+// 403 `usuario_no_habilitado` de los otros endpoints, da este 404. Por eso el
+// texto tiene que valerse solo y no apoyarse en TEXTOS_USUARIO.
+const TEXTOS_CARNET = {
+  sin_carnet: 'Tu cuenta todavía no tiene carnet. Consultá con la Asociación si te corresponde uno.',
+  error_escritura: 'No pudimos generar el carnet. Probá de nuevo en un rato.',
+};
+
+export function textoCarnet(e) {
+  if (e?.code && TEXTOS_CARNET[e.code]) return TEXTOS_CARNET[e.code];
+  const usuario = textoUsuario(e?.code);
+  if (usuario) return usuario;
+  return textoServicio(e?.code) || e?.detail || e?.message || 'No pudimos mostrar el carnet.';
+}
+
+export const CODIGOS_CARNET = Object.keys(TEXTOS_CARNET);
+
+// ── La verificación pública (#64) ───────────────────────────────────
+//
+// Estas dos rutas NO traen `code`: la app decide por el status.
+//
+// El 429 es el que importa acertar. Cuenta las verificaciones inválidas por
+// IP, y en el predio muchos teléfonos salen por la misma (CGNAT), así que a
+// uno le puede tocar por lo que escanearon otros. No significa que el carnet
+// esté mal, y confundirlo con «no vale» sería dejar a un socio afuera por un
+// problema de red ajeno. Tampoco se le dice que espere diez minutos: en una
+// cola, eso no es una respuesta.
+export function textoVerificacion(status) {
+  if (status === 429) return 'No pudimos verificar este carnet ahora. No quiere decir que no valga: probá de nuevo.';
+  // La base caída da hoy 500 y no 503 (anotado como seguimiento del backend),
+  // así que los dos van al mismo texto.
+  if (status === 503 || status === 500) return 'No pudimos verificar el carnet: el servicio no responde. Probá de nuevo en un rato.';
+  return 'No pudimos verificar el carnet.';
+}

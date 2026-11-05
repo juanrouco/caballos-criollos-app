@@ -36,6 +36,19 @@ jest.mock('react-native-svg', () => {
 // react-native-webview: View con el mismo prop surface mínimo. Atrapamos
 // `injectedJavaScript` y `onMessage` para que el body de NewsDetail no
 // rompa al montar.
+// react-native-qrcode-svg: dibuja sobre react-native-svg, que ya está
+// stubeado arriba. Acá lo reemplazamos por una View que conserva el `value`,
+// así los tests pueden afirmar QUÉ se está codificando — que es lo único que
+// importa del QR: que lleve la url del carnet vigente.
+jest.mock('react-native-qrcode-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props) => React.createElement(View, { accessibilityLabel: `QR:${props.value}` }),
+  };
+});
+
 jest.mock('react-native-webview', () => {
   const React = require('react');
   const { View } = require('react-native');

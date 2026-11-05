@@ -7,6 +7,10 @@ export { getSession, setSession, clearSession, subscribeSession } from './sessio
 export { login, logout, cambiarClave, OLVIDO_CLAVE_URL } from './auth';
 export { fetchPerfil, mapPerfil } from './perfil';
 export {
+  emitirCarnet, rotarCarnet, descargarCarnetPdf, verificarSocio,
+  mapCarnet, mapVerificacion,
+} from './carnet';
+export {
   fetchInscripciones, fetchInscripcion, fetchCertificado, bajaInscripcion,
   mapListado, mapInscripcion, mapCertificado, mapBaja, descargarCertificadoPdf,
 } from './inscripciones';

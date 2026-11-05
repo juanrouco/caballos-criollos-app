@@ -10,6 +10,7 @@ import ReglamentosScreen from './screens/ReglamentosScreen';
 import MapaScreen from './screens/MapaScreen';
 import CuentaScreen from './screens/CuentaScreen';
 import InscripcionesScreen from './screens/InscripcionesScreen';
+import CarnetScreen from './screens/CarnetScreen';
 
 // Secciones con pantalla propia (overlay). Las que tienen `Component` renderizan
 // su pantalla real; el resto muestra el placeholder (SectionView).
@@ -17,6 +18,9 @@ export const SECTIONS = [
   { key: 'reglamentos', label: 'Reglamentos', icon: 'pdf', Component: ReglamentosScreen },
   { key: 'mapa',        label: 'Mapa ACCC',   icon: 'pin', Component: MapaScreen },
   { key: 'cuenta',      label: 'Mi cuenta',   icon: 'user', Component: CuentaScreen },
+  // Entrada propia y no un botón adentro de Mi cuenta: el socio lo saca en la
+  // tranquera, con alguien esperando. Dos toques, no cuatro.
+  { key: 'carnet',      label: 'Mi carnet',   icon: 'carnet', Component: CarnetScreen },
   { key: 'inscripciones', label: 'Mis inscripciones', icon: 'list', Component: InscripcionesScreen },
 ];
 

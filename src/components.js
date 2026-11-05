@@ -36,6 +36,8 @@ export function Icon({ name, size = 20, color = '#000', stroke = 1.8 }) {
     case 'mail': return <Svg {...p}><Rect x="3" y="5" width="18" height="14" rx="2" /><Path d="m3 7 9 6 9-6" /></Svg>;
     case 'list': return <Svg {...p}><Rect x="5" y="3" width="14" height="18" rx="2" /><Path d="M9 3.5h6a1 1 0 0 1 1 1V6H8V4.5a1 1 0 0 1 1-1z" /><Path d="M9 11h6M9 15h4" /></Svg>;
     case 'plus': return <Svg {...p}><Path d="M12 5v14M5 12h14" /></Svg>;
+    // Carnet: la tarjeta apaisada, la foto a la izquierda y dos renglones.
+    case 'carnet': return <Svg {...p}><Rect x="2" y="5" width="20" height="14" rx="2" /><Circle cx="8" cy="11" r="2" /><Path d="M5 16c.6-1.3 1.7-2 3-2s2.4.7 3 2" /><Path d="M15 10h4M15 14h3" /></Svg>;
     case 'logout': return <Svg {...p}><Path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3" /><Path d="m16 17 5-5-5-5" /><Path d="M21 12H9" /></Svg>;
     default: return null;
   }
