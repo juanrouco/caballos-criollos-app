@@ -29,7 +29,7 @@ export {
   fetchNoticias, fetchNoticia, fetchNoticiaCategorias, mapNoticia,
 } from './noticias';
 export { fetchNotificaciones, mapNotificacion, isUnreadSince } from './notificaciones';
-export { fetchReglamentos, fetchReglamentoPruebas, mapReglamento } from './reglamentos';
+export { fetchReglamentos, fetchReglamentoPruebas, fetchReglamento, mapReglamento } from './reglamentos';
 export { fetchDelegados, mapDelegado, romanFromDelegacion } from './delegados';
 export { fetchRankings, fetchRanking, fetchSolanetDetalle, decodeEntities, curateRankingFiltros } from './rankings';
 export {

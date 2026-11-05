@@ -6,6 +6,15 @@ import { apiGet } from './client';
 export const fetchReglamentos      = (params) => apiGet('/reglamentos', params);
 export const fetchReglamentoPruebas = ()      => apiGet('/reglamentos/pruebas');
 
+// El detalle tiene endpoint propio. Son las mismas claves que el de una
+// noticia —comparten tabla— más `prueba` y, sobre todo, `pdf`: la URL del
+// primer adjunto que termina en `.pdf`, que es la que va en el botón.
+//
+// La pantalla pedía `/noticias/{id}`, que no trae ese `pdf`, así que caía
+// siempre al primer adjunto sin mirar el tipo: un reglamento con un anexo
+// adelante abría el archivo equivocado.
+export const fetchReglamento = (id) => apiGet(`/reglamentos/${encodeURIComponent(id)}`);
+
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 // Normaliza un reglamento del listado al shape que consume la pantalla.

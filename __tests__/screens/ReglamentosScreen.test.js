@@ -6,10 +6,10 @@ jest.mock('../../src/api', () => ({
   fetchReglamentos: jest.fn(),
   fetchReglamentoPruebas: jest.fn(),
   mapReglamento: jest.requireActual('../../src/api/reglamentos').mapReglamento,
-  fetchNoticia: jest.fn(),
+  fetchReglamento: jest.fn(),
 }));
 
-const { fetchReglamentos, fetchReglamentoPruebas, fetchNoticia } = require('../../src/api');
+const { fetchReglamentos, fetchReglamentoPruebas, fetchReglamento } = require('../../src/api');
 const ReglamentosScreen = require('../../src/screens/ReglamentosScreen').default;
 const { T } = require('../helpers');
 
@@ -24,7 +24,7 @@ const REGS = [
 beforeEach(() => {
   fetchReglamentos.mockReset();
   fetchReglamentoPruebas.mockReset();
-  fetchNoticia.mockReset();
+  fetchReglamento.mockReset();
   fetchReglamentoPruebas.mockResolvedValue({ data: PRUEBAS });
   fetchReglamentos.mockResolvedValue({ data: REGS });
 });
@@ -47,11 +47,13 @@ describe('ReglamentosScreen', () => {
   });
 
   test('tocar un reglamento abre el detalle (contenido) y desde ahí el PDF', async () => {
-    fetchNoticia.mockResolvedValueOnce({ cuerpo: '<p>Reglamento vigente</p>', archivos: [{ id: 1, nombre: 'Reg.pdf', url: 'https://x/reg.pdf' }] });
+    fetchReglamento.mockResolvedValueOnce({ cuerpo: '<p>Reglamento vigente</p>', pdf: 'https://x/reg.pdf', archivos: [{ id: 1, nombre: 'Reg.pdf', url: 'https://x/reg.pdf' }] });
     const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
     const { findByText, getByText } = render(<ReglamentosScreen t={T} topInset={0} onBack={jest.fn()} />);
     fireEvent.press(await findByText('Freno de Oro - Reglamento'));
-    await waitFor(() => expect(fetchNoticia).toHaveBeenCalledWith(1072));
+    // El detalle tiene endpoint propio: /noticias/{id} comparte tabla pero no
+    // trae el `pdf` resuelto.
+    await waitFor(() => expect(fetchReglamento).toHaveBeenCalledWith(1072));
     // Vista de detalle: título del reglamento + botón para abrir el PDF (fuera de la app)
     expect(await findByText('Abrir PDF')).toBeTruthy();
     fireEvent.press(getByText('Abrir PDF'));
@@ -59,8 +61,39 @@ describe('ReglamentosScreen', () => {
     spy.mockRestore();
   });
 
+  test('el botón abre el `pdf` de la API, no el primer adjunto cualquiera', async () => {
+    // Es la razón del cambio de endpoint: `pdf` es «el primer adjunto que
+    // termina en .pdf», y `/noticias/{id}` no lo trae. Con el fallback al
+    // primer archivo, un reglamento con un anexo adelante abría el anexo.
+    fetchReglamento.mockResolvedValueOnce({
+      cuerpo: '<p>x</p>',
+      archivos: [
+        { id: 1, nombre: 'Anexo.docx', url: 'https://x/anexo.docx' },
+        { id: 2, nombre: 'Reglamento.pdf', url: 'https://x/reg.pdf' },
+      ],
+      pdf: 'https://x/reg.pdf',
+    });
+    const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    const { findByText, getByText } = render(<ReglamentosScreen t={T} topInset={0} onBack={jest.fn()} />);
+    fireEvent.press(await findByText('Freno de Oro - Reglamento'));
+    fireEvent.press(await findByText('Abrir PDF'));
+    expect(spy).toHaveBeenCalledWith('https://x/reg.pdf');
+    expect(spy).not.toHaveBeenCalledWith('https://x/anexo.docx');
+    spy.mockRestore();
+  });
+
+  test('sin `pdf` cae al primer archivo: mejor eso que no ofrecer nada', async () => {
+    fetchReglamento.mockResolvedValueOnce({ cuerpo: '<p>x</p>', archivos: [{ id: 1, nombre: 'Viejo.doc', url: 'https://x/viejo.doc' }] });
+    const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+    const { findByText } = render(<ReglamentosScreen t={T} topInset={0} onBack={jest.fn()} />);
+    fireEvent.press(await findByText('Freno de Oro - Reglamento'));
+    fireEvent.press(await findByText('Abrir PDF'));
+    expect(spy).toHaveBeenCalledWith('https://x/viejo.doc');
+    spy.mockRestore();
+  });
+
   test('desde el detalle, Volver regresa al listado', async () => {
-    fetchNoticia.mockResolvedValueOnce({ cuerpo: '<p>x</p>', archivos: [] });
+    fetchReglamento.mockResolvedValueOnce({ cuerpo: '<p>x</p>', archivos: [] });
     const { findByText, getByLabelText, queryByText } = render(<ReglamentosScreen t={T} topInset={0} onBack={jest.fn()} />);
     fireEvent.press(await findByText('Rodeos - Jurados vigentes'));
     await findByText('Reglamento'); // header del detalle

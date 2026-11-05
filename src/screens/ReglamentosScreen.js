@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
-import { fetchReglamentos, fetchReglamentoPruebas, mapReglamento, fetchNoticia } from '../api';
+import { fetchReglamentos, fetchReglamentoPruebas, fetchReglamento, mapReglamento } from '../api';
 import HtmlBody from '../HtmlBody';
 
 // Sección Reglamentos: lista de reglamentos filtrable por prueba (chips). Al
@@ -42,7 +42,7 @@ export default function ReglamentosScreen({ t, topInset, onBack }) {
 
   const openReglamento = React.useCallback((item) => {
     setSelected(item); setDetail(null); setDetailError(false);
-    fetchNoticia(item.id)
+    fetchReglamento(item.id)
       .then((d) => setDetail(d || {}))
       .catch(() => setDetailError(true));
   }, []);
@@ -129,6 +129,9 @@ export default function ReglamentosScreen({ t, topInset, onBack }) {
 // adjunto en el visor del teléfono (fuera de la app).
 function ReglamentoDetail({ t, topInset, item, detail, error, onBack }) {
   const cuerpo = (detail?.cuerpo || '').trim();
+  // `pdf` ya viene resuelto por la API con la regla correcta (el primer
+  // adjunto .pdf). El fallback queda por si un reglamento viejo no tiene
+  // ninguno: ahí abrir el primer archivo es mejor que no ofrecer nada.
   const pdfUrl = detail?.pdf || (detail?.archivos || [])[0]?.url || null;
   const loading = detail === null && !error;
 
