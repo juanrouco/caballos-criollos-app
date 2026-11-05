@@ -485,7 +485,10 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByText('Criador')).toBeTruthy();
     expect(utils.getByText('Propietario')).toBeTruthy();
     expect(utils.getByText('Expositor')).toBeTruthy();
-    expect(utils.getAllByText('LA ENTABLADA S.A.').length).toBe(3);
+    // Los rótulos salen en el primer render; los VALORES los trae otro fetch
+    // (la ficha del animal) y hasta que llega se muestra «…». Leerlos con un
+    // `getAllByText` sincrónico pasaba sólo si ese fetch ganaba la carrera.
+    expect(await utils.findAllByText('LA ENTABLADA S.A.')).toHaveLength(3);
   });
 
   test('el Renspa sólo se pide si el evento lo pide', async () => {
