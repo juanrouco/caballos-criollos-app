@@ -151,8 +151,19 @@ de a Expo).
 
 ## Pendientes / próximos pasos
 
+- **El carnet de socio con QR y la verificación** (#63 / #64). Es lo único que
+  falta de la etapa 2; la app no tiene nada todavía. El backend ya los
+  implementó —`POST /perfil/carnet`, `POST /perfil/carnet/rotar`,
+  `GET /perfil/carnet.pdf`, y `GET /socios/verificacion/{token}` para la app—,
+  pero **el contrato no está en `docs/README.md`**, así que no se arranca hasta
+  que esté: el carnet maneja un token que valida la identidad de una persona y
+  tiene una rotación que mata el QR anterior, y eso no se deduce de la firma de
+  una ruta. Pedido al equipo de la API.
 - Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`) por
   assets propios. Son el fallback de las noticias y los eventos sin imagen.
+
+Los adjuntos de inscripción quedaron fuera de alcance; la API tampoco tiene
+ningún endpoint de subida.
 
 La paleta y el modo (`PALETTE` / `MODE` en `App.js`) quedan fijos a propósito:
 son constantes, no una preferencia del usuario.
@@ -160,4 +171,23 @@ son constantes, no una preferencia del usuario.
 Sin probar todavía, y por qué: login desde cero, logout y cambio de clave
 (hace falta la clave de un socio de prueba); push notifications y el deeplink
 de arranque en frío (sólo llegan en build standalone sobre device físico);
-el botón EN VIVO y el video (no hubo un vivo contra el que probar); Android.
+Android.
+
+### Qué no se puede ver funcionando en cdev
+
+El ambiente local sirve para el alta, las inscripciones, el perfil y el stud
+book, pero no para todo. Antes de salir a buscar un bug en la app, chequear si
+no es esto:
+
+- **Eventos, Noticias, Reglamentos y vivos están vacíos**: `/eventos`,
+  `/noticias`, `/reglamentos` y `/vivos` devuelven `count: 0`. Esas pantallas
+  sólo pueden mostrar su estado vacío, y sin vivos el botón EN VIVO del footer
+  no aparece (es correcto: sólo existe con una transmisión activa).
+- **Los rankings dan 500 siempre**: el handler sale a `caballoscriollos.com` y
+  el contenedor no tiene salida a internet
+  (`Could not resolve host`). Es cómodo para probar el estado de error, inútil
+  para el camino feliz.
+- **No se puede escribir en los inputs** desde las tools del simulador: ni
+  tipeando, ni por portapapeles, ni con el menú de pegar. Lo que necesita
+  teclado (Pedigree, la búsqueda de animal del alta, el cambio de clave) hay
+  que tipearlo a mano.

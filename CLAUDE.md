@@ -33,7 +33,9 @@ No hay linter, formatter ni typecheck configurado. El proyecto es JS plano (no T
 ### Navigation
 `App.js` wires a single `NavigationContainer` with a `Stack.Navigator` whose root screen is `Tabs` (a `BottomTabNavigator`). Stack screens (`EventDetail`, `HorseDetail`, `RankingCat`) push on top of the tabs.
 
-The tab bar is fully custom (`CustomTabBar` in `App.js`) — a floating pill with a raised circular "EN VIVO" button in the middle slot that navigates to `EventosTab`. The center button is *not* a real route; the tab array has a `{ center: true }` sentinel that's rendered specially.
+The tab bar is fully custom (`CustomTabBar` in `App.js`) — a floating pill with a raised circular "EN VIVO" button in the middle slot. The center button is *not* a real route; the tab array has a `{ center: true }` sentinel that's rendered specially.
+
+⚠️ Ese botón **sólo existe cuando hay una transmisión activa** (`hasLive`, de `useLive()`): sin vivo el array no lleva el sentinel y la barra queda con cuatro ítems parejos. Que no esté no es un bug — en cdev nunca hay vivos, así que ahí no se ve nunca.
 
 ### Theme propagation
 There is a single source of truth at the top of `App.js`:
@@ -93,6 +95,8 @@ Several screens use remote `https://caballoscriollos.com/...` image URLs as plac
 - **Inline styles** — the codebase uses inline style objects, not `StyleSheet.create`. Match the existing style.
 
 ## Known TODOs (from README)
+
+**El carnet de socio con QR y la verificación** (#63 / #64) es lo único que falta de la etapa 2. El backend ya tiene las rutas (`POST /perfil/carnet`, `/perfil/carnet/rotar`, `GET /perfil/carnet.pdf`, `GET /socios/verificacion/{token}`), pero **no están en `docs/README.md`**. No implementar desde el código del backend ni desde su plan: esperar el contrato. Es un token que valida identidad, con una rotación que invalida el QR anterior.
 
 Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`, el fallback de noticias y eventos sin imagen) por assets propios.
 
