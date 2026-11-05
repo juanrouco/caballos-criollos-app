@@ -96,6 +96,20 @@ beforeEach(() => {
 });
 afterEach(() => { Date.now.mockRestore?.(); });
 
+// Abrir un acordeón NO es un press y listo: está deshabilitado hasta que
+// resuelve el sondeo de disponibilidad del año, y el catálogo aparece ANTES que
+// ese sondeo. Un press a secas expande o no según cuál de los dos fetch gane la
+// carrera — con la suite entera, a veces pierde. Se insiste hasta que abre.
+//
+// Va como helper y no copiado en cada test porque ya me comí el bug dos veces
+// en este mismo archivo.
+async function expandir(utils, disciplina, primeraCategoria) {
+  await waitFor(() => {
+    fireEvent.press(utils.getByText(disciplina));
+    expect(utils.getByText(primeraCategoria)).toBeTruthy();
+  });
+}
+
 describe('RankingsScreen', () => {
   test('card de Solanet + tabs de año + disciplina (acordeón cerrado)', async () => {
     const { findByText, getByText, queryByText } = render(<RankingsScreen t={T} navigation={navStub()} />);
@@ -208,9 +222,10 @@ describe('RankingsScreen', () => {
 
   test('Rodeos: mapea el año al calendario (campeonato) + tipo', async () => {
     const nav = navStub();
-    const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
+    const utils = render(<RankingsScreen t={T} navigation={nav} />);
+    const { findByText, getByText } = utils;
     expect(await findByText('Rodeos')).toBeTruthy(); // sin "— Ranking"
-    fireEvent.press(getByText('Rodeos')); // expande → tipos
+    await expandir(utils, 'Rodeos', 'Handicap');
     fireEvent.press(getByText('Handicap'));
     // año 2026 (default) → calendario "2025 - 2026" (value 22)
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
@@ -224,7 +239,7 @@ describe('RankingsScreen', () => {
     await findByText('Rodeos');
     fireEvent.press(getByText('2025')); // tab de año
     // El accordion queda deshabilitado hasta que resuelve el sondeo del nuevo año.
-    await waitFor(() => { fireEvent.press(getByText('Rodeos')); expect(getByText('General')).toBeTruthy(); });
+    await expandir({ getByText }, 'Rodeos', 'General');
     fireEvent.press(getByText('General'));
     // año 2025 → calendario "2024 - 2025" (value 21)
     await waitFor(() => expect(nav.navigate).toHaveBeenCalledWith('RankingCat', {
@@ -311,7 +326,7 @@ describe('RankingsScreen', () => {
     fireEvent.press(getByText('Freno de Oro')); // deshabilitado → no expande
     expect(queryByText('Machos')).toBeNull();
     releaseProbe(); // el sondeo resuelve → se habilita
-    await waitFor(() => { fireEvent.press(getByText('Freno de Oro')); expect(getByText('Machos')).toBeTruthy(); });
+    await expandir({ getByText }, 'Freno de Oro', 'Machos');
   });
 
   test('tocar una categoría PDF abre el PDF directo, sin entrar al detalle', async () => {
@@ -323,14 +338,7 @@ describe('RankingsScreen', () => {
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
     await findByText('Freno de Oro');
-    // El acordeón está deshabilitado hasta que resuelve el sondeo del año (es
-    // lo que prueba el test de arriba), y el catálogo aparece ANTES que ese
-    // sondeo. Un press solo expandía o no según cuál de los dos fetch ganara,
-    // así que se insiste hasta que expande — igual que ahí.
-    await waitFor(() => {
-      fireEvent.press(getByText('Freno de Oro'));
-      expect(getByText('Machos')).toBeTruthy();
-    });
+    await expandir({ getByText }, 'Freno de Oro', 'Machos');
     fireEvent.press(getByText('Machos')); // categoría PDF
     await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://caballoscriollos.com/r/freno-machos.pdf'));
     expect(nav.navigate).not.toHaveBeenCalledWith('RankingCat', expect.anything());
