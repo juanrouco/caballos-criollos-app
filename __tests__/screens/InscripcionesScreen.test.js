@@ -329,6 +329,19 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     return utils;
   };
 
+  test('si la cuenta dejó de estar habilitada, el listado lo dice en criollo', async () => {
+    // El access vale 60 minutos sin tocar la base, así que esto le puede pasar
+    // a alguien que entró bien hace un rato y no cambió nada.
+    api.fetchInscripciones.mockRejectedValue(new ApiError({
+      path: '/inscripciones', status: 403, code: 'usuario_no_habilitado',
+      detail: 'El usuario no está habilitado',
+    }));
+    await SecureStore.setItemAsync('auth.sesion', JSON.stringify(SESION));
+    const utils = renderPantalla();
+    expect(await utils.findByText(/Consultá con la Asociación/)).toBeTruthy();
+    expect(utils.queryByText('El usuario no está habilitado')).toBeNull();
+  });
+
   test('sin puede_baja no se ofrece eliminar', async () => {
     // El predicado es del servidor: si dice que no, el botón no está. Así el
     // socio no llega nunca a un 422 que no podía prever.

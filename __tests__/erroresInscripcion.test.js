@@ -5,6 +5,8 @@ import {
   CODIGOS_SERVICIO,
   SERVICIO_ALTA,
   textoErrorBaja,
+  textoUsuario,
+  CODIGOS_USUARIO,
   CODIGOS_BAJA,
   MOTIVOS_BAJA_CONOCIDOS,
 } from '../src/erroresInscripcion';
@@ -119,5 +121,42 @@ describe('los errores de eliminar una inscripción', () => {
     expect(textoErrorBaja({ status: 400, code: 'otra_cosa', detail: 'Texto de la API' })).toBe('Texto de la API');
     expect(textoErrorBaja({})).toMatch(/No pudimos eliminar/);
     expect(textoErrorBaja(undefined)).toMatch(/No pudimos eliminar/);
+  });
+});
+
+// Los dos 403 que puede dar cualquier endpoint protegido. El `detail` del
+// backend está en castellano, así que algo se veía; lo que no decía es qué
+// hacer.
+describe('los 403 de la cuenta', () => {
+  test('el que no está habilitado dice a quién recurrir, que es lo que falta', () => {
+    // «El usuario no está habilitado», que es lo que manda la API, deja al
+    // socio sin saber qué hacer — y encima él no cambió nada: el access le
+    // sobrevivió al estado de la cuenta.
+    const texto = textoUsuario('usuario_no_habilitado');
+    expect(texto).toMatch(/Asociación/);
+    expect(texto).toMatch(/[Tt]u cuenta/);
+  });
+
+  test('el de la cuenta operativa manda a la web, y la nombra', () => {
+    expect(textoUsuario('usuario_solo_web')).toMatch(/caballoscriollos\.com/);
+  });
+
+  test('ninguno repite la jerga ni habla en tercera persona del «usuario»', () => {
+    for (const code of CODIGOS_USUARIO) {
+      expect(textoUsuario(code)).not.toMatch(/El usuario|Este usuario/);
+    }
+  });
+
+  test('un código que no es de cuenta devuelve null y no pisa al resto', () => {
+    // Si no devolviera null, taparía los textos de las otras tablas al estar
+    // primero en la cadena de `mensaje()`.
+    expect(textoUsuario('entrada_invalida')).toBeNull();
+    expect(textoUsuario('base_no_disponible')).toBeNull();
+    expect(textoUsuario(undefined)).toBeNull();
+  });
+
+  test('eliminar los usa también, sin tener su propia copia', () => {
+    expect(textoErrorBaja({ status: 403, code: 'usuario_solo_web' })).toBe(textoUsuario('usuario_solo_web'));
+    expect(textoErrorBaja({ status: 403, code: 'usuario_no_habilitado' })).toBe(textoUsuario('usuario_no_habilitado'));
   });
 });

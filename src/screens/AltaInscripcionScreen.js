@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Key
 import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
-import { describirErrores, describirErroresEquipo, textoEntradaInvalida, textoServicio, SERVICIO_ALTA } from '../erroresInscripcion';
+import { describirErrores, describirErroresEquipo, textoEntradaInvalida, textoServicio, textoUsuario, SERVICIO_ALTA } from '../erroresInscripcion';
 import { alternarCategoria } from '../reglasAlta';
 import {
   fetchEventosAlta, buscarAnimalesAlta, fetchOpcionesAlta, buscarJinetes, buscarDomadores, crearInscripcion,
@@ -282,10 +282,13 @@ function ErrorCard({ t, texto, onReintentar }) {
 // pantalla. Los 503 del servicio, por `code`, por lo mismo. El resto de los
 // errores sí muestran lo que manda el backend — los de `/auth` y los 422 están
 // escritos para el socio.
+// Un solo lugar para todo el alta: por acá pasan la búsqueda de animales, la de
+// jinetes y domadores, los equipos y el POST, así que los códigos se traducen
+// una vez y valen para los cinco pasos.
 const mensaje = (e) => (
   e?.code === 'entrada_invalida'
     ? textoEntradaInvalida(e.campo)
-    : textoServicio(e?.code) || e?.detail || e?.message || 'No se pudo completar la operación'
+    : textoUsuario(e?.code) || textoServicio(e?.code) || e?.detail || e?.message || 'No se pudo completar la operación'
 );
 
 // ¿Este HTML tiene algo para mostrar? Sin tags ni espacios duros no queda nada

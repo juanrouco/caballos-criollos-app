@@ -4,6 +4,7 @@ import { Icon, Card, Divider, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
 import { useAuth } from '../AuthContext';
 import { fetchPerfil, mapPerfil, OLVIDO_CLAVE_URL } from '../api';
+import { textoUsuario } from '../erroresInscripcion';
 
 // Sección "Mi cuenta": login del socio, sus datos y el cambio de clave.
 //
@@ -28,6 +29,10 @@ const AVISOS = {
 // como cartel; el resto, como línea de error abajo del formulario.
 function describeError(e) {
   if (e?.code && AVISOS[e.code]) return { aviso: e.code, texto: e.detail };
+  // `usuario_no_habilitado` puede llegar de /perfil: la cuenta dejó de estar
+  // habilitada después de que salió el access, que vale 60 minutos.
+  const usuario = textoUsuario(e?.code);
+  if (usuario) return { texto: usuario };
   // La API responde lo mismo para usuario inexistente, clave incorrecta y
   // cuenta deshabilitada: no dice cuál fue, y nosotros tampoco.
   if (e?.status === 401) return { texto: 'Usuario o clave incorrectos' };

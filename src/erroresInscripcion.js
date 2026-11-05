@@ -178,6 +178,31 @@ export function describirErroresEquipo(errores) {
   }));
 }
 
+// ── Los 403 de la cuenta ────────────────────────────────────────────
+//
+// Dos códigos que puede dar CUALQUIER endpoint protegido que escriba o lea lo
+// del socio: el alta, eliminar, los equipos, el certificado, el perfil. Por eso
+// viven acá sueltos y no dentro de la tabla de una operación.
+//
+// El `detail` del backend para éstos está en castellano, así que algo se veía.
+// Pero «El usuario no está habilitado» deja al socio sin saber qué hacer ni a
+// quién recurrir, y es el peor de los dos momentos para eso: `usuario_no_habilitado`
+// significa que el access le sobrevivió al estado de la cuenta —hace una hora
+// podía y ahora no—, así que el socio no cambió nada y no entiende por qué dejó
+// de andar. Además, elegir por `code` es la regla de toda esta tabla: el texto
+// del backend puede cambiar sin avisar.
+const TEXTOS_USUARIO = {
+  // Las dos cuentas operativas de la ACCC (1278 y 1610).
+  usuario_solo_web: 'Esta cuenta opera sus inscripciones sólo desde caballoscriollos.com.',
+  usuario_no_habilitado: 'Tu cuenta no está habilitada para esta operación. Consultá con la Asociación.',
+};
+
+export function textoUsuario(code) {
+  return TEXTOS_USUARIO[code] || null;
+}
+
+export const CODIGOS_USUARIO = Object.keys(TEXTOS_USUARIO);
+
 // ── Eliminar una inscripción (DELETE /inscripciones/{id}) ───────────
 //
 // En la API esto es «la baja», y así se llaman el endpoint y estas funciones.
@@ -205,10 +230,8 @@ const TEXTOS_BAJA = {
   habilitacion_usada: 'La habilitación para rehacer esta inscripción ya se usó o venció. Consultá con la Asociación.',
   // 404: no existe, o no es del socio — la API no distingue, y la app tampoco.
   no_encontrada: 'No encontramos esta inscripción.',
-  // 403: las dos cuentas operativas (1278 y 1610) y el usuario que dejó de
-  // estar habilitado después de que salió su token.
-  usuario_solo_web: 'Esta cuenta elimina inscripciones sólo desde caballoscriollos.com.',
-  usuario_no_habilitado: 'Tu cuenta no está habilitada para esta operación. Consultá con la Asociación.',
+  // Los dos 403 de la cuenta no están acá: son de cualquier endpoint, no de
+  // esta operación, y salen de TEXTOS_USUARIO.
 };
 
 // El `motivo` del 422: por qué esta baja no se puede. Gana sobre el texto del
@@ -226,6 +249,8 @@ const GENERICO_BAJA = 'No pudimos eliminar la inscripción.';
 export function textoErrorBaja(e) {
   if (e?.motivo && MOTIVOS_BAJA[e.motivo]) return MOTIVOS_BAJA[e.motivo];
   if (e?.code && TEXTOS_BAJA[e.code]) return TEXTOS_BAJA[e.code];
+  const usuario = textoUsuario(e?.code);
+  if (usuario) return usuario;
   // El 503 del servicio: el mismo texto que el resto de la app. Acá no hace
   // falta aclarar que «no quedó anotado» como en el alta — la transacción se
   // deshizo y la inscripción sigue viva, que es lo que el socio ya ve.

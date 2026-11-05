@@ -349,6 +349,22 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByText('El sistema está en mantenimiento.')).toBeTruthy();
   });
 
+  test('el 403 de la cuenta operativa se traduce, en cualquier paso del alta', async () => {
+    // `mensaje()` es el único punto por el que pasan los cinco pasos, así que
+    // con cubrir uno queda cubierto el flujo entero.
+    api.buscarAnimalesAlta.mockRejectedValueOnce({
+      status: 403, code: 'usuario_solo_web', detail: 'Este usuario inscribe sólo por el sitio web',
+    });
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText(/caballoscriollos\.com/)).toBeTruthy();
+    expect(utils.queryByText(/Este usuario/)).toBeNull();
+  });
+
   test('al buscar se cierra el teclado, que si no tapa los resultados', async () => {
     const cerrar = jest.spyOn(Keyboard, 'dismiss');
     const utils = renderAlta();

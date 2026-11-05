@@ -9,7 +9,7 @@ import {
   fetchInscripciones, fetchInscripcion, fetchCertificado, bajaInscripcion,
   mapListado, mapInscripcion, mapCertificado, mapBaja, descargarCertificadoPdf,
 } from '../api';
-import { textoErrorBaja } from '../erroresInscripcion';
+import { textoErrorBaja, textoUsuario } from '../erroresInscripcion';
 import { descargarArchivo, compartirArchivo } from '../descargas';
 import AltaInscripcionScreen from './AltaInscripcionScreen';
 
@@ -136,7 +136,10 @@ function useCarga(cargar, deps) {
     setDato(null); setError(null);
     cargar()
       .then((d) => { if (!cancelado) setDato(d); })
-      .catch((e) => { if (!cancelado) setError(e?.detail || e?.message || 'No se pudo cargar'); });
+      // `usuario_no_habilitado` puede caer en cualquiera de los tres (listado,
+      // detalle, certificado): el access dura 60 minutos sin tocar la base, así
+      // que la cuenta pudo dejar de estar habilitada después de emitirlo.
+      .catch((e) => { if (!cancelado) setError(textoUsuario(e?.code) || e?.detail || e?.message || 'No se pudo cargar'); });
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, intento]);
@@ -583,7 +586,7 @@ function CertificadoView({ t, id }) {
       const ok = await compartirArchivo(uri, { mimeType: 'application/pdf', titulo: 'Certificado de inscripción' });
       if (!ok) setAvisoPdf('Este teléfono no tiene con qué compartir el archivo.');
     } catch (e) {
-      setAvisoPdf(e?.detail || e?.message || 'No se pudo bajar el certificado');
+      setAvisoPdf(textoUsuario(e?.code) || e?.detail || e?.message || 'No se pudo bajar el certificado');
     } finally {
       setBajando(false);
     }

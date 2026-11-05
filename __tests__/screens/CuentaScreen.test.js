@@ -170,6 +170,18 @@ describe('CuentaScreen — perfil', () => {
     expect(getAllByText('—').length).toBeGreaterThan(0); // celular viene null
   });
 
+  test('un 403 de cuenta no habilitada se traduce en vez de mostrar el texto de la API', async () => {
+    // El access vale 60 minutos sin tocar la base: la cuenta pudo dejar de
+    // estar habilitada después de emitirlo, y el socio no cambió nada.
+    api.fetchPerfil.mockRejectedValue(new ApiError({
+      path: '/perfil', status: 403, code: 'usuario_no_habilitado', detail: 'El usuario no está habilitado',
+    }));
+    await SecureStore.setItemAsync('auth.sesion', JSON.stringify(SESION));
+    const { findByText, queryByText } = renderCuenta();
+    expect(await findByText(/Consultá con la Asociación/)).toBeTruthy();
+    expect(queryByText('El usuario no está habilitado')).toBeNull();
+  });
+
   test('si el perfil falla, ofrece reintentar', async () => {
     api.fetchPerfil
       .mockRejectedValueOnce(new ApiError({ path: '/perfil', status: 503, detail: 'La base no responde' }))
