@@ -224,7 +224,12 @@ describe('CuentaScreen — cambio de clave', () => {
 
     expect(api.cambiarClave).toHaveBeenCalledWith('la de hoy', 'Nueva-Clave-1');
     expect(await findByText('Tu clave fue cambiada')).toBeTruthy();
-    expect(getByText('Juan Pérez')).toBeTruthy();
+    // Dos relojes distintos: el flash es un prop y se pinta en el mismo render
+    // de la vuelta, pero PerfilView estuvo desmontada mientras se cambiaba la
+    // clave y al remontar vuelve a pedir el perfil. Con un `getByText` acá el
+    // test pasaba sólo si ese fetch alcanzaba a resolver en el mismo tick, y
+    // con la suite entera a veces no llegaba.
+    expect(await findByText('Juan Pérez')).toBeTruthy();
   });
 
   test('clave_actual_incorrecta se muestra sin cerrar la sesión', async () => {
