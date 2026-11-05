@@ -151,8 +151,13 @@ de a Expo).
 
 ## Pendientes / próximos pasos
 
-- Login y funciones autenticadas.
-- Conectar datos reales (API ACCC) en lugar de `src/data.js`.
-- Linkear los PDFs de rankings por categoría.
-- Persistir preferencia de tema (AsyncStorage) + toggle en UI.
-- Reemplazar las fotos placeholder (URLs remotas) por assets propios.
+- Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`) por
+  assets propios. Son el fallback de las noticias y los eventos sin imagen.
+
+La paleta y el modo (`PALETTE` / `MODE` en `App.js`) quedan fijos a propósito:
+son constantes, no una preferencia del usuario.
+
+Sin probar todavía, y por qué: login desde cero, logout y cambio de clave
+(hace falta la clave de un socio de prueba); push notifications y el deeplink
+de arranque en frío (sólo llegan en build standalone sobre device físico);
+el botón EN VIVO y el video (no hubo un vivo contra el que probar); Android.

@@ -55,11 +55,9 @@ When adding a new screen, register it in `App.js` wrapped in `withT(...)` so it 
 `src/components.js` exports the shared primitives: `Icon`, `Crest`, `Card`, `Medal`, `Divider`, `SectionLabel`, plus the `F` alias for `fonts`. Icons are inline `react-native-svg` paths in a single `switch` in `Icon` — to add an icon, add a new `case` there. Discipline icons are different: white-on-transparent PNGs in `assets/disc-*.png`, tinted via `<Image tintColor={...} />` (CSS masks don't exist in RN).
 
 ### Data
-`src/data.js` contains the remaining mock data: `HORSES` (with nested `sire`/`dam` trees up to 3–4 generations), `DISCIPLINES`, `NEWS`, `RESULTS`, `LOTES`, `CATALOG_CATEGORIES`, `MORFOLOGIA_RESULTS`, `PREMIO_SOLANET`, `DISCIPLINE_RANKINGS`. The `P(...)` helper near `MORFOLOGIA_RESULTS` builds placement records concisely. Lote numbers are assigned sequentially across categories at module load via a side-effecting `forEach`.
+Ya no quedan mocks: **todas** las pantallas leen de la API (ver "API client" abajo). De `src/data.js` sobrevive sólo `DISCIPLINES`, el catálogo de los tiles de la home — `id` (la clave de `DISCIPLINE_COLORS` / `DISCIPLINE_ICONS` en `theme.js`), `name` (que la home matchea por prefijo con las categorías de `/noticias`) y `short` (el rótulo del tile). Es diseño de la app, no datos del sistema, así que no viene de la API.
 
-Eventos / vivos ya vienen de la API (ver "API client" abajo); el resto sigue siendo mock hasta que se migre cada pantalla.
-
-Ranking categories have `kind: 'view'` (rendered as an in-app table from `top: [...]`) or `kind: 'pdf'` (intended to link to an external document — not yet implemented).
+Si hace falta un dato que la API no da, el lugar es un endpoint nuevo — no volver a poner mocks acá.
 
 ### API client
 `src/api/` — un archivo por endpoint. Toda screen importa desde `'../api'` (barrel en `src/api/index.js`); nunca desde un archivo específico, para que mover/renombrar endpoints sea local.
@@ -96,4 +94,6 @@ Several screens use remote `https://caballoscriollos.com/...` image URLs as plac
 
 ## Known TODOs (from README)
 
-Auth, real ACCC API integration, PDF links for ranking categories, persisted theme preference (AsyncStorage) + UI toggle, replacing remote placeholder photos with bundled assets.
+Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`, el fallback de noticias y eventos sin imagen) por assets propios.
+
+La paleta y el modo quedan **fijos** como constantes en `App.js`: es una decisión, no un pendiente — no agregar persistencia ni toggle.

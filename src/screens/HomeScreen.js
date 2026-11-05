@@ -238,7 +238,7 @@ export default function HomeScreen({ t, navigation }) {
               disabled={!cat}
               activeOpacity={cat ? 0.7 : 1}
               onPress={() => cat && navigation.navigate('NewsList', { categoria: cat.id, categoriaNombre: cat.nombre })}
-              style={{ width: 108, borderRadius: 14, backgroundColor: d.color, overflow: 'hidden' }}
+              style={{ width: 108, borderRadius: 14, backgroundColor: DISCIPLINE_COLORS[d.id], overflow: 'hidden' }}
             >
               <View style={{ height: 78, alignItems: 'center', justifyContent: 'center' }}>
                 <Image source={DISCIPLINE_ICONS[d.id]} style={{ width: 52, height: 52, tintColor: '#fff' }} resizeMode="contain" />
