@@ -326,4 +326,26 @@ describe('RankingCatScreen', () => {
     expect(await findByText('No disponible')).toBeTruthy();
     expect(queryByText('Próximamente')).toBeNull();
   });
+
+  // Un bache de red dejaba esta pantalla muerta: avisaba que falló y no ofrecía
+  // nada, así que la única salida era volver y entrar de nuevo.
+  test('si falla, ofrece reintentar y el reintento vuelve a pedirlo', async () => {
+    fetchRanking.mockRejectedValueOnce(new Error('net'));
+    const { findByText, getByText } = renderCat();
+    expect(await findByText('No se pudo cargar el ranking.')).toBeTruthy();
+
+    fetchRanking.mockResolvedValue(RESP);
+    fireEvent.press(getByText('Reintentar'));
+    expect(await findByText('CARDAL X')).toBeTruthy();
+    expect(fetchRanking).toHaveBeenCalledTimes(2);
+  });
+
+  test('«no hay datos para este filtro» no ofrece reintentar: no hay nada que reintentar', async () => {
+    // Es la otra mitad del mismo cartel. Acá el servidor contestó bien y la
+    // respuesta vino vacía, así que insistir daría lo mismo.
+    fetchRanking.mockResolvedValue({ modo: 'ranking', columnas: [], filas: [] });
+    const { findByText, queryByText } = renderCat();
+    expect(await findByText('No hay datos para este filtro.')).toBeTruthy();
+    expect(queryByText('Reintentar')).toBeNull();
+  });
 });

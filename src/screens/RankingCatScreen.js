@@ -32,6 +32,10 @@ export default function RankingCatScreen({ t, navigation, route }) {
   }).filter(Boolean).join(' - ');
   const [data, setData] = React.useState(null); // null=loading
   const [error, setError] = React.useState(false);
+  // Un bache de red dejaba esta pantalla muerta: el aviso de que falló no
+  // ofrecía nada, y la única salida era volver y entrar de nuevo. Con el
+  // intento el mismo efecto se vuelve a correr.
+  const [intento, setIntento] = React.useState(0);
 
   React.useEffect(() => {
     if (!slug) { setError(true); setData({}); return; }
@@ -41,7 +45,7 @@ export default function RankingCatScreen({ t, navigation, route }) {
       .then((r) => { if (!cancelled) setData(r || {}); })
       .catch(() => { if (!cancelled) { setError(true); setData({}); } });
     return () => { cancelled = true; };
-  }, [slug, filters]);
+  }, [slug, filters, intento]);
 
   const filas    = data?.filas || [];
   // `modo` (según los filtros): 'ranking' (tabla), 'pdf' (botón que abre pdf_url)
@@ -185,7 +189,21 @@ export default function RankingCatScreen({ t, navigation, route }) {
         </View>
       ) : filas.length === 0 ? (
         <View style={{ paddingHorizontal: 40, paddingTop: 20, alignItems: 'center' }}>
+          {/* Dos situaciones distintas que antes se distinguían sólo por la
+              redacción: que FALLE se puede reintentar; que no haya datos para
+              el filtro, no. Sin el botón el socio tenía que volver y entrar de
+              nuevo para conseguir lo mismo. */}
           <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center' }}>{error ? 'No se pudo cargar el ranking.' : 'No hay datos para este filtro.'}</Text>
+          {error && (
+            <TouchableOpacity
+              onPress={() => setIntento((n) => n + 1)}
+              accessibilityLabel="Reintentar"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}
+            >
+              <Icon name="refresh" size={15} color={t.accent} />
+              <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.accent }}>Reintentar</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <View style={{ paddingHorizontal: 20 }}>
