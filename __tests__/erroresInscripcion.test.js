@@ -5,6 +5,7 @@ import {
   CODIGOS_SERVICIO,
   SERVICIO_ALTA,
   textoErrorBaja,
+  errorCarnet,
   textoUsuario,
   CODIGOS_USUARIO,
   CODIGOS_BAJA,
@@ -158,5 +159,39 @@ describe('los 403 de la cuenta', () => {
   test('eliminar los usa también, sin tener su propia copia', () => {
     expect(textoErrorBaja({ status: 403, code: 'usuario_solo_web' })).toBe(textoUsuario('usuario_solo_web'));
     expect(textoErrorBaja({ status: 403, code: 'usuario_no_habilitado' })).toBe(textoUsuario('usuario_no_habilitado'));
+  });
+});
+
+// Dos desenlaces y nada más: o no le corresponde carnet, o algo falló. Lo que
+// los separa no es el texto sino si tiene sentido insistir.
+describe('los errores del carnet', () => {
+  test('no ser socio no se reintenta: no va a cambiar en diez segundos', () => {
+    expect(errorCarnet({ status: 404, code: 'sin_carnet' }))
+      .toEqual({ texto: 'No se encuentra registrado como socio.', reintentable: false });
+  });
+
+  test('todo lo demás sí, con un solo texto', () => {
+    for (const e of [
+      { status: 503, code: 'base_no_disponible' },
+      { status: 500, code: 'error_escritura' },
+      { status: 503 },
+      new Error('Sin conexión'),
+      {},
+      undefined,
+    ]) {
+      expect(errorCarnet(e)).toEqual({
+        texto: 'No se ha podido obtener el carnet. Por favor, reintente.',
+        reintentable: true,
+      });
+    }
+  });
+
+  test('el texto y el «se puede reintentar» viajan juntos', () => {
+    // A propósito en un solo valor: separarlos fue lo que dejó un botón de
+    // reintentar debajo de «no sos socio».
+    for (const e of [{ code: 'sin_carnet' }, { code: 'base_no_disponible' }, {}]) {
+      const r = errorCarnet(e);
+      expect(Object.keys(r).sort()).toEqual(['reintentable', 'texto']);
+    }
   });
 });

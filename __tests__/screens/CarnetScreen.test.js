@@ -146,23 +146,38 @@ describe('CarnetScreen', () => {
     expect(descargas.descargarArchivo).toHaveBeenCalledWith('https://api/carnet.pdf', { Authorization: 'Bearer acc1' }, 'carnet.pdf');
   });
 
-  test('sin_carnet se explica y no deja la pantalla muda', async () => {
+  // Los dos desenlaces del error se distinguen por lo que OFRECEN, no sólo por
+  // el texto: no ser socio no se arregla insistiendo, y un botón ahí hace creer
+  // que falló algo que se puede arreglar.
+  test('sin_carnet dice que no es socio, y no ofrece reintentar', async () => {
     // La cuenta no califica (sin número de socio, o no habilitada). Ojo: acá
     // la API NO da el 403 usuario_no_habilitado de los otros endpoints.
     api.emitirCarnet.mockRejectedValue(new ApiError({
       path: '/perfil/carnet', status: 404, code: 'sin_carnet', detail: 'x',
     }));
     const utils = await renderLogueada();
-    expect(await utils.findByText(/Consultá con la Asociación/)).toBeTruthy();
-    expect(utils.getByText('Reintentar')).toBeTruthy();
+    expect(await utils.findByText('No se encuentra registrado como socio.')).toBeTruthy();
+    expect(utils.queryByText('Reintentar')).toBeNull();
   });
 
-  test('si falla el emitir, se puede reintentar sin salir', async () => {
+  test('cualquier otra falla sí ofrece reintentar, y el reintento trae el carnet', async () => {
     api.emitirCarnet
       .mockRejectedValueOnce(new ApiError({ path: '/perfil/carnet', status: 503, code: 'base_no_disponible', detail: 'x' }))
       .mockResolvedValueOnce(CARNET);
     const utils = await renderLogueada();
-    expect(await utils.findByText(/Probá de nuevo en un rato/)).toBeTruthy();
+    expect(await utils.findByText('No se ha podido obtener el carnet. Por favor, reintente.')).toBeTruthy();
+    fireEvent.press(utils.getByText('Reintentar'));
+    expect(await utils.findByLabelText(`QR:${URL_QR}`)).toBeTruthy();
+  });
+
+  test('quedarse sin red también es reintentable, aunque no traiga code', async () => {
+    // El `sin_carnet` es lo ÚNICO que no se reintenta; todo lo demás sí,
+    // incluido un error sin código.
+    api.emitirCarnet
+      .mockRejectedValueOnce(new Error('Sin conexión'))
+      .mockResolvedValueOnce(CARNET);
+    const utils = await renderLogueada();
+    expect(await utils.findByText(/Por favor, reintente/)).toBeTruthy();
     fireEvent.press(utils.getByText('Reintentar'));
     expect(await utils.findByLabelText(`QR:${URL_QR}`)).toBeTruthy();
   });

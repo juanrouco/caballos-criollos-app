@@ -6,7 +6,7 @@ import { withAlpha } from '../theme';
 import { useAuth } from '../AuthContext';
 import { useMenu } from '../MenuContext';
 import { emitirCarnet, rotarCarnet, mapCarnet, descargarCarnetPdf, fetchPerfil, mapPerfil } from '../api';
-import { textoCarnet } from '../erroresInscripcion';
+import { errorCarnet } from '../erroresInscripcion';
 import { descargarArchivo, compartirArchivo } from '../descargas';
 
 // Sección "Mi carnet": el carnet de socio con su QR (#63).
@@ -40,10 +40,10 @@ export default function CarnetScreen({ t, topInset, onBack }) {
       .then(([c, p]) => {
         if (cancelado) return;
         const carnet = mapCarnet(c);
-        if (!carnet) { setError(textoCarnet({ code: 'sin_carnet' })); return; }
+        if (!carnet) { setError(errorCarnet({ code: 'sin_carnet' })); return; }
         setDatos({ carnet, perfil: mapPerfil(p?.perfil) || null });
       })
-      .catch((e) => { if (!cancelado) setError(textoCarnet(e)); });
+      .catch((e) => { if (!cancelado) setError(errorCarnet(e)); });
     return () => { cancelado = true; };
   }, [status, intento]);
 
@@ -74,11 +74,15 @@ export default function CarnetScreen({ t, topInset, onBack }) {
         />
       ) : error ? (
         <Card t={t} style={{ padding: 16, marginHorizontal: 20 }}>
-          <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textMute, lineHeight: 19 }}>{error}</Text>
-          <TouchableOpacity onPress={reintentar} accessibilityLabel="Reintentar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
-            <Icon name="refresh" size={15} color={t.accent} />
-            <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.accent }}>Reintentar</Text>
-          </TouchableOpacity>
+          <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textMute, lineHeight: 19 }}>{error.texto}</Text>
+          {/* Sin botón cuando no se es socio: insistir daría lo mismo, y
+              ofrecerlo hace creer que falló algo y que se puede arreglar. */}
+          {error.reintentable && (
+            <TouchableOpacity onPress={reintentar} accessibilityLabel="Reintentar" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 }}>
+              <Icon name="refresh" size={15} color={t.accent} />
+              <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.accent }}>Reintentar</Text>
+            </TouchableOpacity>
+          )}
         </Card>
       ) : !datos ? (
         <View style={{ paddingVertical: 40, alignItems: 'center' }}><ActivityIndicator color={t.accent} /></View>
@@ -117,7 +121,7 @@ function Carnet({ t, datos, onRotar }) {
       const ok = await compartirArchivo(uri, { mimeType: 'application/pdf', titulo: 'Carnet de socio' });
       if (!ok) setAvisoPdf('Este teléfono no tiene con qué compartir el archivo.');
     } catch (e) {
-      setAvisoPdf(textoCarnet(e));
+      setAvisoPdf(errorCarnet(e).texto);
     } finally {
       setBajando(false);
     }
@@ -197,7 +201,7 @@ function ConfirmarRotar({ t, onVolver, onHecho }) {
       await rotarCarnet();
       onHecho();
     } catch (e) {
-      setError(textoCarnet(e));
+      setError(errorCarnet(e).texto);
     } finally {
       setRotando(false);
     }

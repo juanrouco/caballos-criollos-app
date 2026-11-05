@@ -271,19 +271,23 @@ export const MOTIVOS_BAJA_CONOCIDOS = Object.keys(MOTIVOS_BAJA);
 // Ojo con una asimetría del contrato: acá una cuenta no habilitada NO da el
 // 403 `usuario_no_habilitado` de los otros endpoints, da este 404. Por eso el
 // texto tiene que valerse solo y no apoyarse en TEXTOS_USUARIO.
-const TEXTOS_CARNET = {
-  sin_carnet: 'Tu cuenta todavía no tiene carnet. Consultá con la Asociación si te corresponde uno.',
-  error_escritura: 'No pudimos generar el carnet. Probá de nuevo en un rato.',
-};
+// Dos desenlaces, y sólo dos, porque son los dos que el socio puede
+// distinguir: o no le corresponde un carnet, o algo falló en el camino.
+//
+// `sin_carnet` es el primero y NO se arregla reintentando: la cuenta no
+// califica hoy y no va a calificar en diez segundos. Todo lo demás —el 503 de
+// la base, el `error_escritura`, quedarse sin red— sí es pasajero.
+//
+// Por eso esto devuelve el texto Y si se puede reintentar juntos: separarlos
+// invita a usar uno sin el otro, que es justo el error que hubo acá (un botón
+// de reintentar debajo de «no sos socio»).
+const SIN_CARNET = 'No se encuentra registrado como socio.';
+const CARNET_FALLO = 'No se ha podido obtener el carnet. Por favor, reintente.';
 
-export function textoCarnet(e) {
-  if (e?.code && TEXTOS_CARNET[e.code]) return TEXTOS_CARNET[e.code];
-  const usuario = textoUsuario(e?.code);
-  if (usuario) return usuario;
-  return textoServicio(e?.code) || e?.detail || e?.message || 'No pudimos mostrar el carnet.';
+export function errorCarnet(e) {
+  if (e?.code === 'sin_carnet') return { texto: SIN_CARNET, reintentable: false };
+  return { texto: CARNET_FALLO, reintentable: true };
 }
-
-export const CODIGOS_CARNET = Object.keys(TEXTOS_CARNET);
 
 // ── La verificación pública (#64) ───────────────────────────────────
 //
