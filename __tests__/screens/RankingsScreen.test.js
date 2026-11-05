@@ -322,7 +322,15 @@ describe('RankingsScreen', () => {
     const openSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue();
     const nav = navStub();
     const { findByText, getByText } = render(<RankingsScreen t={T} navigation={nav} />);
-    fireEvent.press(await findByText('Freno de Oro')); // expande
+    await findByText('Freno de Oro');
+    // El acordeón está deshabilitado hasta que resuelve el sondeo del año (es
+    // lo que prueba el test de arriba), y el catálogo aparece ANTES que ese
+    // sondeo. Un press solo expandía o no según cuál de los dos fetch ganara,
+    // así que se insiste hasta que expande — igual que ahí.
+    await waitFor(() => {
+      fireEvent.press(getByText('Freno de Oro'));
+      expect(getByText('Machos')).toBeTruthy();
+    });
     fireEvent.press(getByText('Machos')); // categoría PDF
     await waitFor(() => expect(openSpy).toHaveBeenCalledWith('https://caballoscriollos.com/r/freno-machos.pdf'));
     expect(nav.navigate).not.toHaveBeenCalledWith('RankingCat', expect.anything());
