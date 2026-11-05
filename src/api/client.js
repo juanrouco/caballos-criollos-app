@@ -88,6 +88,7 @@ async function raise(res, path) {
     campo = body?.campo || '';
     errores = body?.errores || null;
   } catch {}
+  if (res.status >= 500 && !code) detail = ERROR_SERVIDOR_MSG;
   throw new ApiError({ path, status: res.status, detail, code, campo, errores });
 }
 
@@ -99,6 +100,17 @@ async function raise(res, path) {
 // socio lea algo que pueda hacer. El 204 (y el 205) no traen cuerpo a propósito
 // — `/auth/logout` es uno — así que esos valen vacíos.
 export const RESPUESTA_RARA_MSG = 'El servidor respondió algo que no entendemos. Probá de nuevo en un rato.';
+
+// Un 5xx sin `code` no trae nada que el socio pueda leer. Desde #249 un fatal
+// de PHP en la API sale como 500 con el envelope de siempre —antes era un 200
+// con HTML, que caía en RESPUESTA_RARA_MSG—, pero su `message` es «Internal
+// Server Error» en prod y «Fatal: <el error de PHP>» en dev: inglés, o las
+// entrañas del servidor. Se reemplaza por un texto nuestro.
+//
+// Los 503 con `code` (`mantenimiento`, `base_no_disponible`) quedan afuera: ésos
+// los traduce cada pantalla por el `code`, y el alta además le agrega que no
+// quedó nada anotado (src/erroresInscripcion.js).
+export const ERROR_SERVIDOR_MSG = 'Hubo un problema en el servidor. Probá de nuevo en un rato.';
 
 async function leerJson(res, path) {
   try {

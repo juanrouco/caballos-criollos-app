@@ -1,4 +1,4 @@
-import { apiGet, apiPost, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG } from '../../src/api/client';
+import { apiGet, apiPost, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG, ERROR_SERVIDOR_MSG } from '../../src/api/client';
 
 const okJson = (body) => ({ ok: true, json: async () => body });
 const errJson = (status, body) => ({
@@ -103,6 +103,48 @@ describe('el 400 entrada_invalida', () => {
   test('sin campo en el cuerpo, campo queda vacío y no rompe', async () => {
     fetch.mockResolvedValueOnce(errJson(400, { error: true, status: 400, code: 'entrada_invalida' }));
     await expect(apiGet('/x')).rejects.toMatchObject({ code: 'entrada_invalida', campo: '' });
+  });
+});
+
+describe('un 5xx no le muestra al socio las entrañas del servidor', () => {
+  // Desde #249 un fatal de PHP en la API sale como 500 con el envelope de
+  // siempre (antes: 200 con HTML, o 500 vacío). Pero su `message` es «Internal
+  // Server Error» en prod y «Fatal: <el error de PHP>» en dev: ninguno de los
+  // dos es para el socio, así que el `detail` lo pone la app.
+  test('el 500 de un fatal se reemplaza, y el mensaje de PHP no llega a la card', async () => {
+    fetch.mockResolvedValueOnce(errJson(500, {
+      error: true, status: 500,
+      message: 'Fatal: Allowed memory size of 134217728 bytes exhausted in AltaHandler.php',
+    }));
+    const e = await apiGet('/inscripciones/animales').catch((x) => x);
+    expect(e.detail).toBe(ERROR_SERVIDOR_MSG);
+    expect(e.message).not.toMatch(/Fatal|memory|AltaHandler/);
+  });
+
+  test('un 500 con cuerpo HTML o vacío cae en el mismo texto', async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false, status: 500,
+      json: async () => { throw new SyntaxError('Unexpected character: <'); },
+    });
+    expect((await apiGet('/eventos').catch((x) => x)).detail).toBe(ERROR_SERVIDOR_MSG);
+  });
+
+  test('un 503 con code pasa tal cual: ése lo traduce la pantalla', async () => {
+    // `mantenimiento` y `base_no_disponible` se eligen por `code`, y el alta
+    // además le agrega que no quedó nada anotado. Si el cliente les pisara el
+    // detail, esa distinción se perdería.
+    fetch.mockResolvedValueOnce(errJson(503, {
+      error: true, status: 503, code: 'base_no_disponible',
+      message: 'No se pudo escribir la inscripción',
+    }));
+    const e = await apiPost('/inscripciones', { a: 1 }).catch((x) => x);
+    expect(e.code).toBe('base_no_disponible');
+    expect(e.detail).toBe('No se pudo escribir la inscripción');
+  });
+
+  test('un 4xx no se toca: esos mensajes están redactados para el socio', async () => {
+    fetch.mockResolvedValueOnce(errJson(404, { message: 'Animal no encontrado' }));
+    expect((await apiGet('/animales/x').catch((x) => x)).detail).toBe('Animal no encontrado');
   });
 });
 
