@@ -365,15 +365,16 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
       </TouchableOpacity>
 
       {/* `puede_baja` es el mismo predicado que evalúa el DELETE, así que el
-          botón aparece exactamente cuando la web ofrece Eliminar. Sin relleno y
-          en rojo: no es la acción que el socio vino a hacer. */}
+          botón aparece exactamente cuando la web ofrece Eliminar — y se llama
+          igual que ahí. Sin relleno y en rojo: no es la acción que el socio
+          vino a hacer. */}
       {dato.puedeBaja && (
         <TouchableOpacity
           onPress={() => setConfirmando(true)}
-          accessibilityLabel="Dar de baja la inscripción"
+          accessibilityLabel="Eliminar la inscripción"
           style={{ marginTop: 10, padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: withAlpha(t.live, 0.45) }}
         >
-          <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.live }}>Dar de baja</Text>
+          <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.live }}>Eliminar inscripción</Text>
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -382,13 +383,17 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
 
 // ── Baja ───────────────────────────────────────────────────────────
 
-// La baja no se deshace desde la app (rehacer lo habilita la Asociación), así
+// Eliminar no se deshace desde la app (rehacer lo habilita la Asociación), así
 // que la confirmación es su propia pantalla y no un botón que actúa al toque.
 // Lo que dice arriba de todo es qué se pierde, no qué se aprieta.
+//
+// En la API y en el núcleo esto es «la baja» y así se llaman las funciones; de
+// cara al socio es «eliminar», que es la palabra que usa la web en el mismo
+// lugar. El certificado sí conserva su nombre: es «el certificado de baja».
 function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>¿Dar de baja esta inscripción?</Text>
+      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>¿Eliminar esta inscripción?</Text>
       <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20, marginTop: 8 }}>
         {dato.animal?.nombre || 'Este animal'}
         {dato.evento?.nombre ? ` en ${dato.evento.nombre}` : ''}.
@@ -441,12 +446,12 @@ function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
       <TouchableOpacity
         onPress={bajando ? undefined : onConfirmar}
         disabled={bajando}
-        accessibilityLabel="Confirmar la baja"
+        accessibilityLabel="Confirmar que se elimina"
         style={{ marginTop: 24, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.live, opacity: bajando ? 0.6 : 1 }}
       >
         {bajando
           ? <ActivityIndicator color={t.bg} />
-          : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Sí, dar de baja</Text>}
+          : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Sí, eliminar</Text>}
       </TouchableOpacity>
       <TouchableOpacity onPress={onVolver} disabled={bajando} style={{ marginTop: 10, padding: 15, alignItems: 'center' }}>
         <Text style={{ fontFamily: F.bodyMed, fontSize: 14, color: t.textMute }}>No, volver</Text>
@@ -458,10 +463,11 @@ function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
 function BajaHecha({ t, baja, onCerrar }) {
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>Inscripción dada de baja</Text>
+      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>Inscripción eliminada</Text>
       {/* El certificado de baja lo manda la API sólo si el evento es del año en
           curso, y un problema con el mail no cambia el 200. Así que se menciona
-          sin prometerlo. */}
+          sin prometerlo. Se llama así —«de baja»— porque ése es el nombre del
+          documento, aunque el botón diga eliminar. */}
       <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20, marginTop: 8 }}>
         Si el evento es de este año, el certificado de baja te llega por mail.
       </Text>

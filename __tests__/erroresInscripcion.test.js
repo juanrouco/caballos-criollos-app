@@ -70,11 +70,11 @@ describe('los 503 del servicio', () => {
 
 // La baja se ve recién después de que el socio apretó, así que estos textos
 // tienen que contestar dos cosas: si quedó dada de baja, y qué hacer si no.
-describe('los errores de la baja', () => {
+describe('los errores de eliminar una inscripción', () => {
   test('el motivo del 422 gana sobre el código, que sería el genérico', () => {
     const e = { status: 422, code: 'baja_no_permitida', motivo: 'con_resultados' };
     expect(textoErrorBaja(e)).toMatch(/resultados cargados/);
-    expect(textoErrorBaja(e)).not.toMatch(/No pudimos dar de baja/);
+    expect(textoErrorBaja(e)).not.toMatch(/No pudimos eliminar/);
   });
 
   test('cada motivo dice qué pasó y, cuando hay, a quién recurrir', () => {
@@ -99,9 +99,15 @@ describe('los errores de la baja', () => {
   });
 
   test('el 409 de carrera perdida se cuenta como resultado, no como falla', () => {
-    // Otra baja la ganó: para el socio la inscripción YA está dada de baja, así
-    // que el texto lo manda a mirar la lista y no a reintentar.
+    // Otra baja la ganó: para el socio ya está, así que el texto lo manda a
+    // mirar la lista y no a reintentar.
     expect(textoErrorBaja({ status: 409, code: 'estado_no_permite_baja' })).toMatch(/ya no está activa/);
+  });
+
+  test('el 409 no dice «eliminada»: también cubre una rechazada', () => {
+    // El mismo código salta con Cancelada (0) y con Rechazada (3). Decirle al
+    // socio que «ya estaba eliminada» sería falso en el segundo caso.
+    expect(textoErrorBaja({ code: 'estado_no_permite_baja' })).not.toMatch(/eliminada/);
   });
 
   test('el 503 cae en el texto de servicio y no en el genérico de la baja', () => {
@@ -111,7 +117,7 @@ describe('los errores de la baja', () => {
 
   test('un código desconocido usa el detail del backend antes que inventar', () => {
     expect(textoErrorBaja({ status: 400, code: 'otra_cosa', detail: 'Texto de la API' })).toBe('Texto de la API');
-    expect(textoErrorBaja({})).toMatch(/No pudimos dar de baja/);
-    expect(textoErrorBaja(undefined)).toMatch(/No pudimos dar de baja/);
+    expect(textoErrorBaja({})).toMatch(/No pudimos eliminar/);
+    expect(textoErrorBaja(undefined)).toMatch(/No pudimos eliminar/);
   });
 });

@@ -178,7 +178,10 @@ export function describirErroresEquipo(errores) {
   }));
 }
 
-// ── La baja (DELETE /inscripciones/{id}) ────────────────────────────
+// ── Eliminar una inscripción (DELETE /inscripciones/{id}) ───────────
+//
+// En la API esto es «la baja», y así se llaman el endpoint y estas funciones.
+// De cara al socio es «eliminar», que es lo que dice la web en el mismo lugar.
 //
 // Acá el socio ya decidió y apretó: el texto tiene que decirle si quedó dada de
 // baja o no, y qué hacer si no. Son códigos sueltos (no una lista `errores`
@@ -191,8 +194,11 @@ export function describirErroresEquipo(errores) {
 // alguien dio de baja la misma inscripción. Por eso los textos empiezan por el
 // cambio, no por el error.
 const TEXTOS_BAJA = {
-  // 409: el estado ya no admite la baja. También cuando otra baja ganó la
-  // carrera, que para el socio es el mismo resultado: ya está dada de baja.
+  // 409: el estado ya no admite eliminarla. Cubre DOS casos —ya cancelada, o
+  // rechazada por la Asociación—, así que el texto no puede decir «ya estaba
+  // eliminada»: sería falso para la rechazada. «Ya no está activa» vale para
+  // las dos. También salta cuando otra baja ganó la carrera, y ahí el socio
+  // igual quiere lo mismo: mirar cómo quedó la lista.
   estado_no_permite_baja: 'Esta inscripción ya no está activa. Actualizá la lista para ver cómo quedó.',
   // 409: la habilitación de rehacer se usó o venció entre la lectura y la
   // escritura. La única salida es pedir otra a la Asociación.
@@ -201,21 +207,21 @@ const TEXTOS_BAJA = {
   no_encontrada: 'No encontramos esta inscripción.',
   // 403: las dos cuentas operativas (1278 y 1610) y el usuario que dejó de
   // estar habilitado después de que salió su token.
-  usuario_solo_web: 'Esta cuenta da de baja sólo desde caballoscriollos.com.',
+  usuario_solo_web: 'Esta cuenta elimina inscripciones sólo desde caballoscriollos.com.',
   usuario_no_habilitado: 'Tu cuenta no está habilitada para esta operación. Consultá con la Asociación.',
 };
 
 // El `motivo` del 422: por qué esta baja no se puede. Gana sobre el texto del
 // `code`, que sería el genérico.
 const MOTIVOS_BAJA = {
-  plazo_cerrado: 'La inscripción a este evento ya está cerrada. Para darte de baja, pedile a la Asociación una habilitación para rehacer.',
-  no_propietario: 'Este animal ya no figura a tu nombre, así que la baja la tiene que hacer la Asociación.',
-  con_resultados: 'Esta inscripción ya tiene resultados cargados y no se puede dar de baja.',
+  plazo_cerrado: 'La inscripción a este evento ya está cerrada. Para eliminarla, pedile a la Asociación una habilitación para rehacer.',
+  no_propietario: 'Este animal ya no figura a tu nombre, así que la inscripción la tiene que eliminar la Asociación.',
+  con_resultados: 'Esta inscripción ya tiene resultados cargados y no se puede eliminar.',
   piso_no_medible: 'No pudimos verificar el plazo de este evento. Consultá con la Asociación.',
   sin_evento: 'No pudimos identificar el evento de esta inscripción. Consultá con la Asociación.',
 };
 
-const GENERICO_BAJA = 'No pudimos dar de baja la inscripción.';
+const GENERICO_BAJA = 'No pudimos eliminar la inscripción.';
 
 export function textoErrorBaja(e) {
   if (e?.motivo && MOTIVOS_BAJA[e.motivo]) return MOTIVOS_BAJA[e.motivo];

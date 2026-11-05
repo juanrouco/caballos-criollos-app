@@ -318,7 +318,7 @@ describe('InscripcionesScreen', () => {
 // La baja (#150). Es la única operación de la app que destruye algo y que el
 // socio no puede deshacer solo, así que lo que se prueba es sobre todo lo que
 // ve ANTES de confirmar y qué pasa cuando el servidor lo contradice.
-describe('InscripcionesScreen — la baja', () => {
+describe('InscripcionesScreen — eliminar una inscripción', () => {
   const CON_BAJA = { ...INSCRIPCION, id: 185901, puede_baja: true };
 
   const abrirDetalle = async () => {
@@ -328,20 +328,20 @@ describe('InscripcionesScreen — la baja', () => {
     return utils;
   };
 
-  test('sin puede_baja no se ofrece dar de baja', async () => {
+  test('sin puede_baja no se ofrece eliminar', async () => {
     // El predicado es del servidor: si dice que no, el botón no está. Así el
     // socio no llega nunca a un 422 que no podía prever.
     api.fetchInscripcion.mockResolvedValue({ inscripcion: { ...INSCRIPCION, id: 185901, puede_baja: false } });
     const utils = await abrirDetalle();
-    expect(utils.queryByText('Dar de baja')).toBeNull();
+    expect(utils.queryByText('Eliminar inscripción')).toBeNull();
   });
 
-  test('con puede_baja hay botón, y no da de baja al primer toque', async () => {
+  test('con puede_baja hay botón, y no elimina al primer toque', async () => {
     api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
 
-    expect(await utils.findByText('¿Dar de baja esta inscripción?')).toBeTruthy();
+    expect(await utils.findByText('¿Eliminar esta inscripción?')).toBeTruthy();
     expect(api.bajaInscripcion).not.toHaveBeenCalled();
     // Y se puede volver sin consecuencias.
     fireEvent.press(utils.getByText('No, volver'));
@@ -356,7 +356,7 @@ describe('InscripcionesScreen — la baja', () => {
       inscripcion: { ...CON_BAJA, puede_rehacer: true },
     });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
     expect(await utils.findByText(/usa la habilitación/)).toBeTruthy();
   });
 
@@ -372,7 +372,7 @@ describe('InscripcionesScreen — la baja', () => {
       },
     });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
 
     expect(await utils.findByText('Queda sin este animal')).toBeTruthy();
     expect(utils.getByText('LA COMPAÑERA')).toBeTruthy();
@@ -385,10 +385,10 @@ describe('InscripcionesScreen — la baja', () => {
       inscripcion: { id: 185901, estado: 0 }, rehacer: false, unidades_relacionadas: [],
     });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
 
-    expect(await utils.findByText('Inscripción dada de baja')).toBeTruthy();
+    expect(await utils.findByText('Inscripción eliminada')).toBeTruthy();
     expect(api.bajaInscripcion).toHaveBeenCalledWith(185901);
     // Los datos de la inscripción no siguen a la vista como si nada.
     expect(utils.queryByText('Ver certificado')).toBeNull();
@@ -406,8 +406,8 @@ describe('InscripcionesScreen — la baja', () => {
       ],
     });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
 
     expect(await utils.findByText(/volver a inscribir este animal/)).toBeTruthy();
     expect(utils.getByText('Quedaron sin este animal')).toBeTruthy();
@@ -420,9 +420,9 @@ describe('InscripcionesScreen — la baja', () => {
     api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
     api.bajaInscripcion.mockResolvedValue({ inscripcion: { id: 185901, estado: 0 }, rehacer: false });
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
-    await utils.findByText('Inscripción dada de baja');
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    await utils.findByText('Inscripción eliminada');
 
     api.fetchInscripciones.mockClear();
     fireEvent.press(utils.getByText('Volver a mis inscripciones'));
@@ -439,11 +439,11 @@ describe('InscripcionesScreen — la baja', () => {
       motivo: 'con_resultados', detail: 'La inscripción tiene resultados',
     }));
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
 
     expect(await utils.findByText(/resultados cargados/)).toBeTruthy();
-    expect(utils.queryByText('Inscripción dada de baja')).toBeNull();
+    expect(utils.queryByText('Inscripción eliminada')).toBeNull();
     // Y sigue en la confirmación, de donde puede volver al detalle.
     expect(utils.getByText('No, volver')).toBeTruthy();
   });
@@ -455,8 +455,8 @@ describe('InscripcionesScreen — la baja', () => {
       detail: 'La inscripción no está activa',
     }));
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
     expect(await utils.findByText(/ya no está activa/)).toBeTruthy();
   });
 
@@ -466,8 +466,8 @@ describe('InscripcionesScreen — la baja', () => {
       path: '/inscripciones/185901', status: 403, code: 'usuario_solo_web', detail: 'x',
     }));
     const utils = await abrirDetalle();
-    fireEvent.press(utils.getByText('Dar de baja'));
-    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
     expect(await utils.findByText(/sólo desde caballoscriollos\.com/)).toBeTruthy();
   });
 });
