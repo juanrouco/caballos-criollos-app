@@ -31,6 +31,11 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
   const { status } = useAuth();
   const { openSection } = useMenu();
   const [vista, setVista] = React.useState({ nombre: 'lista' }); // lista | detalle | certificado
+  // Las pantallas de eliminar (confirmar, resultado) son sub-estados DENTRO
+  // del detalle, pero el header es de acá. Sin esto el título seguía diciendo
+  // «Inscripción» mientras se preguntaba si eliminar, y la flecha de arriba
+  // saltaba al listado salteándose el detalle. El hijo avisa qué corresponde.
+  const [sub, setSub] = React.useState(null); // { titulo, volver } | null
 
   React.useEffect(() => { if (status === 'out') setVista({ nombre: 'lista' }); }, [status]);
 
@@ -47,11 +52,13 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
     );
   }
 
-  const titulo = vista.nombre === 'certificado' ? 'Certificado'
-    : vista.nombre === 'detalle' ? 'Inscripción'
-    : 'Mis inscripciones';
+  const titulo = sub?.titulo
+    ?? (vista.nombre === 'certificado' ? 'Certificado'
+      : vista.nombre === 'detalle' ? 'Inscripción'
+      : 'Mis inscripciones');
 
   const volver = () => {
+    if (sub?.volver) return sub.volver();
     if (vista.nombre === 'certificado') return setVista({ nombre: 'detalle', id: vista.id });
     if (vista.nombre === 'detalle') return setVista({ nombre: 'lista' });
     return onBack();
@@ -86,6 +93,7 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
       ) : vista.nombre === 'detalle' ? (
         <DetalleView
           t={t} id={vista.id}
+          onSubvista={setSub}
           onCertificado={() => setVista({ nombre: 'certificado', id: vista.id })}
           // La inscripción que se dio de baja ya no va en el listado: se
           // recarga, igual que después de un alta.
@@ -245,7 +253,7 @@ function Chip({ t, label }) {
 
 // ── Detalle ────────────────────────────────────────────────────────
 
-function DetalleView({ t, id, onCertificado, onBajaHecha }) {
+function DetalleView({ t, id, onCertificado, onBajaHecha, onSubvista }) {
   const { dato, error, reintentar } = useCarga(
     () => fetchInscripcion(id).then((r) => mapInscripcion(r?.inscripcion)), [id],
   );
@@ -253,6 +261,8 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
   const [bajando, setBajando] = React.useState(false);
   const [errorBaja, setErrorBaja] = React.useState(null);
   const [hecha, setHecha] = React.useState(null); // el 200 de la baja
+
+  const salirDeConfirmar = () => { setConfirmando(false); setErrorBaja(null); };
 
   const confirmar = async () => {
     setBajando(true); setErrorBaja(null);
@@ -269,6 +279,17 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
     }
   };
 
+  // Lo que el header tiene que decir y adónde tiene que volver en cada una de
+  // las tres pantallas. `setSub` del padre es estable, así que no reentra.
+  React.useEffect(() => {
+    if (hecha) onSubvista?.({ titulo: 'Inscripción eliminada', volver: onBajaHecha });
+    else if (confirmando) onSubvista?.({ titulo: 'Eliminar inscripción', volver: salirDeConfirmar });
+    else onSubvista?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmando, !!hecha]);
+  // Al dejar el detalle, el header vuelve a ser del padre.
+  React.useEffect(() => () => onSubvista?.(null), [onSubvista]);
+
   // El resultado reemplaza el detalle entero: la inscripción que se estaba
   // mirando ya no está activa, así que seguir mostrando sus datos como si nada
   // sería mentir.
@@ -279,7 +300,7 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
       <ConfirmarBaja
         t={t} dato={dato} bajando={bajando} error={errorBaja}
         onConfirmar={confirmar}
-        onVolver={() => { setConfirmando(false); setErrorBaja(null); }}
+        onVolver={salirDeConfirmar}
       />
     );
   }
@@ -392,7 +413,10 @@ function DetalleView({ t, id, onCertificado, onBajaHecha }) {
 // lugar. El certificado sí conserva su nombre: es «el certificado de baja».
 function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+    // `flexGrow: 1` para que los botones se vayan al pie: sin avisos de rehacer
+    // ni unidades —el caso normal— la pregunta ocupa cuatro líneas y los
+    // botones quedaban flotando arriba con media pantalla vacía debajo.
+    <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
       <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>¿Eliminar esta inscripción?</Text>
       <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20, marginTop: 8 }}>
         {dato.animal?.nombre || 'Este animal'}
@@ -443,19 +467,33 @@ function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
         </Card>
       )}
 
-      <TouchableOpacity
-        onPress={bajando ? undefined : onConfirmar}
-        disabled={bajando}
-        accessibilityLabel="Confirmar que se elimina"
-        style={{ marginTop: 24, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.live, opacity: bajando ? 0.6 : 1 }}
-      >
-        {bajando
-          ? <ActivityIndicator color={t.bg} />
-          : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Sí, eliminar</Text>}
-      </TouchableOpacity>
-      <TouchableOpacity onPress={onVolver} disabled={bajando} style={{ marginTop: 10, padding: 15, alignItems: 'center' }}>
-        <Text style={{ fontFamily: F.bodyMed, fontSize: 14, color: t.textMute }}>No, volver</Text>
-      </TouchableOpacity>
+      {/* El relleno va en Cancelar, no en Aceptar. Esto no se deshace desde la
+          app, así que lo que tiene que ser fácil de apretar sin mirar es la
+          salida — y va abajo de todo, donde cae el pulgar, igual que el
+          Cancelar de iOS. Aceptar queda arriba, en rojo y sin relleno:
+          visible, pero no es lo que la mano encuentra sola.
+
+          «Aceptar» no dice por sí solo qué se acepta, así que el peso lo
+          sostiene la pregunta del título y el rojo del botón. */}
+      <View style={{ marginTop: 'auto', paddingTop: 24 }}>
+        <TouchableOpacity
+          onPress={bajando ? undefined : onConfirmar}
+          disabled={bajando}
+          accessibilityLabel="Aceptar que se elimina"
+          style={{ padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: withAlpha(t.live, 0.45), opacity: bajando ? 0.6 : 1 }}
+        >
+          {bajando
+            ? <ActivityIndicator color={t.live} />
+            : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.live }}>Aceptar</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onVolver} disabled={bajando}
+          accessibilityLabel="Cancelar y volver"
+          style={{ marginTop: 10, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.accent, opacity: bajando ? 0.6 : 1 }}
+        >
+          <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Cancelar</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -463,7 +501,7 @@ function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
 function BajaHecha({ t, baja, onCerrar }) {
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>Inscripción eliminada</Text>
+      {/* El título lo pone ahora el header de la sección; acá iba repetido. */}
       {/* El certificado de baja lo manda la API sólo si el evento es del año en
           curso, y un problema con el mail no cambia el 200. Así que se menciona
           sin prometerlo. Se llama así —«de baja»— porque ése es el nombre del

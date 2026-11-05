@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 // Igual que en CuentaScreen: mockeamos sólo la red, el store de sesión va de
 // verdad y los mappers también, así el test ejercita el shape real del contrato.
@@ -344,7 +345,7 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     expect(await utils.findByText('¿Eliminar esta inscripción?')).toBeTruthy();
     expect(api.bajaInscripcion).not.toHaveBeenCalled();
     // Y se puede volver sin consecuencias.
-    fireEvent.press(utils.getByText('No, volver'));
+    fireEvent.press(utils.getByText('Cancelar'));
     expect(await utils.findByText('Ver certificado')).toBeTruthy();
     expect(api.bajaInscripcion).not.toHaveBeenCalled();
   });
@@ -386,7 +387,7 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     });
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
 
     expect(await utils.findByText('Inscripción eliminada')).toBeTruthy();
     expect(api.bajaInscripcion).toHaveBeenCalledWith(185901);
@@ -407,7 +408,7 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     });
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
 
     expect(await utils.findByText(/volver a inscribir este animal/)).toBeTruthy();
     expect(utils.getByText('Quedaron sin este animal')).toBeTruthy();
@@ -421,7 +422,7 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     api.bajaInscripcion.mockResolvedValue({ inscripcion: { id: 185901, estado: 0 }, rehacer: false });
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
     await utils.findByText('Inscripción eliminada');
 
     api.fetchInscripciones.mockClear();
@@ -440,12 +441,12 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     }));
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
 
     expect(await utils.findByText(/resultados cargados/)).toBeTruthy();
     expect(utils.queryByText('Inscripción eliminada')).toBeNull();
     // Y sigue en la confirmación, de donde puede volver al detalle.
-    expect(utils.getByText('No, volver')).toBeTruthy();
+    expect(utils.getByText('Cancelar')).toBeTruthy();
   });
 
   test('el 409 de carrera perdida no se cuenta como que falló', async () => {
@@ -456,8 +457,56 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     }));
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
     expect(await utils.findByText(/ya no está activa/)).toBeTruthy();
+  });
+
+  test('el header acompaña: título y flecha cambian en cada pantalla', async () => {
+    // El header es del componente padre y la confirmación es un sub-estado del
+    // detalle, así que sin avisarle el título seguía diciendo «Inscripción»
+    // mientras se preguntaba si eliminar, y la flecha saltaba al listado
+    // salteándose el detalle.
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    const utils = await abrirDetalle();
+    expect(utils.getByText('Inscripción')).toBeTruthy();
+
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    expect(await utils.findByText('Eliminar inscripción')).toBeTruthy();
+    expect(utils.queryByText('Inscripción')).toBeNull();
+
+    // Y la flecha de arriba vuelve al detalle, no al listado.
+    fireEvent.press(utils.getByLabelText('Volver'));
+    expect(await utils.findByText('Ver certificado')).toBeTruthy();
+    expect(utils.getByText('Inscripción')).toBeTruthy();
+  });
+
+  test('el header del resultado dice que quedó eliminada y cierra al listado', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockResolvedValue({ inscripcion: { id: 185901, estado: 0 }, rehacer: false });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
+    await utils.findByText('Volver a mis inscripciones');
+
+    // Desde el resultado no se vuelve al detalle: esa inscripción ya no está.
+    api.fetchInscripciones.mockClear();
+    fireEvent.press(utils.getByLabelText('Volver'));
+    expect(await utils.findByText('LA TROPILLA')).toBeTruthy();
+    expect(api.fetchInscripciones).toHaveBeenCalled();
+  });
+
+  test('el botón con relleno es Cancelar, no Aceptar', async () => {
+    // Eliminar no se deshace desde la app. Lo que tiene que ser fácil de
+    // apretar sin mirar es la salida, así que el relleno va ahí y Aceptar
+    // queda en rojo y sin fondo.
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Eliminar inscripción'));
+    await utils.findByText('¿Eliminar esta inscripción?');
+
+    const fondo = (nodo) => StyleSheet.flatten(nodo.props.style)?.backgroundColor;
+    expect(fondo(utils.getByLabelText('Cancelar y volver'))).toBe(T.accent);
+    expect(fondo(utils.getByLabelText('Aceptar que se elimina'))).toBeUndefined();
   });
 
   test('el 403 del usuario que opera sólo por la web se dice tal cual', async () => {
@@ -467,7 +516,7 @@ describe('InscripcionesScreen — eliminar una inscripción', () => {
     }));
     const utils = await abrirDetalle();
     fireEvent.press(utils.getByText('Eliminar inscripción'));
-    fireEvent.press(await utils.findByLabelText('Confirmar que se elimina'));
+    fireEvent.press(await utils.findByLabelText('Aceptar que se elimina'));
     expect(await utils.findByText(/sólo desde caballoscriollos\.com/)).toBeTruthy();
   });
 });
