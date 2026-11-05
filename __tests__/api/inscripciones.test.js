@@ -1,4 +1,4 @@
-import { mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf } from '../../src/api/inscripciones';
+import { mapListado, mapInscripcion, mapCertificado, mapBaja, descargarCertificadoPdf } from '../../src/api/inscripciones';
 import { API_BASE } from '../../src/api/client';
 import { setSession, clearSession } from '../../src/api/session';
 
@@ -155,5 +155,42 @@ describe('descargarCertificadoPdf', () => {
     await expect(descargarCertificadoPdf(7, async () => null)).rejects.toMatchObject({
       detail: 'No se pudo bajar el certificado',
     });
+  });
+});
+
+describe('mapBaja', () => {
+  test('el 200 de una baja normal: sin rehacer y sin unidades', () => {
+    const b = mapBaja({ inscripcion: { id: 185901, estado: 0 }, rehacer: false, unidades_relacionadas: [] });
+    expect(b).toEqual({ id: 185901, estado: 0, rehacer: false, unidadesRelacionadas: [] });
+  });
+
+  test('con rehacer trae las unidades que quedaron sin el animal', () => {
+    // Vienen SÓLO con `rehacer`, y leídas antes de la baja: son las yuntas y
+    // los equipos que nombran al animal y hay que rearmar.
+    const b = mapBaja({
+      inscripcion: { id: 185901, estado: 0 },
+      rehacer: true,
+      unidades_relacionadas: [
+        { inscripcion: 185902, animal: { id: 'exis:2', nombre: 'LA COMPAÑERA' },
+          prueba: { id: 2, nombre: 'Paleteada' }, categoria: { id: 7, nombre: 'Mayor' },
+          expositor: 'Ana Gómez', direccion: 'declarante' },
+      ],
+    });
+    expect(b.rehacer).toBe(true);
+    expect(b.unidadesRelacionadas).toHaveLength(1);
+    expect(b.unidadesRelacionadas[0]).toMatchObject({
+      inscripcion: 185902, prueba: 'Paleteada', categoria: 'Mayor',
+      expositor: 'Ana Gómez', direccion: 'declarante',
+    });
+    expect(b.unidadesRelacionadas[0].animal.nombre).toBe('LA COMPAÑERA');
+  });
+
+  test('un cuerpo incompleto no rompe: rehacer sólo con true explícito', () => {
+    // `rehacer` decide si se muestra «ya podés volver a inscribirlo», que es
+    // falso si el campo no vino.
+    expect(mapBaja({}).rehacer).toBe(false);
+    expect(mapBaja({ rehacer: 1 }).rehacer).toBe(false);
+    expect(mapBaja({}).id).toBeNull();
+    expect(mapBaja(undefined).unidadesRelacionadas).toEqual([]);
   });
 });

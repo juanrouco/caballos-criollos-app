@@ -2,13 +2,13 @@
 // sin que importen un archivo específico por endpoint. Cada nuevo endpoint
 // va en su propio archivo y se re-exporta acá.
 
-export { API_BASE, apiGet, apiPost, apiGetAuth, apiPostAuth, ApiError, OFFLINE_MSG } from './client';
+export { API_BASE, apiGet, apiPost, apiGetAuth, apiPostAuth, apiDeleteAuth, ApiError, OFFLINE_MSG } from './client';
 export { getSession, setSession, clearSession, subscribeSession } from './session';
 export { login, logout, cambiarClave, OLVIDO_CLAVE_URL } from './auth';
 export { fetchPerfil, mapPerfil } from './perfil';
 export {
-  fetchInscripciones, fetchInscripcion, fetchCertificado,
-  mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf,
+  fetchInscripciones, fetchInscripcion, fetchCertificado, bajaInscripcion,
+  mapListado, mapInscripcion, mapCertificado, mapBaja, descargarCertificadoPdf,
 } from './inscripciones';
 export {
   fetchEventosAlta, fetchAlertasAlta, fetchCabanias,

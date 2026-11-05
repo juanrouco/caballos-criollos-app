@@ -177,3 +177,54 @@ export function describirErroresEquipo(errores) {
     campo: e?.campo || null,
   }));
 }
+
+// ── La baja (DELETE /inscripciones/{id}) ────────────────────────────
+//
+// Acá el socio ya decidió y apretó: el texto tiene que decirle si quedó dada de
+// baja o no, y qué hacer si no. Son códigos sueltos (no una lista `errores`
+// como el 422 del alta), y el 422 trae además un `motivo` aparte.
+//
+// La app no pregunta antes si se puede —`puede_baja` ya viene en el listado y
+// en el detalle, y el botón sólo aparece con `true`—, así que todo esto se ve
+// únicamente cuando la respuesta contradice lo que la pantalla mostraba: entre
+// que se pintó y el socio apretó se cerró el plazo, se cargó un resultado, o
+// alguien dio de baja la misma inscripción. Por eso los textos empiezan por el
+// cambio, no por el error.
+const TEXTOS_BAJA = {
+  // 409: el estado ya no admite la baja. También cuando otra baja ganó la
+  // carrera, que para el socio es el mismo resultado: ya está dada de baja.
+  estado_no_permite_baja: 'Esta inscripción ya no está activa. Actualizá la lista para ver cómo quedó.',
+  // 409: la habilitación de rehacer se usó o venció entre la lectura y la
+  // escritura. La única salida es pedir otra a la Asociación.
+  habilitacion_usada: 'La habilitación para rehacer esta inscripción ya se usó o venció. Consultá con la Asociación.',
+  // 404: no existe, o no es del socio — la API no distingue, y la app tampoco.
+  no_encontrada: 'No encontramos esta inscripción.',
+  // 403: las dos cuentas operativas (1278 y 1610) y el usuario que dejó de
+  // estar habilitado después de que salió su token.
+  usuario_solo_web: 'Esta cuenta da de baja sólo desde caballoscriollos.com.',
+  usuario_no_habilitado: 'Tu cuenta no está habilitada para esta operación. Consultá con la Asociación.',
+};
+
+// El `motivo` del 422: por qué esta baja no se puede. Gana sobre el texto del
+// `code`, que sería el genérico.
+const MOTIVOS_BAJA = {
+  plazo_cerrado: 'La inscripción a este evento ya está cerrada. Para darte de baja, pedile a la Asociación una habilitación para rehacer.',
+  no_propietario: 'Este animal ya no figura a tu nombre, así que la baja la tiene que hacer la Asociación.',
+  con_resultados: 'Esta inscripción ya tiene resultados cargados y no se puede dar de baja.',
+  piso_no_medible: 'No pudimos verificar el plazo de este evento. Consultá con la Asociación.',
+  sin_evento: 'No pudimos identificar el evento de esta inscripción. Consultá con la Asociación.',
+};
+
+const GENERICO_BAJA = 'No pudimos dar de baja la inscripción.';
+
+export function textoErrorBaja(e) {
+  if (e?.motivo && MOTIVOS_BAJA[e.motivo]) return MOTIVOS_BAJA[e.motivo];
+  if (e?.code && TEXTOS_BAJA[e.code]) return TEXTOS_BAJA[e.code];
+  // El 503 del servicio: el mismo texto que el resto de la app. Acá no hace
+  // falta aclarar que «no quedó anotado» como en el alta — la transacción se
+  // deshizo y la inscripción sigue viva, que es lo que el socio ya ve.
+  return textoServicio(e?.code) || e?.detail || GENERICO_BAJA;
+}
+
+export const CODIGOS_BAJA = Object.keys(TEXTOS_BAJA);
+export const MOTIVOS_BAJA_CONOCIDOS = Object.keys(MOTIVOS_BAJA);

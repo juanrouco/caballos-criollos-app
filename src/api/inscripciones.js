@@ -1,10 +1,10 @@
-// Inscripciones del socio logueado: listado, detalle y certificado.
+// Inscripciones del socio logueado: listado, detalle, certificado y baja.
 //
 // Todos protegidos, con la misma regla de pertenencia: una inscripción de otro
 // socio da 404 `no_encontrada`, igual que un id que no existe. Contrato en
 // docs/README.md §Inscripciones.
 
-import { apiGetAuth, authedRequest, API_BASE, ApiError } from './client';
+import { apiGetAuth, apiDeleteAuth, authedRequest, API_BASE, ApiError } from './client';
 import { fixCp1252 } from '../format';
 
 export function fetchInscripciones() {
@@ -17,6 +17,20 @@ export function fetchInscripcion(id) {
 
 export function fetchCertificado(id) {
   return apiGetAuth(`/inscripciones/${encodeURIComponent(id)}/certificado`);
+}
+
+// La baja (#150). Va por el mismo núcleo que `expositores_inscripcion_del.php`
+// de la web, y escribe en una transacción: la inscripción y sus pruebas quedan
+// en `Estado = 0`, la habilitación de rehacer queda usada si la hubo, y se
+// manda el certificado de baja por mail.
+//
+// No se pregunta antes si se puede: la regla ya viene en `puede_baja` del
+// listado y del detalle. Pero el predicado se vuelve a evaluar del lado del
+// servidor, así que la pantalla igual tiene que saber leer el 409 y el 422 —
+// entre que se pintó la pantalla y el socio apretó pudo cerrarse el plazo, o
+// alguien pudo cargar un resultado.
+export function bajaInscripcion(id) {
+  return apiDeleteAuth(`/inscripciones/${encodeURIComponent(id)}`);
 }
 
 const texto = (s) => (s ? fixCp1252(String(s)) : null);
@@ -72,20 +86,38 @@ export function mapInscripcion(i) {
     cabania: texto(i.cabania),
     puedeBaja: !!i.puede_baja,
     puedeRehacer: !!i.puede_rehacer,
-    unidadesRelacionadas: Array.isArray(i.unidades_relacionadas)
-      ? i.unidades_relacionadas.map((u) => ({
-          inscripcion: u.inscripcion ?? null,
-          animal: mapAnimal(u.animal),
-          expositor: texto(u.expositor),
-          cabania: texto(u.cabania),
-          prueba: texto(u?.prueba?.nombre),
-          categoria: texto(u?.categoria?.nombre),
-          equipo: texto(u.equipo),
-          // 'declarado' = lo nombra esta inscripción; 'declarante' = otra
-          // inscripción del evento nombra a este animal.
-          direccion: u.direccion || null,
-        }))
-      : [],
+    unidadesRelacionadas: mapUnidades(i.unidades_relacionadas),
+  };
+}
+
+function mapUnidades(us) {
+  if (!Array.isArray(us)) return [];
+  return us.map((u) => ({
+    inscripcion: u.inscripcion ?? null,
+    animal: mapAnimal(u.animal),
+    expositor: texto(u.expositor),
+    cabania: texto(u.cabania),
+    prueba: texto(u?.prueba?.nombre),
+    categoria: texto(u?.categoria?.nombre),
+    equipo: texto(u.equipo),
+    // 'declarado' = lo nombra esta inscripción; 'declarante' = otra
+    // inscripción del evento nombra a este animal.
+    direccion: u.direccion || null,
+  }));
+}
+
+// El 200 de la baja. `rehacer` dice que se gastó una habilitación de rehacer,
+// y sólo entonces vienen las `unidades_relacionadas` — las yuntas y los equipos
+// que quedaron tocados, leídos ANTES de la baja. Es la alerta que la web muestra
+// después de eliminar, y el socio la necesita: esas otras inscripciones lo
+// nombran y hay que rearmarlas.
+export function mapBaja(r) {
+  const i = r?.inscripcion || null;
+  return {
+    id: i?.id ?? null,
+    estado: i?.estado ?? null,
+    rehacer: r?.rehacer === true,
+    unidadesRelacionadas: mapUnidades(r?.unidades_relacionadas),
   };
 }
 

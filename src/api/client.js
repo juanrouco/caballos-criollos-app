@@ -38,7 +38,7 @@ export const OFFLINE_MSG = 'Sin conexión. Revisá tu internet e intentá de nue
 // la pantalla). `code` es el string estable que trae `/auth/*` e
 // `/inscripciones` para elegir qué mostrar sin parsear el mensaje.
 export class ApiError extends Error {
-  constructor({ path, status, detail, code, campo, errores }) {
+  constructor({ path, status, detail, code, campo, motivo, errores }) {
     super(`${path} → HTTP ${status}${detail ? `: ${detail}` : ''}`);
     this.name = 'ApiError';
     this.status = status;
@@ -48,6 +48,10 @@ export class ApiError extends Error {
     // lo acompaña está escrito para quien programa («se esperaba un entero
     // positivo»), así que las pantallas traducen por `campo` y no lo muestran.
     this.campo = campo || '';
+    // El 422 `baja_no_permitida` no trae `errores` sino un `motivo` suelto
+    // (`plazo_cerrado`, `no_propietario`, `con_resultados`, …): la razón por la
+    // que esa baja no se puede, que la pantalla traduce sin leer el texto.
+    this.motivo = motivo || '';
     // El 422 de POST /inscripciones trae la lista de reglas que no se
     // cumplieron ({codigo, campo, prueba, categoria}), sin texto: el mensaje
     // que ve el socio lo pone la app (src/erroresInscripcion.js).
@@ -80,16 +84,18 @@ async function raise(res, path) {
   let detail = '';
   let code = '';
   let campo = '';
+  let motivo = '';
   let errores = null;
   try {
     const body = await res.json();
     detail = body?.message || '';
     code = body?.code || '';
     campo = body?.campo || '';
+    motivo = body?.motivo || '';
     errores = body?.errores || null;
   } catch {}
   if (res.status >= 500 && !code) detail = ERROR_SERVIDOR_MSG;
-  throw new ApiError({ path, status: res.status, detail, code, campo, errores });
+  throw new ApiError({ path, status: res.status, detail, code, campo, motivo, errores });
 }
 
 // Un 2xx que no trae JSON no es una respuesta usable, y pasa: un error fatal de
@@ -123,6 +129,18 @@ async function leerJson(res, path) {
 
 export async function apiGet(path, params, headers) {
   const res = await safeFetch(`${API_BASE}${path}${queryString(params)}`, headers ? { headers } : undefined);
+  if (!res.ok) await raise(res, path);
+  return leerJson(res, path);
+}
+
+// La baja de una inscripción es el único DELETE del contrato. Sin body de
+// entrada; el 200 trae cuerpo, pero `leerJson` tolera el vacío por si algún
+// DELETE futuro contesta 204.
+export async function apiDelete(path, headers) {
+  const res = await safeFetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    headers: { ...headers },
+  });
   if (!res.ok) await raise(res, path);
   return leerJson(res, path);
 }
@@ -227,4 +245,8 @@ export function apiGetAuth(path, params) {
 
 export function apiPostAuth(path, body) {
   return authed(path, (token) => apiPost(path, body, bearer(token)));
+}
+
+export function apiDeleteAuth(path) {
+  return authed(path, (token) => apiDelete(path, bearer(token)));
 }

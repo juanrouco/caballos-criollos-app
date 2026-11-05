@@ -14,10 +14,12 @@ jest.mock('../../src/api', () => {
     fetchInscripciones: jest.fn(),
     fetchInscripcion: jest.fn(),
     fetchCertificado: jest.fn(),
+    bajaInscripcion: jest.fn(),
     descargarCertificadoPdf: jest.fn(),
     mapListado: insc.mapListado,
     mapInscripcion: insc.mapInscripcion,
     mapCertificado: insc.mapCertificado,
+    mapBaja: insc.mapBaja,
   };
 });
 jest.mock('../../src/descargas', () => ({
@@ -26,6 +28,7 @@ jest.mock('../../src/descargas', () => ({
 }));
 
 const api = require('../../src/api');
+const { ApiError } = require('../../src/api/client');
 const descargas = require('../../src/descargas');
 const session = require('../../src/api/session');
 const SecureStore = require('expo-secure-store');
@@ -77,6 +80,7 @@ beforeEach(() => {
   api.fetchInscripciones.mockReset();
   api.fetchInscripcion.mockReset();
   api.fetchCertificado.mockReset();
+  api.bajaInscripcion.mockReset();
   api.descargarCertificadoPdf.mockReset();
   descargas.descargarArchivo.mockClear();
   descargas.compartirArchivo.mockClear();
@@ -308,5 +312,162 @@ describe('InscripcionesScreen', () => {
     const { findByText, queryByText } = renderPantalla();
     expect(await findByText('No hay inscripciones a eventos abiertos')).toBeTruthy();
     expect(queryByText('Inscripciones anteriores')).toBeNull();
+  });
+});
+
+// La baja (#150). Es la única operación de la app que destruye algo y que el
+// socio no puede deshacer solo, así que lo que se prueba es sobre todo lo que
+// ve ANTES de confirmar y qué pasa cuando el servidor lo contradice.
+describe('InscripcionesScreen — la baja', () => {
+  const CON_BAJA = { ...INSCRIPCION, id: 185901, puede_baja: true };
+
+  const abrirDetalle = async () => {
+    const utils = await renderLogueada();
+    fireEvent.press(utils.getByText('LA TROPILLA'));
+    await utils.findByText('Ver certificado');
+    return utils;
+  };
+
+  test('sin puede_baja no se ofrece dar de baja', async () => {
+    // El predicado es del servidor: si dice que no, el botón no está. Así el
+    // socio no llega nunca a un 422 que no podía prever.
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: { ...INSCRIPCION, id: 185901, puede_baja: false } });
+    const utils = await abrirDetalle();
+    expect(utils.queryByText('Dar de baja')).toBeNull();
+  });
+
+  test('con puede_baja hay botón, y no da de baja al primer toque', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+
+    expect(await utils.findByText('¿Dar de baja esta inscripción?')).toBeTruthy();
+    expect(api.bajaInscripcion).not.toHaveBeenCalled();
+    // Y se puede volver sin consecuencias.
+    fireEvent.press(utils.getByText('No, volver'));
+    expect(await utils.findByText('Ver certificado')).toBeTruthy();
+    expect(api.bajaInscripcion).not.toHaveBeenCalled();
+  });
+
+  test('la confirmación avisa que la baja gasta la habilitación de rehacer', async () => {
+    // Con el plazo cerrado, `puede_baja` viene de `puede_rehacer`, y esa
+    // habilitación es de un solo uso: el socio tiene que saberlo antes.
+    api.fetchInscripcion.mockResolvedValue({
+      inscripcion: { ...CON_BAJA, puede_rehacer: true },
+    });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    expect(await utils.findByText(/usa la habilitación/)).toBeTruthy();
+  });
+
+  test('la confirmación lista las yuntas y equipos que quedan sin el animal', async () => {
+    api.fetchInscripcion.mockResolvedValue({
+      inscripcion: {
+        ...CON_BAJA,
+        unidades_relacionadas: [
+          { inscripcion: 185902, animal: { id: 'exis:2', nombre: 'LA COMPAÑERA' },
+            prueba: { id: 2, nombre: 'Paleteada' }, categoria: { id: 7, nombre: 'Mayor' },
+            expositor: 'Ana Gómez', direccion: 'declarante' },
+        ],
+      },
+    });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+
+    expect(await utils.findByText('Queda sin este animal')).toBeTruthy();
+    expect(utils.getByText('LA COMPAÑERA')).toBeTruthy();
+    expect(utils.getByText('Paleteada · Mayor · Ana Gómez')).toBeTruthy();
+  });
+
+  test('confirmada, llama al DELETE y el detalle deja de mostrarse', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockResolvedValue({
+      inscripcion: { id: 185901, estado: 0 }, rehacer: false, unidades_relacionadas: [],
+    });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+
+    expect(await utils.findByText('Inscripción dada de baja')).toBeTruthy();
+    expect(api.bajaInscripcion).toHaveBeenCalledWith(185901);
+    // Los datos de la inscripción no siguen a la vista como si nada.
+    expect(utils.queryByText('Ver certificado')).toBeNull();
+  });
+
+  test('con rehacer dice que ya puede volver a inscribir, y qué quedó roto', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockResolvedValue({
+      inscripcion: { id: 185901, estado: 0 },
+      rehacer: true,
+      unidades_relacionadas: [
+        { inscripcion: 185902, animal: { id: 'exis:2', nombre: 'LA COMPAÑERA' },
+          prueba: { id: 2, nombre: 'Paleteada' }, categoria: { id: 7, nombre: 'Mayor' },
+          expositor: 'Ana Gómez', direccion: 'declarante' },
+      ],
+    });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+
+    expect(await utils.findByText(/volver a inscribir este animal/)).toBeTruthy();
+    expect(utils.getByText('Quedaron sin este animal')).toBeTruthy();
+    expect(utils.getByText('LA COMPAÑERA')).toBeTruthy();
+  });
+
+  test('al volver del resultado, el listado se vuelve a pedir', async () => {
+    // La inscripción dada de baja ya no va en el listado: si no se recarga, el
+    // socio la sigue viendo y cree que la baja no funcionó.
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockResolvedValue({ inscripcion: { id: 185901, estado: 0 }, rehacer: false });
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    await utils.findByText('Inscripción dada de baja');
+
+    api.fetchInscripciones.mockClear();
+    fireEvent.press(utils.getByText('Volver a mis inscripciones'));
+    expect(await utils.findByText('LA TROPILLA')).toBeTruthy();
+    expect(api.fetchInscripciones).toHaveBeenCalled();
+  });
+
+  test('el 422 explica el motivo y la inscripción sigue ahí', async () => {
+    // El plazo se cerró entre que se pintó la pantalla y el socio apretó: el
+    // texto sale del `motivo`, no del mensaje del backend.
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockRejectedValue(new ApiError({
+      path: '/inscripciones/185901', status: 422, code: 'baja_no_permitida',
+      motivo: 'con_resultados', detail: 'La inscripción tiene resultados',
+    }));
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+
+    expect(await utils.findByText(/resultados cargados/)).toBeTruthy();
+    expect(utils.queryByText('Inscripción dada de baja')).toBeNull();
+    // Y sigue en la confirmación, de donde puede volver al detalle.
+    expect(utils.getByText('No, volver')).toBeTruthy();
+  });
+
+  test('el 409 de carrera perdida no se cuenta como que falló', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockRejectedValue(new ApiError({
+      path: '/inscripciones/185901', status: 409, code: 'estado_no_permite_baja',
+      detail: 'La inscripción no está activa',
+    }));
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    expect(await utils.findByText(/ya no está activa/)).toBeTruthy();
+  });
+
+  test('el 403 del usuario que opera sólo por la web se dice tal cual', async () => {
+    api.fetchInscripcion.mockResolvedValue({ inscripcion: CON_BAJA });
+    api.bajaInscripcion.mockRejectedValue(new ApiError({
+      path: '/inscripciones/185901', status: 403, code: 'usuario_solo_web', detail: 'x',
+    }));
+    const utils = await abrirDetalle();
+    fireEvent.press(utils.getByText('Dar de baja'));
+    fireEvent.press(await utils.findByLabelText('Confirmar la baja'));
+    expect(await utils.findByText(/sólo desde caballoscriollos\.com/)).toBeTruthy();
   });
 });

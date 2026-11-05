@@ -1,4 +1,4 @@
-import { apiGet, apiPost, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG, ERROR_SERVIDOR_MSG } from '../../src/api/client';
+import { apiGet, apiPost, apiDelete, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG, ERROR_SERVIDOR_MSG } from '../../src/api/client';
 
 const okJson = (body) => ({ ok: true, json: async () => body });
 const errJson = (status, body) => ({
@@ -103,6 +103,42 @@ describe('el 400 entrada_invalida', () => {
   test('sin campo en el cuerpo, campo queda vacío y no rompe', async () => {
     fetch.mockResolvedValueOnce(errJson(400, { error: true, status: 400, code: 'entrada_invalida' }));
     await expect(apiGet('/x')).rejects.toMatchObject({ code: 'entrada_invalida', campo: '' });
+  });
+});
+
+describe('apiDelete', () => {
+  // La baja de una inscripción es el único DELETE del contrato.
+  test('manda DELETE sin body y devuelve el cuerpo parseado', async () => {
+    fetch.mockResolvedValueOnce(okJson({ inscripcion: { id: 7, estado: 0 }, rehacer: false }));
+    const r = await apiDelete('/inscripciones/7', { Authorization: 'Bearer t' });
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE}/inscripciones/7`);
+    expect(opts.method).toBe('DELETE');
+    expect(opts.body).toBeUndefined();
+    expect(opts.headers).toEqual({ Authorization: 'Bearer t' });
+    expect(r.inscripcion.estado).toBe(0);
+  });
+
+  test('una falla de red también se traduce a OFFLINE_MSG', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await expect(apiDelete('/inscripciones/7')).rejects.toThrow(OFFLINE_MSG);
+  });
+
+  test('el 422 de la baja llega con su motivo, que es lo que se traduce', async () => {
+    // `baja_no_permitida` no trae `errores` como el 422 del alta: trae un
+    // `motivo` suelto, y la pantalla elige el texto por ahí.
+    fetch.mockResolvedValueOnce(errJson(422, {
+      error: true, status: 422, code: 'baja_no_permitida', motivo: 'con_resultados',
+      message: 'La inscripción tiene resultados',
+    }));
+    await expect(apiDelete('/inscripciones/7')).rejects.toMatchObject({
+      status: 422, code: 'baja_no_permitida', motivo: 'con_resultados',
+    });
+  });
+
+  test('sin motivo en el cuerpo, motivo queda vacío y no rompe', async () => {
+    fetch.mockResolvedValueOnce(errJson(409, { error: true, status: 409, code: 'estado_no_permite_baja' }));
+    await expect(apiDelete('/x')).rejects.toMatchObject({ code: 'estado_no_permite_baja', motivo: '' });
   });
 });
 

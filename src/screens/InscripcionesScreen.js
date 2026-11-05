@@ -6,9 +6,10 @@ import { formatDate } from '../format';
 import { useAuth } from '../AuthContext';
 import { useMenu } from '../MenuContext';
 import {
-  fetchInscripciones, fetchInscripcion, fetchCertificado,
-  mapListado, mapInscripcion, mapCertificado, descargarCertificadoPdf,
+  fetchInscripciones, fetchInscripcion, fetchCertificado, bajaInscripcion,
+  mapListado, mapInscripcion, mapCertificado, mapBaja, descargarCertificadoPdf,
 } from '../api';
+import { textoErrorBaja } from '../erroresInscripcion';
 import { descargarArchivo, compartirArchivo } from '../descargas';
 import AltaInscripcionScreen from './AltaInscripcionScreen';
 
@@ -83,7 +84,13 @@ export default function InscripcionesScreen({ t, topInset, onBack }) {
       ) : vista.nombre === 'certificado' ? (
         <CertificadoView t={t} id={vista.id} />
       ) : vista.nombre === 'detalle' ? (
-        <DetalleView t={t} id={vista.id} onCertificado={() => setVista({ nombre: 'certificado', id: vista.id })} />
+        <DetalleView
+          t={t} id={vista.id}
+          onCertificado={() => setVista({ nombre: 'certificado', id: vista.id })}
+          // La inscripción que se dio de baja ya no va en el listado: se
+          // recarga, igual que después de un alta.
+          onBajaHecha={() => setVista({ nombre: 'lista', recarga: Date.now() })}
+        />
       ) : (
         <ListaView
           t={t}
@@ -238,11 +245,44 @@ function Chip({ t, label }) {
 
 // ── Detalle ────────────────────────────────────────────────────────
 
-function DetalleView({ t, id, onCertificado }) {
+function DetalleView({ t, id, onCertificado, onBajaHecha }) {
   const { dato, error, reintentar } = useCarga(
     () => fetchInscripcion(id).then((r) => mapInscripcion(r?.inscripcion)), [id],
   );
+  const [confirmando, setConfirmando] = React.useState(false);
+  const [bajando, setBajando] = React.useState(false);
+  const [errorBaja, setErrorBaja] = React.useState(null);
+  const [hecha, setHecha] = React.useState(null); // el 200 de la baja
+
+  const confirmar = async () => {
+    setBajando(true); setErrorBaja(null);
+    try {
+      setHecha(mapBaja(await bajaInscripcion(id)));
+    } catch (e) {
+      // El 409 y el 422 contradicen lo que esta pantalla mostraba: el plazo se
+      // cerró, se cargó un resultado o alguien ya la dio de baja. El texto lo
+      // dice y la pantalla se queda en la confirmación, que es de donde el
+      // socio puede volver y recargar.
+      setErrorBaja(textoErrorBaja(e));
+    } finally {
+      setBajando(false);
+    }
+  };
+
+  // El resultado reemplaza el detalle entero: la inscripción que se estaba
+  // mirando ya no está activa, así que seguir mostrando sus datos como si nada
+  // sería mentir.
+  if (hecha) return <BajaHecha t={t} baja={hecha} onCerrar={onBajaHecha} />;
   if (!dato) return <Estado t={t} error={error} onReintentar={reintentar} />;
+  if (confirmando) {
+    return (
+      <ConfirmarBaja
+        t={t} dato={dato} bajando={bajando} error={errorBaja}
+        onConfirmar={confirmar}
+        onVolver={() => { setConfirmando(false); setErrorBaja(null); }}
+      />
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
@@ -322,6 +362,149 @@ function DetalleView({ t, id, onCertificado }) {
         style={{ marginTop: 24, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.accent }}
       >
         <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Ver certificado</Text>
+      </TouchableOpacity>
+
+      {/* `puede_baja` es el mismo predicado que evalúa el DELETE, así que el
+          botón aparece exactamente cuando la web ofrece Eliminar. Sin relleno y
+          en rojo: no es la acción que el socio vino a hacer. */}
+      {dato.puedeBaja && (
+        <TouchableOpacity
+          onPress={() => setConfirmando(true)}
+          accessibilityLabel="Dar de baja la inscripción"
+          style={{ marginTop: 10, padding: 15, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: withAlpha(t.live, 0.45) }}
+        >
+          <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.live }}>Dar de baja</Text>
+        </TouchableOpacity>
+      )}
+    </ScrollView>
+  );
+}
+
+// ── Baja ───────────────────────────────────────────────────────────
+
+// La baja no se deshace desde la app (rehacer lo habilita la Asociación), así
+// que la confirmación es su propia pantalla y no un botón que actúa al toque.
+// Lo que dice arriba de todo es qué se pierde, no qué se aprieta.
+function ConfirmarBaja({ t, dato, bajando, error, onConfirmar, onVolver }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>¿Dar de baja esta inscripción?</Text>
+      <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20, marginTop: 8 }}>
+        {dato.animal?.nombre || 'Este animal'}
+        {dato.evento?.nombre ? ` en ${dato.evento.nombre}` : ''}.
+        {' '}Para volver a inscribirlo necesitás que la Asociación lo habilite.
+      </Text>
+
+      {/* Con el plazo cerrado la baja gasta la habilitación de rehacer, que es
+          de un solo uso: si después quiere volver atrás, hay que pedir otra. */}
+      {dato.puedeRehacer && (
+        <Card t={t} style={{ padding: 15, marginTop: 16, borderColor: withAlpha(t.live, 0.35) }}>
+          <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.live, lineHeight: 19 }}>
+            La inscripción a este evento ya cerró. Esta baja usa la habilitación
+            para rehacer que te dio la Asociación, y queda usada.
+          </Text>
+        </Card>
+      )}
+
+      {/* Las yuntas y los equipos que nombran a este animal quedan incompletos.
+          Es la misma alerta que la web muestra al eliminar. */}
+      {dato.unidadesRelacionadas.length > 0 && (
+        <>
+          <SectionLabel t={t} style={{ marginTop: 24, paddingHorizontal: 0 }}>Queda sin este animal</SectionLabel>
+          <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textMute, lineHeight: 18, marginBottom: 10 }}>
+            Estas yuntas y equipos lo nombran: si lo das de baja, hay que rearmarlos.
+          </Text>
+          <Card t={t}>
+            {dato.unidadesRelacionadas.map((u, n) => (
+              <View key={n}>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 13 }}>
+                  <Text style={{ fontFamily: F.bodyBold, fontSize: 14, color: t.text }} numberOfLines={1}>
+                    {u.animal?.nombre || 'Sin nombre'}
+                  </Text>
+                  <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, marginTop: 4 }}>
+                    {[u.prueba, u.categoria, u.expositor].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                {n < dato.unidadesRelacionadas.length - 1 && <Divider t={t} />}
+              </View>
+            ))}
+          </Card>
+        </>
+      )}
+
+      {!!error && (
+        <Card t={t} style={{ padding: 15, marginTop: 16, borderColor: withAlpha(t.live, 0.35) }}>
+          <Text style={{ fontFamily: F.body, fontSize: 13, color: t.text, lineHeight: 19 }}>{error}</Text>
+        </Card>
+      )}
+
+      <TouchableOpacity
+        onPress={bajando ? undefined : onConfirmar}
+        disabled={bajando}
+        accessibilityLabel="Confirmar la baja"
+        style={{ marginTop: 24, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.live, opacity: bajando ? 0.6 : 1 }}
+      >
+        {bajando
+          ? <ActivityIndicator color={t.bg} />
+          : <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Sí, dar de baja</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onVolver} disabled={bajando} style={{ marginTop: 10, padding: 15, alignItems: 'center' }}>
+        <Text style={{ fontFamily: F.bodyMed, fontSize: 14, color: t.textMute }}>No, volver</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+function BajaHecha({ t, baja, onCerrar }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+      <Text style={{ fontFamily: F.display, fontSize: 20, color: t.text }}>Inscripción dada de baja</Text>
+      {/* El certificado de baja lo manda la API sólo si el evento es del año en
+          curso, y un problema con el mail no cambia el 200. Así que se menciona
+          sin prometerlo. */}
+      <Text style={{ fontFamily: F.body, fontSize: 13.5, color: t.textMute, lineHeight: 20, marginTop: 8 }}>
+        Si el evento es de este año, el certificado de baja te llega por mail.
+      </Text>
+
+      {baja.rehacer && (
+        <Card t={t} style={{ padding: 15, marginTop: 16 }}>
+          <Text style={{ fontFamily: F.bodyMed, fontSize: 13, color: t.text, lineHeight: 19 }}>
+            Se usó la habilitación para rehacer: ya podés volver a inscribir este animal.
+          </Text>
+        </Card>
+      )}
+
+      {/* Vienen sólo con `rehacer`, leídas antes de la baja. El socio tiene que
+          saber qué otras inscripciones quedaron tocadas. */}
+      {baja.unidadesRelacionadas.length > 0 && (
+        <>
+          <SectionLabel t={t} style={{ marginTop: 24, paddingHorizontal: 0 }}>Quedaron sin este animal</SectionLabel>
+          <Text style={{ fontFamily: F.body, fontSize: 12, color: t.textMute, lineHeight: 18, marginBottom: 10 }}>
+            Estas yuntas y equipos lo nombraban: hay que rearmarlos.
+          </Text>
+          <Card t={t}>
+            {baja.unidadesRelacionadas.map((u, n) => (
+              <View key={n}>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 13 }}>
+                  <Text style={{ fontFamily: F.bodyBold, fontSize: 14, color: t.text }} numberOfLines={1}>
+                    {u.animal?.nombre || 'Sin nombre'}
+                  </Text>
+                  <Text style={{ fontFamily: F.body, fontSize: 12.5, color: t.textMute, marginTop: 4 }}>
+                    {[u.prueba, u.categoria, u.expositor].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                {n < baja.unidadesRelacionadas.length - 1 && <Divider t={t} />}
+              </View>
+            ))}
+          </Card>
+        </>
+      )}
+
+      <TouchableOpacity
+        onPress={onCerrar}
+        style={{ marginTop: 24, padding: 15, borderRadius: 12, alignItems: 'center', backgroundColor: t.accent }}
+      >
+        <Text style={{ fontFamily: F.bodyBold, fontSize: 14.5, color: t.bg }}>Volver a mis inscripciones</Text>
       </TouchableOpacity>
     </ScrollView>
   );
