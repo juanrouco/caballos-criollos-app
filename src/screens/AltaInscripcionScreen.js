@@ -619,7 +619,17 @@ function PasoAnimal({ t, evento, onElegir }) {
       {resultados && resultados.length > 0 && (
         <View style={{ marginTop: 18, gap: 10 }}>
           {resultados.map((a) => {
-            const bloqueado = a.yaInscripto === true;
+            // A2 trae candidatos de cualquier dueño, como el paso 3 de la web,
+            // y los marca con `propio` (#248). Uno ajeno siempre termina en 422
+            // `Pertenencia` —el alta valida con la misma función,
+            // `PreparacionAlta::EsPropietario`—, así que se corta acá y no
+            // cinco pasos después.
+            //
+            // Se muestra deshabilitado y no escondido: el socio buscó por
+            // S.B.A., y «No encontramos animales con esos datos» sería falso.
+            // El animal existe; lo que no es suyo.
+            const ajeno = a.propio === false;
+            const bloqueado = ajeno || a.yaInscripto === true;
             const activo = elegido?.id === a.id;
             return (
               <TouchableOpacity key={a.id} onPress={() => !bloqueado && setElegido(a)} activeOpacity={0.8} disabled={bloqueado}>
@@ -633,7 +643,15 @@ function PasoAnimal({ t, evento, onElegir }) {
                       Registro extranjero
                     </Text>
                   )}
-                  {bloqueado && (
+                  {ajeno && (
+                    <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
+                      No figura a tu nombre
+                    </Text>
+                  )}
+                  {/* Si además es ajeno, se dice sólo eso: la inscripción que
+                      ya existe es de otro, y «ya está inscripto» le haría creer
+                      que la anotó él. */}
+                  {!ajeno && a.yaInscripto === true && (
                     // También con una inscripción rechazada: el rechazo es
                     // definitivo para ese evento.
                     <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
@@ -1709,6 +1727,15 @@ function BuscarIntegrante({ t, onElegir }) {
               {esExtranjero(a) && (
                 <Text style={{ fontFamily: F.bodyMed, fontSize: 11, color: t.textMute, marginTop: 4 }}>
                   Registro extranjero
+                </Text>
+              )}
+              {/* Acá el ajeno SÍ se puede elegir: al equipo le alcanza con que
+                  uno de los tres sea propio (`AnimalAjeno`), así que es un dato
+                  y no un impedimento — de ahí el color apagado y no el rojo
+                  del paso 2. */}
+              {a.propio === false && (
+                <Text style={{ fontFamily: F.bodyMed, fontSize: 11, color: t.textMute, marginTop: 4 }}>
+                  No figura a tu nombre
                 </Text>
               )}
             </Card>

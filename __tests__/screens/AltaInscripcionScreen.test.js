@@ -373,6 +373,55 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.queryByText('Cabestro')).toBeNull();
   });
 
+  test('un animal que no figura a tu nombre no se puede elegir', async () => {
+    // A2 lista los candidatos de cualquier dueño, como el paso 3 de la web, y
+    // los marca con `propio` (#248). El alta valida la pertenencia con la misma
+    // función (`PreparacionAlta::EsPropietario`), así que elegir uno ajeno sólo
+    // podía terminar en el 422 `Pertenencia` — cinco pasos más adelante.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, propio: false }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    // Se muestra, y no se esconde: el socio buscó por S.B.A. y «No encontramos
+    // animales con esos datos» sería falso.
+    expect(await utils.findByText('No figura a tu nombre')).toBeTruthy();
+    fireEvent.press(utils.getByText('LA ÑANDÚ'));
+    expect(utils.queryByText('Cabestro')).toBeNull();
+  });
+
+  test('un animal ajeno y ya inscripto dice sólo que no es tuyo', async () => {
+    // La inscripción que ya existe es de otro: «ya está inscripto» le haría
+    // creer al socio que la anotó él.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, propio: false, ya_inscripto: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('No figura a tu nombre')).toBeTruthy();
+    expect(utils.queryByText('Ya está inscripto en este evento')).toBeNull();
+  });
+
+  test('sin el campo propio el animal se sigue pudiendo elegir', async () => {
+    // Fail-open a propósito: si un deploy dejara de mandar `propio`, el alta
+    // vuelve a lo de antes (el 422 al confirmar) en vez de quedarse sin ningún
+    // animal elegible. ANIMAL no trae el campo.
+    api.buscarAnimalesAlta.mockResolvedValue([ANIMAL]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Hembra'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    expect(await utils.findByText('Cabestro')).toBeTruthy();
+    expect(utils.queryByText('No figura a tu nombre')).toBeNull();
+  });
+
   test('primero los popups, después los términos y recién el evento', async () => {
     api.fetchAlertasAlta.mockResolvedValue({
       terminos: '<p>Términos generales</p>',
@@ -1546,6 +1595,26 @@ describe('AltaInscripcionScreen — equipo nuevo', () => {
     fireEvent.changeText(utils.getByLabelText('S.B.A. del integrante'), SEGUNDO.sba);
     fireEvent.press(utils.getByText('Buscar'));
     expect(await utils.findByLabelText(`Elegir ${SEGUNDO.nombre}`)).toBeTruthy();
+  });
+
+  test('un integrante ajeno se marca, pero se puede elegir igual', async () => {
+    // Acá `propio: false` es un dato y no un impedimento: al equipo le alcanza
+    // con que uno de los tres figure a nombre del socio (`AnimalAjeno`), al
+    // revés que en el paso 2 del alta. Dos de tres ajenos es lo normal.
+    const utils = renderAlta();
+    await hastaNuevo(utils);
+    fireEvent.press(utils.getByLabelText('Elegir animal · Segundo animal'));
+    await utils.findByLabelText('S.B.A. del integrante');
+    fireEvent.press(utils.getByText('Castrado'));
+    api.buscarAnimalesAlta.mockResolvedValueOnce([{ ...SEGUNDO, propio: false }]);
+    fireEvent.changeText(utils.getByLabelText('S.B.A. del integrante'), SEGUNDO.sba);
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('No figura a tu nombre')).toBeTruthy();
+    fireEvent.press(await utils.findByLabelText(`Elegir ${SEGUNDO.nombre}`));
+    // Quedó en el casillero: la búsqueda se cerró.
+    expect(await utils.findByText(SEGUNDO.nombre)).toBeTruthy();
+    expect(utils.queryByLabelText('S.B.A. del integrante')).toBeNull();
   });
 });
 

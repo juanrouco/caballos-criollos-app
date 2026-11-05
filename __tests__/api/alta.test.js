@@ -52,6 +52,16 @@ describe('mappers del alta', () => {
     expect(mapAnimalAlta({ id: 'exis:1', ya_inscripto: true }).yaInscripto).toBe(true);
   });
 
+  test('propio queda en tri-estado: false bloquea, ausente no', () => {
+    // A2 lista candidatos de cualquier dueño y los marca con `propio` (#248);
+    // el ajeno siempre termina en 422 `Pertenencia`. Pero si un deploy dejara
+    // de mandar el campo, un `!!undefined` habría bloqueado TODOS los animales
+    // y dejado el alta sin salida, así que ausente no decide nada.
+    expect(mapAnimalAlta({ id: 'pdre:9061002', propio: false }).propio).toBe(false);
+    expect(mapAnimalAlta({ id: 'pdre:9061001', propio: true }).propio).toBe(true);
+    expect(mapAnimalAlta({ id: 'exis:1' }).propio).toBeNull();
+  });
+
   test('mapOpciones arma pruebas con su modalidad y el cupo de cada categoría', () => {
     const o = mapOpciones({
       morfologia: { categoria: { id: 12, nombre: 'Potrancas' }, habilitada: true },

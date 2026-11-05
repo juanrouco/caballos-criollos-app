@@ -90,7 +90,12 @@ export function mapAnimalAlta(a) {
     sexo: a.sexo,
     fechaNacimiento: a.fecha_nacimiento || null,
     pelo: texto(a.pelo),
-    propio: !!a.propio,
+    // Tri-estado a propósito. `false` es «no figura a tu nombre» y el alta lo
+    // bloquea (#248); ausente es «no lo sé» y no bloquea nada. Si un deploy
+    // dejara de mandar el campo, el alta vuelve a lo de antes —el 422
+    // `Pertenencia` al confirmar— en vez de quedarse sin ningún animal
+    // elegible.
+    propio: a.propio ?? null,
     // null si la búsqueda fue sin evento. Con una inscripción rechazada también
     // es true: el rechazo es definitivo para ese evento.
     yaInscripto: a.ya_inscripto ?? null,
