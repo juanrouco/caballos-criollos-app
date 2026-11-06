@@ -181,8 +181,11 @@ datos de uso**. Tres cosas dejan de ser ciertas en ese mismo momento, y las tres
 están hoy declaradas como "no":
 
 - **§3 de la política**, que decía que la App no registra qué pantallas visitás.
-  **Corregida acá** (C-10: nuevo 2.6, más §3, §4 y §7). Falta que el equipo de la
-  API la recopie y la publique; el orden de abajo es el que importa.
+  **Corregida acá** (C-10: nuevo 2.6, más §3, §4 y §7), sha1
+  `f2a5635d2a2b5584719bf40f76300216d8799176`. El equipo de la API ya la copió en
+  su PR #262, con el comparador en 0. **Todavía no está publicada**: sale con el
+  deploy del endpoint, o antes. Hasta ese momento la que leen las tiendas sigue
+  siendo la vieja.
 - **Apple → Usage Data → Product Interaction**, hoy "No se recolecta".
 - **Play → App activity → Product interaction**, hoy "No".
 
