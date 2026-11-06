@@ -101,7 +101,55 @@ Así la campanita del socio mezcla lo general con lo suyo, y el `since` / `total
 siguen funcionando igual. Sin esto, una notificación personal se guarda pero el
 socio no la ve nunca en la lista: sólo le llega el push.
 
-### A.4 — Lo que hace la app (nuestro lado)
+### A.4 — El envío también hay que tocarlo, y hasta entonces es peligroso
+
+Guardar el `IdUsuario` no alcanza: **con la columna puesta y nada más, una
+notificación personal se le manda a todo el mundo.** `CronPush::correr` carga los
+tokens una sola vez por corrida y le manda cada notificación pendiente a todos:
+
+```php
+// Tokens activos una sola vez por corrida (el set no cambia entre notifs).
+$activos = $tokenRepo->findActivos();
+...
+foreach ($pendientes as $n) {
+    ...
+    foreach ($activos as $t) { /* todos */ }
+```
+
+`PushTokenRepository` sólo tiene `findActivos()` — no hay una lectura por usuario.
+Así que si hoy alguien escribe una fila en `tblNotificaciones` con `IdUsuario`, el
+cron se la pushea a **todos los dispositivos**. La campanita la filtraría bien (con
+A.3) pero el push ya salió: peor que no funcionar.
+
+Lo que hace falta:
+
+1. **`findActivosPorUsuario($idUsuario)`** en `PushTokenRepository`.
+2. **Que `CronPush` ramifique** por `IdUsuario`: si la notificación tiene uno, va
+   sólo a los tokens de ese usuario. Ojo que esto rompe la optimización de cargar
+   los tokens una vez por corrida — el comentario «el set no cambia entre notifs»
+   deja de ser cierto.
+3. **Decidir qué pasa cuando el socio no tiene ningún token activo** (no instaló
+   la app, o rechazó las notificaciones). El push no sale, pero la notificación
+   debería seguir apareciéndole en la campanita cuando abra la app. Hoy la
+   campanita filtra por `EstadoEnvio = 'enviado'`, así que tal como está una
+   notificación que no se pudo pushear **no se vería nunca**. Es el caso más común
+   de todos, no un borde.
+
+Hasta que esto esté, **`IdUsuario` en `tblNotificaciones` no se puede usar**. La
+columna existe pero el camino de envío no la respeta.
+
+### A.5 — Por qué el id lo tiene que sacar el backend del token
+
+La app ya conoce su propio `usuarioId` (lo guarda `mapSesion` en
+`src/api/session.js`), así que podría mandarlo en el body de `/push/register` y no
+habría que pedirles nada.
+
+**No hay que hacerlo.** Un `usuario_id` en el body es un dato que el cliente
+elige: cualquiera podría registrar su token a nombre de otro socio y empezar a
+recibir sus notificaciones personales. El id tiene que salir del `Bearer`, que es
+lo único que el backend puede verificar.
+
+### A.6 — Lo que hace la app (nuestro lado)
 
 Para que quede claro qué no les estamos pidiendo:
 
@@ -367,6 +415,8 @@ registra los fallidos.
 | A.1 | `IdUsuario INT NULL` + índice en `tblPushTokens` | migración |
 | A.2 | `/push/register` lee el Bearer si viene; el `ON DUPLICATE` asigna `IdUsuario` también en NULL | `PushHandler` / `PushTokenRepository` |
 | A.3 | `/notificaciones` con Bearer opcional: `IdUsuario IS NULL OR IdUsuario = <sesión>` | `NotificacionRepository::buildWhere` |
+| A.4 | `findActivosPorUsuario()` + que `CronPush` ramifique, o la notificación personal sale a todos | `PushTokenRepository` / `CronPush` |
+| A.4 | qué pasa con una notificación que no se pudo pushear: hoy no aparece en la campanita | `buildWhere` (`EstadoEnvio`) |
 | B.0 | guardar `X-App-Version` y `X-App-Install` en el log de accesos | config del log |
 | B.1 | `POST /uso`, anónimo, en lotes, con tope y rate limit por IP | módulo nuevo |
 | B.2 | `tblApiUso` | migración |
