@@ -93,7 +93,7 @@ Esta información **no se envía** a ningún servidor y se borra al desinstalar 
 - La **fecha de la última vez que abriste las notificaciones**, para el contador
   de la campanita.
 
-### 2.6. Estadísticas de uso (anónimas)
+### 2.6. Estadísticas de uso (sin datos de tu cuenta)
 
 La App le envía a nuestro servidor, cada tanto, un resumen de cómo se usa: qué
 secciones y pantallas se abren, qué eventos, noticias y caballos se consultan,
@@ -136,7 +136,7 @@ Para mayor claridad, la App **no** recolecta ni accede a:
 - **Enviar notificaciones push** sobre eventos, transmisiones en vivo y novedades.
 - **Mostrar el contenido** de la App (eventos, noticias, catálogos, resultados,
   rankings, pedigrees) que se obtiene de nuestra API.
-- **Mejorar la App** con las estadísticas anónimas de uso (2.6).
+- **Mejorar la App** con las estadísticas de uso (2.6).
 - **Operar y proteger** el servicio (seguridad, prevención de abuso).
 
 No usamos la información para publicidad ni la vendemos a terceros.
@@ -196,8 +196,8 @@ No compartimos información con anunciantes ni con terceros para fines comercial
 - Los **registros de intentos** (inicio de sesión, cambio de clave,
   verificaciones inválidas del carnet y envíos de estadísticas) de más de 90 días
   se van borrando automáticamente.
-- Las **estadísticas de uso** (2.6) son totales anónimos por día y se conservan
-  sin plazo de borrado.
+- Las **estadísticas de uso** (2.6) son totales por día y se conservan sin
+  plazo de borrado.
 - El **código de tu carnet** se conserva mientras no lo renueves. Al renovarlo, el
   anterior se descarta.
 - El **token de notificaciones** y el `device_id` se conservan mientras la App
@@ -355,6 +355,11 @@ Dos más que salieron del review de la C-10, del mismo tipo que las de C-1 a C-9
   son de quien mandó el POST, y el log técnico tiene su IP. Lo que el diseño sí
   garantiza es que no queda registrado qué consultó cada persona ni qué cosas
   vinieron juntas: no hay lote, ni orden, ni hora.
+
+  Por el mismo motivo cayó la palabra "anónimas" de los tres lugares donde
+  resumía 2.6 —su título, §4 y §7—: un rótulo que promete lo que las viñetas se
+  cuidan de no prometer. La decisión del usuario sobre la retención fue "sin
+  vencimiento"; "totales anónimos por día" era redacción, no decisión.
 
 Dos apartamientos del texto que mandó el equipo de la API, los dos por el mismo
 motivo de siempre —no afirmar de más—:

@@ -1,4 +1,4 @@
-// POST /uso — el registro anónimo de cómo se usa la App.
+// POST /uso — el registro de cómo se usa la App, sin datos de la cuenta.
 //
 // Es el único endpoint del contrato que **no** manda nada que identifique: ni
 // Bearer, ni `device_id`. La hora sí viaja —el contrato exige `cuando` completo—

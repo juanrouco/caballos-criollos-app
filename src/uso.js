@@ -4,9 +4,9 @@ import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import { enviarUso, observarErroresHttp, USO_PATH } from './api';
 
-// Registro anónimo de uso (POST /uso). Junta eventos en memoria y los manda en
-// lotes. Contesta cuatro preguntas y ninguna más: a qué secciones entra la
-// gente, qué eventos y qué caballos abre, qué búsquedas de pedigree no
+// Registro de uso sin datos de la cuenta (POST /uso). Junta eventos en memoria
+// y los manda en lotes. Contesta cuatro preguntas y ninguna más: a qué secciones
+// entra la gente, qué eventos y qué caballos abre, qué búsquedas de pedigree no
 // encuentran nada, y qué errores ve.
 //
 // Tres cosas que son contrato con el backend y **no** son detalle de
