@@ -160,8 +160,11 @@ inscripciones se rompe en todos los teléfonos que no actualicen.
 
 - La API acepta `POST /jinetes` y `POST /domadores` y **sigue aceptando el `GET`**,
   ya en producción.
-- La app pasa a `POST` en el código (`src/api/alta.js`), para la próxima versión.
-  La 2.0.0 que está publicada sigue usando el `GET`.
+- La app pasa a `POST` en el código (`src/api/alta.js`). **Hecho pero sin
+  publicar:** por decisión del usuario la 2.0.1 espera a tener también las piezas
+  A y B, así que sale todo junto. La 2.0.0 que está publicada sigue usando el
+  `GET`, y hasta que salga la 2.0.1 **todo** el tráfico de búsqueda de personas
+  sigue dejando el documento en el log.
 - El `GET` se apaga con un `410 actualizar_app` cuando los `GET` viejos bajen del
   5 % durante dos semanas, o a los 60 días de que salga la versión de la app con
   el `POST`, lo que llegue primero, y nunca antes de 30 días.
