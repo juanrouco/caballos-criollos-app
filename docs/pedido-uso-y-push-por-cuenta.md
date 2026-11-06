@@ -11,6 +11,18 @@ que antes no tenían sentido ahora sí.
 Lo que sigue está escrito como propuesta, no como diseño cerrado: las tablas y
 los nombres son sugerencias para que la discusión arranque de algo concreto.
 
+### Decisiones ya tomadas por el usuario (06/11/2026)
+
+- **El uso se mide con un endpoint propio.** La pieza B.1 (`POST /uso`) está
+  aprobada; no se va a usar un tercero. B.0 (los headers en el log) sigue siendo
+  útil y barato, pero ya no como alternativa a B.1 sino como complemento.
+- **La pantalla lectora de QR no se hace por ahora.** `verificarSocio()` queda en
+  el cliente sin consumidor; el escaneo lo resuelve la página `/v/{token}` con la
+  cámara del teléfono.
+- **La política de privacidad publicada hay que cambiarla** (pieza D, abajo). Es
+  lo más urgente de todo este documento, porque ya está publicada y dice algo que
+  no es cierto.
+
 ---
 
 ## Pieza A — Poder mandarle un push a un socio
@@ -287,6 +299,67 @@ subida. Y si se hace B, la política necesita además una sección de datos de u
 
 ---
 
+## Pieza D — La política de privacidad publicada dice que la App no tiene login
+
+**Es lo más urgente del documento**, y a diferencia de A y B no es una mejora:
+es algo publicado que no es cierto.
+
+La que ven los socios es
+`https://caballoscriollos.com/web/politica-privacidad.php`, con fecha de julio de
+2026. Afirma dos veces que la App no tiene cuentas:
+
+> §2: «La App **no requiere registro ni inicio de sesión** y **no te pide datos
+> personales**»
+>
+> §3: «no recolecta… Cuentas, contraseñas ni datos de perfil (**no hay login**)»
+
+2.0.0, que ya está subida a las dos tiendas, estrena login, inscripciones y
+carnet.
+
+### Hay tres copias del texto y hay que cambiar las tres
+
+| copia | dónde | estado |
+|---|---|---|
+| la publicada | `src/web/politica-privacidad.php` (backend) — **HTML embebido**, no lee el `.md` | vieja |
+| la del backend | `src/api/docs/politica-privacidad.md` | vieja |
+| la de la app | `docs/politica-privacidad.md` (este repo) | **reescrita y pusheada** |
+
+Que la página tenga el texto embebido en vez de leer el markdown es la razón por
+la que las tres se desincronizaron sin que nadie lo note. Si se puede hacer que el
+`.php` renderice el `.md`, mejor; si no, al menos que las dos del backend queden
+iguales entre sí.
+
+### Qué cambió en el texto nuevo
+
+El texto completo está en `docs/politica-privacidad.md` de este repo, listo para
+copiar. El resumen de las diferencias:
+
+- **§2** reescrita. Ahora distingue lo que sale del dispositivo (credenciales; el
+  nombre, apellido y documento del jinete que se busca en el alta; las referencias
+  de la inscripción) de lo que la App sólo recibe y muestra (nombre, email,
+  teléfono y número de socio, que son registros que la ACCC ya tenía).
+- **§2.5 nueva:** la sesión guardada en el almacenamiento seguro del sistema, y
+  que cerrar sesión la borra.
+- **§5 nueva — el carnet y su QR.** La que más importa: el QR le muestra nombre,
+  número y categoría a cualquiera que lo escanee, sin App y sin cuenta. Es una
+  divulgación deliberada y el socio tiene que poder leerla. Incluye que no informa
+  estado de cuota, que el código no contiene los datos sino que apunta a ellos,
+  que se puede renovar, y que de las verificaciones **sólo se registran las
+  inválidas**, así que no queda asentado quién verificó un carnet ni cuándo.
+- **§3** ya no dice «no hay login»; sí dice que no hay analítica (hasta que se
+  haga la pieza B, momento en el que hay que volver a tocarla).
+- **§7** con los plazos reales: la clave no se guarda, el refresh dura 90 días
+  deslizantes, el código del carnet vive hasta que se renueva.
+- Los datos de contacto y el domicilio los tomé **de la página publicada**, así
+  que no hay nada que completar.
+
+Los números de §7 y lo de las verificaciones inválidas los verifiqué contra el
+código de ustedes, no los escribí de memoria: `Tokens::REFRESH_SEGUNDOS` (90 días,
+deslizante) y el `registrar('verificacion', 'invalido', …)` de #64 que sólo
+registra los fallidos.
+
+---
+
 ## Resumen de lo que pedimos
 
 | | qué | dónde |
@@ -298,8 +371,13 @@ subida. Y si se hace B, la política necesita además una sección de datos de u
 | B.1 | `POST /uso`, anónimo, en lotes, con tope y rate limit por IP | módulo nuevo |
 | B.2 | `tblApiUso` | migración |
 
-B.0 primero: cuesta una tarde, no necesita endpoint nuevo y puede alcanzar. B.1 y
-B.2 recién si lo que falta son las secciones y la navegación.
+| D | la política publicada dice que la App no tiene login — tres copias que cambiar | **lo primero** |
+| E | que el log no guarde el documento del jinete, antes de empezar a conservarlo | ver B.0 |
+
+**El orden que pedimos:** D primero, porque ya está publicado algo que no es
+cierto. Después B.1 + B.2, que es lo que el usuario decidió para medir el uso. A
+cuando se quiera empezar a mandar notificaciones personales. E va junto con B.0,
+y antes de guardar un solo día de log.
 
 De nuestro lado: re-registrar el token al loguearse y al salir, mandar el Bearer
 en `/notificaciones`, instrumentar los dos cuellos de botella que ya existen

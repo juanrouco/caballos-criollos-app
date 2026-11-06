@@ -1,15 +1,21 @@
 # Política de Privacidad — App Caballos Criollos
 
-> **Borrador / plantilla.** Reemplazá los campos entre `[corchetes]` con los
-> datos reales antes de publicarla. Debe quedar accesible en una **URL pública**
-> (ej. `https://caballoscriollos.com/privacidad`) — Apple App Store y Google Play
-> exigen ese link para aprobar la app.
+> **Texto propuesto para la versión 2.0.0**, que agregó inicio de sesión,
+> inscripciones y carnet de socio. Las respuestas de App Privacy y Data safety
+> que corresponden a esta versión están en `docs/declaraciones-tiendas.md`.
 >
-> **Revisada para la versión 2.0.0**, que agregó inicio de sesión, inscripciones
-> y carnet de socio. Las respuestas de App Privacy y Data safety que corresponden
-> a esta versión están en `docs/declaraciones-tiendas.md`.
+> ⚠️ **Esta no es la versión publicada.** La que ven los socios es
+> `https://caballoscriollos.com/web/politica-privacidad.php`, que es de julio de
+> 2026 y dice que la App no tiene inicio de sesión. Hay **tres copias** del texto
+> y hay que cambiar las tres: esta, `src/api/docs/politica-privacidad.md` del repo
+> del backend, y el HTML embebido en `src/web/politica-privacidad.php`, que es el
+> único que se publica. El pedido del cambio está en
+> `docs/pedido-uso-y-push-por-cuenta.md`.
+>
+> La fecha de abajo tiene que ser la de la publicación real, no la de este
+> borrador.
 
-**Última actualización:** [DD/MM/AAAA]
+**Última actualización:** 06/11/2026
 
 Esta Política de Privacidad describe cómo la aplicación móvil **Caballos Criollos**
 (en adelante, "la App"), de la **Asociación Argentina de Criadores de Caballos
@@ -21,9 +27,9 @@ Al usar la App aceptás las prácticas descriptas en este documento.
 
 ## 1. Responsable del tratamiento
 
-- **Responsable:** [Razón social completa de la ACCC]
-- **Domicilio:** [Domicilio legal]
-- **Contacto:** [email de contacto, ej. privacidad@caballoscriollos.com]
+- **Responsable:** Asociación Argentina de Criadores de Caballos Criollos (ACCC)
+- **Domicilio:** Av. Las Heras 1983 1º, CABA, Argentina
+- **Contacto:** info@caballoscriollos.com · +54 (11) 5263-2567
 - **Sitio web:** https://caballoscriollos.com
 
 ---
@@ -197,7 +203,7 @@ aunque ningún sistema es 100 % infalible.
   de enviarte avisos.
 - **Acceso, rectificación y supresión:** conforme a la **Ley 25.326 de Protección
   de los Datos Personales** (Argentina), podés solicitar información sobre tus
-  datos o su eliminación escribiendo a **[email de contacto]**. El alta y la baja
+  datos o su eliminación escribiendo a **info@caballoscriollos.com**. El alta y la baja
   de tu cuenta de socio se gestionan en la Asociación, no desde la App.
 - La **Agencia de Acceso a la Información Pública** es el organismo de control en
   Argentina.
@@ -222,7 +228,7 @@ implica la aceptación de los cambios.
 
 ## 12. Contacto
 
-Ante cualquier consulta sobre privacidad, escribinos a **[email de contacto]**.
+Ante cualquier consulta sobre privacidad, escribinos a **info@caballoscriollos.com**.
 
 ---
 ---
@@ -258,7 +264,7 @@ están en **`docs/declaraciones-tiendas.md`**. El resumen:
   Apple / Google) para la entrega. No para publicidad.
 - **Encriptado en tránsito:** **Sí** (HTTPS/TLS).
 - **¿Se puede pedir la eliminación de datos?** Sí, vía el email de contacto.
-  Requiere que el `[email de contacto]` esté definido.
+  Es `info@caballoscriollos.com`.
 - **¿La recolección es opcional?** Las notificaciones sí. El login es necesario
   sólo para las funciones de socio; el resto de la App funciona sin cuenta.
 - **No** declarar: ubicación, contactos, fotos, datos financieros, actividad de la
