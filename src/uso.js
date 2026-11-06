@@ -12,11 +12,12 @@ import { enviarUso, observarErroresHttp, USO_PATH } from './api';
 // Tres cosas que son contrato con el backend y **no** son detalle de
 // implementación:
 //
-//  1. El lote no lleva nada que identifique. Ni Bearer, ni `device_id`, ni la
-//     hora. Una clave de más hace que el backend rechace el lote entero con un
-//     400 — `device_id` está explícitamente prohibida, porque junto con la
-//     Pieza A (el token de push atado al socio) alcanzaría para saber qué
-//     pedigree mira cada criador.
+//  1. El lote no lleva nada que identifique: ni Bearer, ni `device_id`. Una
+//     clave de más hace que el backend rechace el lote entero con un 400 —
+//     `device_id` está explícitamente prohibida, porque junto con la Pieza A
+//     (el token de push atado al socio) alcanzaría para saber qué pedigree mira
+//     cada criador. La hora sí viaja, porque el contrato la exige, pero el
+//     backend la valida y se queda sólo con el día.
 //  2. **Lo que se busca nunca va en `cual`.** El `cual` de `busqueda_vacia` es
 //     la sección (`pedigree`), no el término. La regex de abajo tapa parte del
 //     agujero —un término con espacio o tilde no pasa— pero una palabra ASCII

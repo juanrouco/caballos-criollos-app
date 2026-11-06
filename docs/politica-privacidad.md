@@ -102,10 +102,10 @@ junto con la plataforma (iOS o Android) y la versión de la App.
 
 - Ese resumen **no lleva** quién sos: ni tu usuario, ni tu sesión, ni el
   identificador de tu dispositivo.
-- Tampoco lleva la hora: del momento en que pasó cada cosa se guarda **sólo el
-  día**.
+- La hora llega, pero **no se guarda**: de cada cosa se guarda sólo el día.
 - Lo que se guarda son **totales por día** ("ese día se abrió N veces tal
-  pantalla"), sin forma de saber qué consultó cada persona.
+  pantalla"), sin registrar qué consultó cada persona ni qué cosas vinieron
+  juntas.
 - **Lo que buscás en pedigree no se envía**, sólo el hecho de que una búsqueda no
   encontró nada.
 - Tu dirección IP no se guarda junto con estas estadísticas. Como con cualquier
@@ -122,9 +122,9 @@ Para mayor claridad, la App **no** recolecta ni accede a:
 - Cámara, micrófono, fotos ni contactos.
 - Datos de pago.
 - Herramientas de analítica de terceros, publicidad ni rastreo entre apps.
-- Estadísticas de uso **atribuibles a una persona**: los totales de 2.6 son
-  anónimos. Fuera de los logs técnicos del servidor (2.4), no se registra qué
-  contenidos consulta cada persona.
+- Estadísticas de uso **atribuidas a una persona**: los totales de 2.6 no
+  registran a quién pertenecen. Fuera de los logs técnicos del servidor (2.4),
+  no se registra qué contenidos consulta cada persona.
 
 ---
 
@@ -342,6 +342,19 @@ con las decisiones del usuario del 06/11/2026 encima). Toca 2.6 —nuevo—, §3
   caracteres `[A-Za-z0-9_]`, y para `busqueda_vacia` ese `cual` es la sección
   (`pedigree`), no el término. La regex no alcanza por sí sola —una palabra ASCII
   suelta pasaría—, así que es la app la que tiene que no mandarlo.
+
+Dos más que salieron del review de la C-10, del mismo tipo que las de C-1 a C-9:
+
+- "Tampoco lleva la hora" era falso. La App manda `cuando` con hora, minuto y
+  segundo —el contrato lo exige así— y es el **backend** el que la valida y se
+  queda sólo con el día. Lo que no se guarda no es lo mismo que lo que no se
+  envía, y el texto decía lo segundo.
+- "Sin forma de saber qué consultó cada persona" y "los totales de 2.6 son
+  anónimos" prometían anonimato absoluto, que el diseño no da: en un día con un
+  solo usuario —o con una `Version` que recién arranca— los totales de ese día
+  son de quien mandó el POST, y el log técnico tiene su IP. Lo que el diseño sí
+  garantiza es que no queda registrado qué consultó cada persona ni qué cosas
+  vinieron juntas: no hay lote, ni orden, ni hora.
 
 Dos apartamientos del texto que mandó el equipo de la API, los dos por el mismo
 motivo de siempre —no afirmar de más—:
