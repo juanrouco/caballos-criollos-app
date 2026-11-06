@@ -24,7 +24,7 @@ dispositivo**, no por lo que la app muestra en pantalla.
 | refresh token | `POST /auth/logout`, `/auth/refresh` | al salir y cada 60 min |
 | Expo push token, `device_id`, plataforma | `POST /push/register` | en cada arranque, si aceptó notificaciones |
 | ids de animales, jinete, equipo, evento | `POST /inscripciones`, `POST /equipos` | al inscribir |
-| **nombre, apellido y documento de un jinete** | `GET /jinetes?nombre=&apellido=&documento=` | al buscar jinete en el alta |
+| **nombre, apellido y documento de un jinete o domador** | `POST /jinetes` · `POST /domadores` (en 2.0.0 y anteriores, `GET` con los datos en la URL) | al buscar en el alta |
 | texto de búsqueda de pedigree | `GET /animales?...` | al buscar |
 
 ### Entra al dispositivo (esto **no** es recolección de la app)
@@ -154,16 +154,20 @@ documento en el body.
 
 ⚠️ **Sacar el `GET` rompe la app instalada.** La 2.0.0 que está en las tiendas
 busca por `GET /jinetes?...`; si el endpoint deja de aceptarlo, el alta de
-inscripciones se rompe en todos los teléfonos que no actualicen. La secuencia
-tiene que ser:
+inscripciones se rompe en todos los teléfonos que no actualicen.
 
-1. La API acepta `POST` **y sigue aceptando `GET`**.
-2. La app pasa a `POST` (es una línea en `src/api/alta.js:151`) y sale en la
-   próxima versión.
-3. Recién cuando quede poca gente en versiones viejas, se saca el `GET`.
+**Estado:** las dos primeras etapas están hechas.
 
-Mientras dure el paso 2 los clientes viejos siguen dejando el documento en el log.
-No hay forma más rápida, salvo apagar el `GET` y romper el alta en campo.
+- La API acepta `POST /jinetes` y `POST /domadores` y **sigue aceptando el `GET`**,
+  ya en producción.
+- La app pasa a `POST` en el código (`src/api/alta.js`), para la próxima versión.
+  La 2.0.0 que está publicada sigue usando el `GET`.
+- El `GET` se apaga con un `410 actualizar_app` cuando los `GET` viejos bajen del
+  5 % durante dos semanas, o a los 60 días de que salga la versión de la app con
+  el `POST`, lo que llegue primero, y nunca antes de 30 días.
+
+Hasta ese apagado, los teléfonos con versiones viejas siguen dejando el documento
+en el log. No hay forma más rápida que no sea romper el alta en campo.
 
 ---
 

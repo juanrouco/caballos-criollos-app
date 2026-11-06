@@ -145,10 +145,36 @@ export function mapOpciones(r) {
   };
 }
 
+// El cuerpo de las dos búsquedas de personas. Antes iban por querystring, y
+// `queryString` descartaba solo los vacíos; acá hay que hacerlo a mano para que
+// se siga buscando exactamente lo mismo. Y porque los dos endpoints rechazan
+// `null` con un 400: un campo que no se tipeó se omite, no se manda vacío.
+//
+// `evento` va como número JSON — "61" da 400 igual que 0, los negativos y los
+// decimales. Si no hay un número usable se omite, que es lo que pasaba antes
+// cuando el parámetro no llegaba.
+function cuerpoBusquedaPersona({ nombre, apellido, documento, evento }) {
+  const body = {};
+  if (nombre) body.nombre = String(nombre);
+  if (apellido) body.apellido = String(apellido);
+  if (documento) body.documento = String(documento);
+  const n = Number(evento);
+  if (evento !== undefined && evento !== null && evento !== '' && Number.isInteger(n) && n > 0) {
+    body.evento = n;
+  }
+  return body;
+}
+
 // A4 — jinetes disponibles y validados. `tiene_deuda` se evalúa a la fecha del
 // evento, no a la de hoy, y un jinete con deuda no se puede elegir.
+//
+// Va por POST y no por GET a propósito: el documento de una persona no puede
+// viajar en la URL, porque la URL completa queda en el log de accesos del
+// servidor (y ahí quedaría un archivo de documentos de jinetes). El GET sigue
+// vivo para las versiones ya instaladas, pero está deprecado y se va a apagar
+// con un 410 `actualizar_app`.
 export function buscarJinetes({ nombre, apellido, documento, evento }) {
-  return apiGetAuth('/jinetes', { nombre, apellido, documento, evento });
+  return apiPostAuth('/jinetes', cuerpoBusquedaPersona({ nombre, apellido, documento, evento }));
 }
 
 export function mapJinete(j) {
@@ -270,9 +296,10 @@ export function integranteAPayload(animal, sexo) {
   return { ...base, sexo: s };
 }
 
-// A5 — domadores.
+// A5 — domadores. Mismo cambio a POST que los jinetes, y por lo mismo: acá
+// también viajaba un documento. No lleva `evento`.
 export function buscarDomadores({ nombre, apellido, documento }) {
-  return apiGetAuth('/domadores', { nombre, apellido, documento });
+  return apiPostAuth('/domadores', cuerpoBusquedaPersona({ nombre, apellido, documento }));
 }
 
 // El id compuesto de `GET /animales` ("exis:9059010") → el par {tabla, id} que

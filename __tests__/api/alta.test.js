@@ -2,6 +2,7 @@ import {
   mapEventoAlta, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada, animalAPayload, mapAlertas,
   mapYuntaCandidato, mapEquipo, companieroAPayload, integranteAPayload, mapEquipoCreado,
   buscarAnimalesAlta, fetchOpcionesAlta, crearInscripcion, crearEquipo,
+  buscarJinetes, buscarDomadores,
 } from '../../src/api/alta';
 import { API_BASE } from '../../src/api/client';
 import { setSession, clearSession } from '../../src/api/session';
@@ -137,6 +138,59 @@ describe('requests del alta', () => {
     expect(opts.method).toBe('POST');
     expect(opts.headers.Authorization).toBe('Bearer acc1');
     expect(JSON.parse(opts.body)).toEqual(payload);
+  });
+
+  // Las dos búsquedas de personas pasaron de GET a POST (#259) porque el
+  // documento no puede viajar en la URL: queda en el log de accesos del
+  // servidor. Lo que se chequea acá es que el dato efectivamente NO esté en la
+  // URL, que es el punto del cambio, y los tipos que el backend rechaza con 400.
+  describe('buscar jinetes y domadores (POST, no GET)', () => {
+    test('el documento no viaja en la URL sino en el body', async () => {
+      fetch.mockResolvedValueOnce(okJson([]));
+      await buscarJinetes({ nombre: '', apellido: 'Pérez', documento: '30111222', evento: 9059001 });
+      const [url, opts] = fetch.mock.calls[0];
+      expect(url).toBe(`${API_BASE}/jinetes`);
+      expect(url).not.toMatch(/30111222/);
+      expect(url).not.toMatch(/\?/);
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers.Authorization).toBe('Bearer acc1');
+      expect(JSON.parse(opts.body)).toEqual({ apellido: 'Pérez', documento: '30111222', evento: 9059001 });
+    });
+
+    test('los domadores van a su propia ruta y sin evento', async () => {
+      fetch.mockResolvedValueOnce(okJson([]));
+      await buscarDomadores({ nombre: 'Luis', apellido: '', documento: '' });
+      const [url, opts] = fetch.mock.calls[0];
+      expect(url).toBe(`${API_BASE}/domadores`);
+      expect(JSON.parse(opts.body)).toEqual({ nombre: 'Luis' });
+    });
+
+    test('`evento` va como número, no como el string que daría 400', async () => {
+      fetch.mockResolvedValueOnce(okJson([]));
+      await buscarJinetes({ documento: '9', evento: '9059001' });
+      expect(JSON.parse(fetch.mock.calls[0][1].body).evento).toBe(9059001);
+    });
+
+    test('un evento que el backend rechazaría se omite en vez de mandarse', async () => {
+      // 0, negativos, decimales y null dan 400. Antes, con querystring, un
+      // evento ausente simplemente no llegaba; mandarlo como null rompería una
+      // búsqueda que hoy funciona.
+      for (const evento of [undefined, null, '', 0, -1, 1.5, 'abc', NaN]) {
+        fetch.mockResolvedValueOnce(okJson([]));
+        await buscarJinetes({ documento: '9', evento });
+        const body = JSON.parse(fetch.mock.calls.pop()[1].body);
+        expect(body).not.toHaveProperty('evento');
+      }
+    });
+
+    test('ningún campo vacío se manda como null ni como cadena vacía', async () => {
+      fetch.mockResolvedValueOnce(okJson([]));
+      await buscarJinetes({ nombre: '', apellido: null, documento: undefined, evento: 1 });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body).toEqual({ evento: 1 });
+      for (const v of Object.values(body)) expect(v).not.toBeNull();
+    });
   });
 
   test('un 422 llega con su lista de códigos para traducir', async () => {
