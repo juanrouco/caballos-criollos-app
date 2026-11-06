@@ -174,6 +174,34 @@ en el log. No hay forma más rápida que no sea romper el alta en campo.
 
 ---
 
+## 6. Lo que tiene que salir junto con la 2.0.1
+
+La 2.0.1 va a traer la pieza B (`POST /uso`), y ahí la app **empieza a mandar
+datos de uso**. Tres cosas dejan de ser ciertas en ese mismo momento, y las tres
+están hoy declaradas como "no":
+
+- **§3 de la política**, que dice que la App no registra qué pantallas visitás.
+  La corrección la redacta el equipo de la API y la publica en su deploy.
+- **Apple → Usage Data → Product Interaction**, hoy "No se recolecta".
+- **Play → App activity → Product interaction**, hoy "No".
+
+El orden importa y es fácil equivocarlo: lo que dispara la recolección **no es el
+deploy del endpoint sino la versión de la app**. El endpoint puede existir y no
+recibir nada hasta que la 2.0.1 esté instalada. Entonces:
+
+- Publicar la política corregida **antes o el mismo día** que la 2.0.1 está bien
+  (declara algo que todavía no pasa, lo cual no hace daño).
+- Publicar la 2.0.1 **antes** que la política corregida es el error: la app
+  estaría mandando datos de uso mientras la política publicada dice que no.
+- Las respuestas de las tiendas se actualizan **en el mismo envío** de la 2.0.1,
+  no después: son parte del formulario de esa versión.
+
+Y una cuarta, si para entonces está hecha la pieza A: el **Device ID pasa a estar
+vinculado a la identidad** (§2 de este documento), así que esa respuesta también
+cambia en el mismo envío.
+
+---
+
 ## Resumen
 
 | | qué hacer | de quién depende |
