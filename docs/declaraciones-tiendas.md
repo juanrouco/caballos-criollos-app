@@ -140,16 +140,30 @@ no tiene login justo cuando 2.0.0 lo estrena.
 (`src/api/alta.js:151`). Funciona, pero los query strings quedan enteros en los
 logs de acceso del servidor.
 
-Eso choca de frente con la pieza B.0 del [pedido](pedido-uso-y-push-por-cuenta.md),
-que propone justamente **conservar el log de accesos** para medir uso: tal como
-está, ese log sería un archivo de documentos de jinetes.
+**No es un problema a futuro: ya está pasando.** El equipo de la API avisó que el
+**log de accesos de cPanel guarda hoy la URL completa**, con el documento adentro.
+La primera versión de esta sección decía «hay que resolverlo antes de empezar a
+guardar el log»; el log ya se está guardando, así que la exposición existe ahora y
+no depende de que se haga la pieza B.0 del
+[pedido](pedido-uso-y-push-por-cuenta.md).
 
-Dos salidas, las dos del lado de la API y para pedirles a ellos:
+Y en un hosting compartido lo más probable es que **no se pueda cambiar el formato
+del log**, así que la salida de recortar o hashear el query string seguramente no
+está disponible. Queda la otra: **que la búsqueda de jinete pase a `POST`**, con el
+documento en el body.
 
-- Que el log recorte el query string de `/jinetes` (o lo hashee), o
-- que la búsqueda de jinete pase a `POST` con el documento en el body.
+⚠️ **Sacar el `GET` rompe la app instalada.** La 2.0.0 que está en las tiendas
+busca por `GET /jinetes?...`; si el endpoint deja de aceptarlo, el alta de
+inscripciones se rompe en todos los teléfonos que no actualicen. La secuencia
+tiene que ser:
 
-Conviene resolverlo **antes** de empezar a guardar el log, no después.
+1. La API acepta `POST` **y sigue aceptando `GET`**.
+2. La app pasa a `POST` (es una línea en `src/api/alta.js:151`) y sale en la
+   próxima versión.
+3. Recién cuando quede poca gente en versiones viejas, se saca el `GET`.
+
+Mientras dure el paso 2 los clientes viejos siguen dejando el documento en el log.
+No hay forma más rápida, salvo apagar el `GET` y romper el alta en campo.
 
 ---
 

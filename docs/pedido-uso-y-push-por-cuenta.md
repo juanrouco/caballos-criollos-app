@@ -117,9 +117,20 @@ foreach ($pendientes as $n) {
 ```
 
 `PushTokenRepository` sólo tiene `findActivos()` — no hay una lectura por usuario.
-Así que si hoy alguien escribe una fila en `tblNotificaciones` con `IdUsuario`, el
+Así que si alguien escribe una fila en `tblNotificaciones` con `IdUsuario`, el
 cron se la pushea a **todos los dispositivos**. La campanita la filtraría bien (con
 A.3) pero el push ya salió: peor que no funcionar.
+
+**No hay fuga hoy**, y conviene decirlo con precisión: el único que escribe
+notificaciones es el admin web, que fija `IdUsuario = null` a mano
+(`src/web/admin/json-notificaciones-add.php:64`, «broadcast por ahora»), y la API
+no crea notificaciones. El riesgo es latente, no activo — se activa el día que
+algo empiece a escribir esa columna.
+
+**Y el envío está duplicado:** existe en `src/apiv2/src/Modulo/Push/CronPush.php:41`
+y también, casi igual, en `src/api/cron/enviar_push.php:76`. A tiene que cambiar
+los dos, o apagar el viejo primero. (Esto lo marcó el equipo de la API; yo había
+encontrado sólo el de apiv2.)
 
 Lo que hace falta:
 
