@@ -78,6 +78,30 @@ El simulador iOS no resuelve `localhost` al Mac; siempre usa la IP del Mac en la
 ### Estado global del vivo
 `src/LiveContext.js` expone `LiveProvider` + `useLive()`. Hace polling cada 60s a `/vivos?estado=en_vivo` (alineado con el `Cache-Control` del backend). Lo consumen el banner de la home y el botón EN VIVO del footer (`CustomTabBar` en `App.js`). El botón pasa a rojo y navega a `EventDetail` del evento del vivo cuando hay uno; gris + Eventos tab cuando no.
 
+### Registro de uso (`POST /uso`)
+`src/uso.js` junta eventos en memoria y los manda en lotes a `/uso`; `src/api/uso.js`
+es el transporte. Tres reglas que son **contrato**, no estilo:
+
+- El lote lleva **exactamente** `plataforma`, `version` y `eventos`. Una clave de
+  más —`device_id` entre ellas, prohibida a propósito— y el backend rechaza el
+  lote entero con 400.
+- **Lo que se busca nunca va en `cual`.** El `cual` de `busqueda_vacia` es la
+  sección (`pedigree`), no el término. La regex `^[A-Za-z0-9_]{1,40}$` tapa parte
+  del agujero, no todo: la regla la sostiene quien llama.
+- `id` sólo en `pantalla` de `EventDetail` / `NewsDetail` (entero) y `HorseDetail`
+  (`pdre:119914`). En cualquier otra el backend descarta el evento.
+
+Los tres puntos de enganche: `openSection` en `src/MenuContext.js` (las secciones
+del menú no son rutas y no pasan por la navegación), el `onStateChange` +
+`onReady` del `NavigationContainer` en `App.js`, y el `.then` de la búsqueda en
+`PedigreeScreen`. Los errores se enganchan solos vía `observarErroresHttp` de
+`src/api/client.js` — un callback y no un import, para que el cliente no dependa
+del tracker.
+
+La cola vive **sólo en memoria** (nada en el dispositivo), es fire-and-forget (un
+POST que falla se pierde y no se reintenta) y se topea en 100 eventos, que es el
+413 del contrato.
+
 ### Live video
 `EventDetailScreen.js` embeds a YouTube live stream via `react-native-webview` when the event's `status === 'live'`. The embed URL is hardcoded.
 

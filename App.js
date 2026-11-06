@@ -24,6 +24,7 @@ import { MenuLayer } from './src/SideMenu';
 import ConnectionBanner from './src/ConnectionBanner';
 import { navigationRef } from './src/navigation';
 import { usePushNotifications } from './src/usePushNotifications';
+import { useUso, registrarNavegacion } from './src/uso';
 import HomeScreen from './src/screens/HomeScreen';
 import EventsScreen from './src/screens/EventsScreen';
 import EventDetailScreen from './src/screens/EventDetailScreen';
@@ -266,6 +267,7 @@ export default function App() {
     InterTight_600SemiBold, InterTight_700Bold,
   });
   usePushNotifications();
+  useUso();
   // Mientras cargan, un View del color de fondo (evita el flash blanco). Pero
   // si la carga FALLA arrancamos igual, con las fuentes del sistema: las
   // nuestras son cosméticas y quedarse acá deja la app en blanco para siempre,
@@ -292,7 +294,12 @@ export default function App() {
                   <NavigationContainer
                     ref={navigationRef}
                     theme={navTheme}
-                    onReady={() => { SplashScreen.hideAsync().catch(() => {}); }}
+                    onReady={() => {
+                      SplashScreen.hideAsync().catch(() => {});
+                      // La pantalla inicial no dispara onStateChange.
+                      registrarNavegacion(navigationRef);
+                    }}
+                    onStateChange={() => registrarNavegacion(navigationRef)}
                   >
                     <Tabs />
                   </NavigationContainer>

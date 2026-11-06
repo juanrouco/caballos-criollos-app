@@ -4,11 +4,13 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 jest.mock('../../src/api', () => ({
   fetchAnimales: jest.fn(),
 }));
+jest.mock('../../src/uso', () => ({ registrarUso: jest.fn() }));
 const { fetchAnimales } = require('../../src/api');
+const { registrarUso } = require('../../src/uso');
 const PedigreeScreen = require('../../src/screens/PedigreeScreen').default;
 const { T, navStub, flushPromises } = require('../helpers');
 
-beforeEach(() => { fetchAnimales.mockReset(); });
+beforeEach(() => { fetchAnimales.mockReset(); registrarUso.mockClear(); });
 
 describe('PedigreeScreen', () => {
   test('arranca con el empty state y sin requests a la API', () => {
@@ -87,5 +89,32 @@ describe('PedigreeScreen', () => {
     fireEvent.changeText(getByPlaceholderText('Nombre del animal'), 'x');
     await act(async () => { fireEvent.press(getByText(/Buscar · \d+ campo/)); await flushPromises(); });
     await waitFor(() => expect(getByText(/No se encontraron caballos/)).toBeTruthy());
+  });
+});
+
+// Una búsqueda que no encuentra nada es un dato del stud book: pedigree que
+// alguien busca y no está cargado. Se registra la sección, nunca lo buscado.
+describe('registro de uso', () => {
+  const buscar = async (nombre, res) => {
+    fetchAnimales.mockResolvedValueOnce(res);
+    const { getByPlaceholderText, getByText } = render(<PedigreeScreen t={T} navigation={navStub()} />);
+    fireEvent.changeText(getByPlaceholderText('Nombre del animal'), nombre);
+    await act(async () => { fireEvent.press(getByText(/Buscar · \d+ campo/)); await flushPromises(); });
+  };
+
+  test('una búsqueda sin resultados registra busqueda_vacia con la sección', async () => {
+    await buscar('nombreinventado', { data: [] });
+    expect(registrarUso).toHaveBeenCalledWith('busqueda_vacia', 'pedigree');
+  });
+
+  test('lo que se buscó no viaja en el registro', async () => {
+    await buscar('nombreinventado', { data: [] });
+    const args = registrarUso.mock.calls.flat();
+    expect(args).not.toContain('nombreinventado');
+  });
+
+  test('una búsqueda con resultados no registra nada', async () => {
+    await buscar('cardal', { data: [{ id: 'pdre:1', nombre: 'Cardal' }] });
+    expect(registrarUso).not.toHaveBeenCalled();
   });
 });

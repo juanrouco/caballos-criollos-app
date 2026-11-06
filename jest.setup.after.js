@@ -9,3 +9,12 @@
 const { configure } = require('@testing-library/react-native');
 
 configure({ asyncUtilTimeout: 5000 });
+
+// El registro de uso (src/uso.js) programa un envío a dos minutos cada vez que
+// algo se registra, y cualquier test que abra una sección o navegue deja ese
+// timer colgado: jest avisa que el worker no terminó solo. Después de cada test
+// se tira lo pendiente, que además evita que un test herede la cola del
+// anterior.
+afterEach(() => {
+  try { require('./src/uso').reiniciarUso(); } catch {}
+});

@@ -1,4 +1,5 @@
 import React from 'react';
+import { registrarUso } from './uso';
 
 // Estado global del menú lateral (drawer custom, sin @react-navigation/drawer
 // para no sumar deps nativas). `menuOpen` controla el panel deslizante;
@@ -26,6 +27,9 @@ export function MenuProvider({ children }) {
   // está cerrando, y la sección quedaba en blanco.
   const openSection = React.useCallback((key) => {
     setMenuOpen(false);
+    // Las secciones no son rutas, así que no pasan por el onStateChange del
+    // NavigationContainer: se registran acá o no se registran (src/uso.js).
+    registrarUso('seccion', key);
     setTimeout(() => setSection(key), 260);
   }, []);
   const closeSection = React.useCallback(() => setSection(null), []);

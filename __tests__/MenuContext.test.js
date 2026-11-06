@@ -3,6 +3,9 @@ import { Text, TouchableOpacity } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { MenuProvider, useMenu } from '../src/MenuContext';
 
+jest.mock('../src/uso', () => ({ registrarUso: jest.fn() }));
+const { registrarUso } = require('../src/uso');
+
 function Probe() {
   const { menuOpen, section, openMenu, closeMenu, openSection, closeSection } = useMenu();
   return (
@@ -44,5 +47,16 @@ describe('MenuContext', () => {
     await waitFor(() => expect(getByText('section:reglamentos')).toBeTruthy());
     fireEvent.press(getByText('doCloseSection'));
     expect(getByText('section:null')).toBeTruthy();
+  });
+});
+
+// Las secciones del menú no son rutas, así que no pasan por el onStateChange
+// del NavigationContainer: si no se registran acá, no se registran en ningún lado.
+describe('registro de uso', () => {
+  test('abrir una sección la registra', () => {
+    registrarUso.mockClear();
+    const { getByText } = renderProbe();
+    fireEvent.press(getByText('doSection'));
+    expect(registrarUso).toHaveBeenCalledWith('seccion', 'reglamentos');
   });
 });

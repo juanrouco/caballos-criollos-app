@@ -80,6 +80,23 @@ function queryString(params) {
   ).toString();
 }
 
+// ── Observador de errores HTTP ─────────────────────────────────────
+//
+// El registro de uso (`src/uso.js`) quiere contar los errores que ve el socio.
+// Se suscribe acá en vez de que el cliente lo importe: `/uso` se manda con el
+// mismo `apiPost` que todo lo demás, así que un import de vuelta sería un ciclo.
+// Si nadie observa, no cuesta nada.
+//
+// Sólo pasan por acá los errores HTTP. Las fallas de red salen antes, en
+// `safeFetch`, y es correcto que no se registren: sin conexión tampoco habría
+// con qué mandar el registro.
+let observador = null;
+
+export function observarErroresHttp(fn) {
+  observador = fn;
+  return () => { if (observador === fn) observador = null; };
+}
+
 async function raise(res, path) {
   let detail = '';
   let code = '';
@@ -95,6 +112,8 @@ async function raise(res, path) {
     errores = body?.errores || null;
   } catch {}
   if (res.status >= 500 && !code) detail = ERROR_SERVIDOR_MSG;
+  // Nunca dejar que el observador rompa el camino del error.
+  try { observador?.({ path, status: res.status, code }); } catch {}
   throw new ApiError({ path, status: res.status, detail, code, campo, motivo, errores });
 }
 

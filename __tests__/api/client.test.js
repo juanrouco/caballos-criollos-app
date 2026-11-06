@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG, ERROR_SERVIDOR_MSG } from '../../src/api/client';
+import { apiGet, apiPost, apiDelete, API_BASE, OFFLINE_MSG, RESPUESTA_RARA_MSG, ERROR_SERVIDOR_MSG, observarErroresHttp } from '../../src/api/client';
 
 const okJson = (body) => ({ ok: true, json: async () => body });
 const errJson = (status, body) => ({
@@ -209,5 +209,43 @@ describe('un 2xx que no trae JSON', () => {
       json: async () => { throw new Error('sin body'); },
     });
     await expect(apiPost('/auth/logout', { refresh_token: 'r' })).resolves.toEqual({});
+  });
+});
+
+// El registro de uso (src/uso.js) cuenta los errores que ve el socio. Se cuelga
+// acá con un callback y no con un import, para que el cliente no dependa del
+// tracker: /uso se manda con el mismo apiPost que todo lo demás.
+describe('observarErroresHttp', () => {
+  test('avisa de un error HTTP con la ruta y el status', async () => {
+    const visto = jest.fn();
+    const dejar = observarErroresHttp(visto);
+    fetch.mockResolvedValueOnce(errJson(500, { code: '', message: 'boom' }));
+    await expect(apiGet('/eventos/2276')).rejects.toThrow();
+    expect(visto).toHaveBeenCalledWith(expect.objectContaining({ path: '/eventos/2276', status: 500 }));
+    dejar();
+  });
+
+  test('una falla de red no pasa por el observador: sin conexión tampoco hay cómo avisar', async () => {
+    const visto = jest.fn();
+    const dejar = observarErroresHttp(visto);
+    fetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await expect(apiGet('/eventos')).rejects.toThrow(OFFLINE_MSG);
+    expect(visto).not.toHaveBeenCalled();
+    dejar();
+  });
+
+  test('si el observador tira, el error de la API sigue su camino', async () => {
+    const dejar = observarErroresHttp(() => { throw new Error('el observador se rompió'); });
+    fetch.mockResolvedValueOnce(errJson(503, { code: 'mantenimiento', message: 'en mantenimiento' }));
+    await expect(apiGet('/vivos')).rejects.toMatchObject({ status: 503, code: 'mantenimiento' });
+    dejar();
+  });
+
+  test('desuscribirse corta el aviso', async () => {
+    const visto = jest.fn();
+    observarErroresHttp(visto)();
+    fetch.mockResolvedValueOnce(errJson(404, {}));
+    await expect(apiGet('/noticias/9')).rejects.toThrow();
+    expect(visto).not.toHaveBeenCalled();
   });
 });

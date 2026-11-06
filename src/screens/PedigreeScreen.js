@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator 
 import { Icon, Crest, Card, Divider, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
 import { fetchAnimales } from '../api';
+import { registrarUso } from '../uso';
 
 const SEX_LABEL  = { M: 'Macho', H: 'Hembra', C: 'Castrado' };
 const SEX_TO_API = { Macho: 'M', Hembra: 'H' };
@@ -49,7 +50,11 @@ export default function PedigreeScreen({ t, navigation }) {
     fetchAnimales(params)
       .then((res) => {
         if (myId !== reqIdRef.current) return;
-        setResults(res.data || []);
+        const data = res.data || [];
+        // Pedigree que alguien busca y el stud book no tiene. Va la sección,
+        // nunca lo buscado: ver la regla 2 de src/uso.js.
+        if (data.length === 0) registrarUso('busqueda_vacia', 'pedigree');
+        setResults(data);
         setLoading(false);
       })
       .catch((e) => {
