@@ -167,17 +167,19 @@ No compartimos información con anunciantes ni con terceros para fines comercial
   cifrada, igual que para el sitio web.
 - Tu **sesión** se guarda en tu dispositivo —en el almacenamiento seguro del
   sistema operativo— mientras no cierres sesión. Al cerrarla se borra del
-  dispositivo y se marca como cerrada en el servidor, donde el registro se
-  conserva. Se renueva sola mientras usás la App y **caduca a los 90 días** sin
-  usarla, con lo que tenés que volver a iniciar sesión.
+  dispositivo y, si hay conexión, se marca como cerrada en el servidor, donde el
+  registro se conserva; si en ese momento no había conexión, el registro del
+  servidor queda abierto hasta que vence. Se renueva sola mientras usás la App y
+  **caduca a los 90 días** sin usarla, con lo que tenés que volver a iniciar
+  sesión.
 - Los **registros de intentos** de inicio de sesión y cambio de clave de más de 90
   días se van borrando automáticamente.
 - El **código de tu carnet** se conserva mientras no lo renueves. Al renovarlo, el
   anterior se descarta.
 - El **token de notificaciones** y el `device_id` se conservan mientras la App
-  esté instalada y las notificaciones habilitadas. Cuando el token deja de ser
-  válido (por ejemplo, al desinstalar la App), dejamos de usarlo. El registro del
-  token y de los avisos enviados queda guardado en el servidor.
+  esté instalada. Cuando el servicio de notificaciones nos informa que ese token
+  ya no sirve (por ejemplo, porque desinstalaste la App), dejamos de usarlo. El
+  registro del token y de los avisos enviados queda guardado en el servidor.
 - Tus **datos de socio y tus inscripciones** son registros de la Asociación y se
   conservan según sus plazos institucionales, con independencia de la App.
 - Los **logs técnicos** del servidor se conservan por el plazo necesario para la
@@ -198,12 +200,15 @@ es 100 % infalible.
 ## 9. Tus derechos y cómo ejercerlos
 
 - **Cerrar sesión:** desde el menú de la App. Borra tu sesión del dispositivo en
-  el momento y la marca como cerrada en el servidor.
+  el momento y, si hay conexión, la marca como cerrada en el servidor.
 - **Renovar el código de tu carnet:** desde la pantalla "Mi carnet", si creés que
   alguien tiene una copia.
 - **Desactivar notificaciones:** podés revocar el permiso en cualquier momento
-  desde los **Ajustes del sistema operativo** de tu teléfono. Al hacerlo, dejamos
-  de enviarte avisos.
+  desde los **Ajustes del sistema operativo** de tu teléfono, y tu teléfono deja
+  de mostrarlas. Tené en cuenta que nuestro servidor no se entera de que las
+  desactivaste: puede seguir enviando avisos a ese dispositivo hasta que el
+  servicio de notificaciones nos informe que el token ya no sirve, por ejemplo
+  porque desinstalaste la App.
 - **Acceso, rectificación y supresión:** conforme a la **Ley 25.326 de Protección
   de los Datos Personales** (Argentina), podés solicitar información sobre tus
   datos o su eliminación escribiendo a **info@caballoscriollos.com**. El alta y la
@@ -273,6 +278,21 @@ eran falsas, por si vuelven a aparecer en una futura edición:
   dispositivo" dejaba entender que no se guarda en ningún lado.
 - El token de push no se elimina: es una baja lógica, y el historial de envíos
   conserva el token.
+
+Dos más, de la segunda vuelta de review, del mismo tipo y heredadas del texto de
+julio:
+
+- "Al desactivar las notificaciones dejamos de enviarte avisos" era falso, y
+  "mientras tengas las notificaciones habilitadas" en §7 también. **No existe
+  ningún camino de baja**: la única ruta es `POST /push/register` y la App no
+  llama a nada al revocarse el permiso. El token queda `Activo = 1` y el cron le
+  sigue mandando avisos —y registrándolos— hasta que Expo contesta
+  `DeviceNotRegistered`. Qué contesta exactamente cuando se revoca el permiso, sin
+  desinstalar, no está verificado, así que el texto no lo afirma.
+- "Se marca como cerrada en el servidor" necesitaba el "si hay conexión": el
+  logout sí revoca del lado del servidor, pero `auth.js:33` se traga el error, así
+  que sin conexión sólo se borra la sesión local y el registro del servidor queda
+  abierto hasta que vence.
 
 Sobre la retención de los logs del cPanel: §7 queda **sin cifra**, a propósito. El
 listado de `logs/` muestra archivos del mes en curso y del anterior y ninguno de
