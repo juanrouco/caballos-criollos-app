@@ -37,6 +37,11 @@ The tab bar is fully custom (`CustomTabBar` in `App.js`) — a floating pill wit
 
 ⚠️ Ese botón **sólo existe cuando hay una transmisión activa** (`hasLive`, de `useLive()`): sin vivo el array no lleva el sentinel y la barra queda con cuatro ítems parejos. Que no esté no es un bug — en cdev nunca hay vivos, así que ahí no se ve nunca.
 
+### Secciones del menú lateral (no son rutas)
+Reglamentos, Mapa ACCC, **Mi cuenta**, **Mi carnet** y **Mis inscripciones** no están en el stack: viven en `SECTIONS` (`src/SideMenu.js`) y se abren como `Modal` sobre toda la navegación desde `MenuLayer`, que `App.js` monta una sola vez. Se abren con `openSection(key)` de `useMenu()` (`src/MenuContext.js`) y se cierran con el `onBack` que `MenuLayer` les pasa.
+
+Una pantalla de sección recibe `{ t, topInset, onBack }` por props — **no** `navigation` — así que no hay `navigate` ni back nativo adentro: sus sub-pantallas son sub-estados (ver el `sub` de `InscripcionesScreen` o el confirmar de `CarnetScreen`). Para sumar una, agregá la entrada a `SECTIONS` con su `Component`; no va en `App.js` ni en `withT()`.
+
 ### Theme propagation
 There is a single source of truth at the top of `App.js`:
 
@@ -96,7 +101,9 @@ Several screens use remote `https://caballoscriollos.com/...` image URLs as plac
 
 ## Known TODOs (from README)
 
-**El carnet de socio con QR y la verificación** (#63 / #64) es lo único que falta de la etapa 2. El backend ya tiene las rutas (`POST /perfil/carnet`, `/perfil/carnet/rotar`, `GET /perfil/carnet.pdf`, `GET /socios/verificacion/{token}`), pero **no están en `docs/README.md`**. No implementar desde el código del backend ni desde su plan: esperar el contrato. Es un token que valida identidad, con una rotación que invalida el QR anterior.
+**Quién consume la verificación** (#64). `verificarSocio()` está en `src/api/carnet.js` con sus tests, pero **ninguna pantalla la llama**: el QR lleva `{base}/v/{token}`, que es una página HTML, y con eso la cámara de cualquier teléfono resuelve el escaneo sin la app. Usar el JSON implica una pantalla lectora de QR (`expo-camera` + permiso) y antes hay que decidir quién verifica en el predio — no implementarla por iniciativa propia.
+
+El carnet (#63) sí está: sección «Mi carnet», QR dibujado en la app desde `carnet.url`, PDF y rotación. Dos cosas a no romper: se vuelve a pedir `POST /perfil/carnet` **en cada apertura** (es idempotente y es la única forma de enterarse de una rotación hecha en otro lado), y el 404 de la verificación se devuelve **como dato** (`{valido: false}`), no como excepción: token mal formado, inexistente, rotado o de una cuenta que dejó de calificar dan la misma respuesta, así que es un veredicto y no una falla.
 
 Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`, el fallback de noticias y eventos sin imagen) por assets propios.
 

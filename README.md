@@ -151,14 +151,14 @@ de a Expo).
 
 ## Pendientes / próximos pasos
 
-- **El carnet de socio con QR y la verificación** (#63 / #64). Es lo único que
-  falta de la etapa 2; la app no tiene nada todavía. El backend ya los
-  implementó —`POST /perfil/carnet`, `POST /perfil/carnet/rotar`,
-  `GET /perfil/carnet.pdf`, y `GET /socios/verificacion/{token}` para la app—,
-  pero **el contrato no está en `docs/README.md`**, así que no se arranca hasta
-  que esté: el carnet maneja un token que valida la identidad de una persona y
-  tiene una rotación que mata el QR anterior, y eso no se deduce de la firma de
-  una ruta. Pedido al equipo de la API.
+- **Quién consume la verificación** (#64). `verificarSocio()` está en
+  `src/api/carnet.js` con sus tests, pero ninguna pantalla la llama todavía: el
+  QR apunta a `{base}/v/{token}`, que es una página HTML, así que la cámara de
+  cualquier teléfono ya resuelve el escaneo sin la app. El JSON
+  (`GET /socios/verificacion/{token}`) existe para que lo use la app —así lo
+  anota el plan del backend— pero eso implica una pantalla lectora de QR
+  (`expo-camera` + permiso de cámara) y antes hay que decidir quién verifica en
+  el predio. Sin esa decisión no se arranca.
 - Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`) por
   assets propios. Son el fallback de las noticias y los eventos sin imagen.
 
@@ -169,9 +169,10 @@ La paleta y el modo (`PALETTE` / `MODE` en `App.js`) quedan fijos a propósito:
 son constantes, no una preferencia del usuario.
 
 Sin probar todavía, y por qué: login desde cero, logout y cambio de clave
-(hace falta la clave de un socio de prueba); push notifications y el deeplink
-de arranque en frío (sólo llegan en build standalone sobre device físico);
-Android.
+(hace falta la clave de un socio de prueba); el camino feliz del carnet (la
+cuenta de prueba de cdev no tiene número de socio: hay una siembra preparada
+para correr); push notifications y el deeplink de arranque en frío (sólo
+llegan en build standalone sobre device físico); Android.
 
 ### Qué no se puede ver funcionando en cdev
 
