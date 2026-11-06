@@ -93,6 +93,25 @@ Esta información **no se envía** a ningún servidor y se borra al desinstalar 
 - La **fecha de la última vez que abriste las notificaciones**, para el contador
   de la campanita.
 
+### 2.6. Estadísticas de uso (anónimas)
+
+La App le envía a nuestro servidor, cada tanto, un resumen de cómo se usa: qué
+secciones y pantallas se abren, qué eventos, noticias y caballos se consultan,
+qué búsquedas de pedigree no encontraron resultados y qué errores aparecieron,
+junto con la plataforma (iOS o Android) y la versión de la App.
+
+- Ese resumen **no lleva** quién sos: ni tu usuario, ni tu sesión, ni el
+  identificador de tu dispositivo.
+- Tampoco lleva la hora: del momento en que pasó cada cosa se guarda **sólo el
+  día**.
+- Lo que se guarda son **totales por día** ("ese día se abrió N veces tal
+  pantalla"), sin forma de saber qué consultó cada persona.
+- **Lo que buscás en pedigree no se envía**, sólo el hecho de que una búsqueda no
+  encontró nada.
+- Tu dirección IP no se guarda junto con estas estadísticas. Como con cualquier
+  otro pedido, queda en los logs técnicos del servidor (2.4), que registran la
+  dirección pedida pero no el contenido del resumen.
+
 ---
 
 ## 3. Qué NO recolectamos
@@ -103,8 +122,9 @@ Para mayor claridad, la App **no** recolecta ni accede a:
 - Cámara, micrófono, fotos ni contactos.
 - Datos de pago.
 - Herramientas de analítica de terceros, publicidad ni rastreo entre apps.
-- Estadísticas de uso: la App **no registra** qué pantallas visitás. Fuera de los
-  logs técnicos del servidor (2.4), no se registra qué contenidos consultás.
+- Estadísticas de uso **atribuibles a una persona**: los totales de 2.6 son
+  anónimos. Fuera de los logs técnicos del servidor (2.4), no se registra qué
+  contenidos consulta cada persona.
 
 ---
 
@@ -116,6 +136,7 @@ Para mayor claridad, la App **no** recolecta ni accede a:
 - **Enviar notificaciones push** sobre eventos, transmisiones en vivo y novedades.
 - **Mostrar el contenido** de la App (eventos, noticias, catálogos, resultados,
   rankings, pedigrees) que se obtiene de nuestra API.
+- **Mejorar la App** con las estadísticas anónimas de uso (2.6).
 - **Operar y proteger** el servicio (seguridad, prevención de abuso).
 
 No usamos la información para publicidad ni la vendemos a terceros.
@@ -172,8 +193,11 @@ No compartimos información con anunciantes ni con terceros para fines comercial
   servidor queda abierto hasta que vence. Se renueva sola mientras usás la App y
   **caduca a los 90 días** sin usarla, con lo que tenés que volver a iniciar
   sesión.
-- Los **registros de intentos** de inicio de sesión y cambio de clave de más de 90
-  días se van borrando automáticamente.
+- Los **registros de intentos** (inicio de sesión, cambio de clave,
+  verificaciones inválidas del carnet y envíos de estadísticas) de más de 90 días
+  se van borrando automáticamente.
+- Las **estadísticas de uso** (2.6) son totales anónimos por día y se conservan
+  sin plazo de borrado.
 - El **código de tu carnet** se conserva mientras no lo renueves. Al renovarlo, el
   anterior se descarta.
 - El **token de notificaciones** y el `device_id` se conservan mientras la App
@@ -301,6 +325,33 @@ que se puede cambiar, y sale de un solo listado. Si alguna vez se quiere nombrar
 la forma honesta es "por un período limitado", sin número. Ese mismo listado
 confirmó C-2: existe un log de acceso de la API (`...-ssl_log`), así que los
 `GET /v/{token}` quedan ahí.
+
+### Revisión C-10 (estadísticas de uso)
+
+La corrección que trajo `POST /uso` (plan `docs/plan-b-uso.md` del backend, §B.5,
+con las decisiones del usuario del 06/11/2026 encima). Toca 2.6 —nuevo—, §3, §4 y
+§7. Tres cosas a no perder si alguien vuelve a editar:
+
+- **El texto va adelantado al código.** Se publica antes de que exista la 2.0.1,
+  que es la versión que empieza a enviar. Describir algo que todavía no pasa no
+  hace daño; publicar la app antes que el texto, sí.
+- **"Sin plazo de borrado" es una decisión del usuario**, no un olvido: eligió no
+  fijar retención para la tabla de uso, en lugar de los 180 días que recomendaba
+  el plan. No poner una cifra inventada.
+- **Lo buscado en pedigree no viaja.** El contrato sólo acepta `cual` de 40
+  caracteres `[A-Za-z0-9_]`, y para `busqueda_vacia` ese `cual` es la sección
+  (`pedigree`), no el término. La regex no alcanza por sí sola —una palabra ASCII
+  suelta pasaría—, así que es la app la que tiene que no mandarlo.
+
+Dos apartamientos del texto que mandó el equipo de la API, los dos por el mismo
+motivo de siempre —no afirmar de más—:
+
+- Su versión decía que del resumen no se guarda "ni la dirección IP". El pedido a
+  `/uso` cae en el log de accesos como cualquier otro, con su IP: lo que no se
+  guarda es la IP **junto con las estadísticas**. El texto lo dice así y remite a
+  2.4.
+- Su versión era un párrafo con un paréntesis largo; acá va como lista, que es lo
+  único que el comparador acepta además de párrafos y títulos.
 
 ### Cómo declarar esto en las tiendas
 

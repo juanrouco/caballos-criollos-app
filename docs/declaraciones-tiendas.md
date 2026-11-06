@@ -180,8 +180,9 @@ La 2.0.1 va a traer la pieza B (`POST /uso`), y ahí la app **empieza a mandar
 datos de uso**. Tres cosas dejan de ser ciertas en ese mismo momento, y las tres
 están hoy declaradas como "no":
 
-- **§3 de la política**, que dice que la App no registra qué pantallas visitás.
-  La corrección la redacta el equipo de la API y la publica en su deploy.
+- **§3 de la política**, que decía que la App no registra qué pantallas visitás.
+  **Corregida acá** (C-10: nuevo 2.6, más §3, §4 y §7). Falta que el equipo de la
+  API la recopie y la publique; el orden de abajo es el que importa.
 - **Apple → Usage Data → Product Interaction**, hoy "No se recolecta".
 - **Play → App activity → Product interaction**, hoy "No".
 
