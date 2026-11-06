@@ -160,7 +160,56 @@ elige: cualquiera podría registrar su token a nombre de otro socio y empezar a
 recibir sus notificaciones personales. El id tiene que salir del `Bearer`, que es
 lo único que el backend puede verificar.
 
-### A.6 — Lo que hace la app (nuestro lado)
+### A.6 — La baja cuando el socio revoca el permiso
+
+Entra en A por decisión del usuario, en vez de ir como tarea aparte.
+
+**El problema.** Hoy el servidor no se entera nunca de que alguien apagó las
+notificaciones desde los Ajustes del teléfono. El token queda `Activo = 1` y el
+cron le sigue mandando avisos —y registrando cada envío— hasta que Expo contesta
+`DeviceNotRegistered`, que puede no llegar jamás si la App sigue instalada. Salió
+a la luz revisando la política: el texto prometía «al desactivarlas dejamos de
+enviarte avisos» y eso era falso.
+
+**La trampa: cuando hace falta la baja, la app ya no puede nombrar el token.**
+`getExpoPushTokenAsync` necesita el permiso concedido. Revocado el permiso, la App
+no puede volver a obtener su propio token, así que no tiene con qué decir «dá de
+baja este». Las dos salidas:
+
+- Guardar el token localmente al registrarlo, para poder mandarlo después. Agrega
+  estado persistido que hoy no existe.
+- **Dar de baja por `device_id`**, que la App puede resolver siempre, con permiso
+  o sin él (`Application.getIosIdForVendorAsync` / `getAndroidId`). Es la que
+  recomendamos.
+
+La segunda, además, es para lo que el `device_id` ya está guardado: lo dice el
+contrato de `/push/register` en `docs/push-notifications-api.md`, «guardar
+`device_id` para poder **invalidar tokens viejos del mismo aparato** en el
+futuro». Este es ese futuro.
+
+**Lo que pedimos:** una ruta de baja —`DELETE /push/register` o
+`POST /push/baja`, como les quede mejor— que reciba `{device_id}` y haga la misma
+baja lógica que ya hace `PushTokenRepository::desactivar` (`Activo = 0` más el
+motivo) sobre **todos** los tokens de ese aparato. Con un motivo nuevo, del tipo
+`permiso_revocado`, para poder distinguirlo del `DeviceNotRegistered` en los
+números. Y que sea idempotente: la App la va a llamar más de una vez.
+
+Que la baja sea por aparato y no por token es lo correcto acá: si el socio apagó
+las notificaciones en ese teléfono, ninguno de los tokens de ese teléfono tiene
+que seguir recibiendo.
+
+**Lo que hace la app:** chequear el permiso al arrancar y cada vez que vuelve a
+foreground —ya hay un listener de `AppState` «active» en `usePushNotifications`,
+el del badge, así que el lugar existe— y si el permiso dejó de estar concedido,
+llamar a la baja. Hoy ese caso hace `if (status !== 'granted') return;` y no
+avisa nada.
+
+**Qué queda sin verificar, y conviene medirlo al planificar A:** qué contesta
+Expo cuando el permiso está revocado pero la App sigue instalada. Si contestara
+`DeviceNotRegistered`, el token se daría de baja solo y A.7 sería menos urgente.
+Nadie lo midió, así que el texto de la política no afirma nada al respecto.
+
+### A.7 — Lo que hace la app (nuestro lado)
 
 Para que quede claro qué no les estamos pidiendo:
 
@@ -428,6 +477,7 @@ registra los fallidos.
 | A.3 | `/notificaciones` con Bearer opcional: `IdUsuario IS NULL OR IdUsuario = <sesión>` | `NotificacionRepository::buildWhere` |
 | A.4 | `findActivosPorUsuario()` + que `CronPush` ramifique, o la notificación personal sale a todos | `PushTokenRepository` / `CronPush` |
 | A.4 | qué pasa con una notificación que no se pudo pushear: hoy no aparece en la campanita | `buildWhere` (`EstadoEnvio`) |
+| A.6 | ruta de baja por `device_id`, idempotente, con motivo `permiso_revocado` | `PushHandler` / `Rutas.php` |
 | B.0 | guardar `X-App-Version` y `X-App-Install` en el log de accesos | config del log |
 | B.1 | `POST /uso`, anónimo, en lotes, con tope y rate limit por IP | módulo nuevo |
 | B.2 | `tblApiUso` | migración |
