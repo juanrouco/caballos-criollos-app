@@ -156,6 +156,25 @@ function registrarErrorHttp({ path, status }) {
   registrarUso('error', cual);
 }
 
+// Cuál de las cuatro tabs está activa. El root state **no** es el del tab bar:
+// el navegador de arriba es el Stack, así que `routes[index]` da `Tabs` —o la
+// pantalla pusheada encima, `EventDetail`— y nunca `EventosTab`. La tab de
+// verdad vive un nivel más adentro, en el navegador de `type: 'tab'`, así que
+// hay que bajar por la rama activa hasta encontrarlo.
+//
+// Con una pantalla pusheada sobre las tabs la rama activa no pasa por el tab
+// bar y esto devuelve null: la tab no cambió, así que no hay nada que contar.
+function tabActiva(state) {
+  let s = state;
+  while (s) {
+    const r = s.routes?.[s.index];
+    if (!r) return null;
+    if (s.type === 'tab') return r.name;
+    s = r.state;
+  }
+  return null;
+}
+
 // Navegación. Se llama desde el `onStateChange` del NavigationContainer, que es
 // el único punto por el que pasan todas las pantallas de los cuatro stacks.
 // Las secciones del menú lateral NO pasan por acá (no son rutas): ésas las
@@ -163,7 +182,7 @@ function registrarErrorHttp({ path, status }) {
 export function registrarNavegacion(ref) {
   try {
     const root = ref?.getRootState?.();
-    const tab = root?.routes?.[root.index]?.name;
+    const tab = tabActiva(root);
     if (tab && tab !== ultimaTab) {
       ultimaTab = tab;
       registrarUso('tab', tab);

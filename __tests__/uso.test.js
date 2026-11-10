@@ -181,8 +181,30 @@ describe('el id, que sólo algunas pantallas pueden llevar', () => {
 });
 
 describe('navegación', () => {
+  // La forma que arma la navegación de verdad: el root es el **Stack**, y el
+  // tab bar cuelga del route `Tabs` un nivel adentro. El test de abajo
+  // (usoNavegacion.test.js) lo verifica contra un NavigationContainer real;
+  // acá se replica a mano para los casos de borde.
   const ref = (tab, route) => ({
-    getRootState: () => ({ index: 0, routes: [{ name: tab }] }),
+    getRootState: () => ({
+      type: 'stack',
+      index: 0,
+      routes: [{ name: 'Tabs', state: { type: 'tab', index: 0, routes: [{ name: tab }] } }],
+    }),
+    getCurrentRoute: () => route,
+  });
+
+  // Con una pantalla pusheada encima de las tabs, la rama activa del root no
+  // pasa por el tab bar.
+  const refPusheada = (tab, route) => ({
+    getRootState: () => ({
+      type: 'stack',
+      index: 1,
+      routes: [
+        { name: 'Tabs', state: { type: 'tab', index: 0, routes: [{ name: tab }] } },
+        { name: route.name, params: route.params },
+      ],
+    }),
     getCurrentRoute: () => route,
   });
 
@@ -211,6 +233,18 @@ describe('navegación', () => {
     registrarNavegacion(ref('PedigreeTab', { name: 'HorseDetail', params: { id: 'pdre:1' } }));
     registrarNavegacion(ref('PedigreeTab', { name: 'HorseDetail', params: { id: 'pdre:2' } }));
     expect((await eventos()).filter((e) => e.que === 'pantalla')).toHaveLength(2);
+  });
+
+  test('una pantalla pusheada no se cuenta como tab', async () => {
+    registrarNavegacion(ref('EventosTab', { name: 'EventsList' }));
+    registrarNavegacion(refPusheada('EventosTab', { name: 'EventDetail', params: { id: 2276 } }));
+    const evs = await eventos();
+    // `EventDetail` es el route activo del Stack, no una tab: si se leyera de
+    // ahí, entraría como `tab` y además se contaría dos veces.
+    expect(evs.filter((e) => e.que === 'tab')).toEqual([
+      expect.objectContaining({ cual: 'EventosTab' }),
+    ]);
+    expect(evs.filter((e) => e.que === 'pantalla' && e.cual === 'EventDetail')).toHaveLength(1);
   });
 
   test('una ref rota no tira', async () => {

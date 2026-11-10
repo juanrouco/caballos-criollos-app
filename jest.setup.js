@@ -68,16 +68,21 @@ jest.mock('react-native-youtube-iframe', () => {
   };
 });
 
-// react-native-safe-area-context: insets en 0 + passthrough en test.
+// react-native-safe-area-context: insets en 0 + passthrough en test. El
+// `frame` lo pide @react-navigation/bottom-tabs: sin él, montar un tab bar de
+// verdad en un test tira «useSafeAreaFrame is not a function».
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+  const frame = { x: 0, y: 0, width: 390, height: 844 };
   return {
     SafeAreaProvider: ({ children }) => React.createElement(React.Fragment, null, children),
     SafeAreaView: ({ children, style }) => React.createElement(View, { style }, children),
     useSafeAreaInsets: () => inset,
+    useSafeAreaFrame: () => frame,
     SafeAreaInsetsContext: React.createContext(inset),
+    SafeAreaFrameContext: React.createContext(frame),
   };
 });
 
