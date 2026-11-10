@@ -25,7 +25,7 @@ export {
   mapEventoAlta, mapAlertas, mapAnimalAlta, mapOpciones, mapJinete, mapAltaCreada,
   mapYuntaCandidato, mapEquipo, mapEquipoCreado,
 } from './alta';
-export { registerPushToken } from './push';
+export { registerPushToken, bajaPushToken } from './push';
 export { enviarUso, USO_PATH } from './uso';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,

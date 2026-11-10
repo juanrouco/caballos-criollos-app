@@ -1,9 +1,17 @@
-import { apiGet } from './client';
+import { apiGet, apiGetAuth } from './client';
+import { getSession } from './session';
 
 // Listado paginado de notifs. El backend ordena por Fecha DESC y soporta
 // `since` para "traeme lo nuevo desde X" — clave para el badge de la
 // campanita (pedimos `limit: 1` y leemos `meta.total`).
-export const fetchNotificaciones = (params) => apiGet('/notificaciones', params);
+//
+// Con sesión va con Bearer: así vienen las generales **más** las personales del
+// socio, y el `meta.total` del badge las cuenta. Sin sesión, sólo las
+// generales. No hay versión anónima de reserva: si la sesión se pierde en el
+// camino el pedido falla, y el siguiente ya sale anónimo solo — devolver las
+// generales como si fueran todas sería mentirle al socio sobre lo que tiene.
+export const fetchNotificaciones = (params) =>
+  (getSession() ? apiGetAuth : apiGet)('/notificaciones', params);
 
 const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 

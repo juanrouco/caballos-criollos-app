@@ -1,4 +1,30 @@
-import { mapNotificacion, isUnreadSince } from '../../src/api/notificaciones';
+import { fetchNotificaciones, mapNotificacion, isUnreadSince } from '../../src/api/notificaciones';
+import { API_BASE } from '../../src/api/client';
+import { setSession, clearSession } from '../../src/api/session';
+
+// Con sesión el listado trae las generales MÁS las personales del socio, y eso
+// depende enteramente de que el pedido lleve el Bearer: sin header, el backend
+// no tiene de dónde saber de quién es el teléfono.
+describe('fetchNotificaciones', () => {
+  beforeEach(() => { global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => ({ data: [] }) })); clearSession(); });
+  afterEach(() => { delete global.fetch; clearSession(); });
+
+  test('sin sesión pide sólo las generales, sin Authorization', async () => {
+    await fetchNotificaciones({ limit: 20 });
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE}/notificaciones?limit=20`);
+    expect(opts?.headers).toBeUndefined();
+  });
+
+  test('con sesión va con Bearer', async () => {
+    setSession({ accessToken: 'AT-1', refreshToken: 'RT-1', expiresAt: Date.now() + 60_000, usuarioId: 7 });
+    await fetchNotificaciones({ since: '2026-11-10 09:00:00', limit: 1 });
+    const [url, opts] = fetch.mock.calls[0];
+    expect(url).toContain('/notificaciones?since=');
+    expect(opts.headers.Authorization).toBe('Bearer AT-1');
+  });
+});
+
 
 describe('mapNotificacion', () => {
   const base = {

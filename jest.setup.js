@@ -97,6 +97,7 @@ jest.mock('expo-splash-screen', () => ({
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'undetermined' })),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'undetermined' })),
   getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: '' })),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),

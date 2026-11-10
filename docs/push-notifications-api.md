@@ -54,10 +54,14 @@ Concretamente, el backend tiene **dos responsabilidades técnicas**:
 
 ## 2. Endpoints que consume la app
 
+> Este documento se escribió **antes** de que el backend existiera, así que es la
+> spec de lo que había que construir. Hoy el contrato vigente es el del README de
+> `apiv2`; lo de acá sigue valiendo salvo donde ese README diga otra cosa.
+
 ### 2.1 `POST /push/register`
 
 Registra/actualiza el Expo Push Token de una instalación. La app lo llama en cada
-arranque (es idempotente).
+arranque (es idempotente), y además **cada vez que cambia la sesión**.
 
 **Request body** (JSON):
 
@@ -78,6 +82,16 @@ arranque (es idempotente).
 - `device_id` puede ser `null`; no debe romper el registro.
 - Respuesta: `200 OK`. El body es indistinto (la app ignora el contenido).
 
+**El token se ata a la cuenta por el `Authorization`, y por nada más.** Con sesión
+abierta la app manda `Bearer`, y el backend ata ese token al socio del token
+validado; sin sesión lo manda anónimo, y eso **desata** el token de la cuenta que
+lo tuviera. Por eso la app re-registra al loguearse y al cerrar sesión: el
+register anónimo del logout es lo que da de baja lo personal. El body **nunca**
+lleva `usuario_id` — quién es el socio lo decide el backend leyendo el token, no
+la app. Un Bearer vencido o inválido tiene que dar 401, nunca tratarse como
+anónimo: la app refresca y reintenta, y sólo si la sesión se perdió del todo
+vuelve a registrar sin Bearer.
+
 **Tabla sugerida** `push_tokens`:
 
 | columna      | tipo        | notas                                    |
@@ -90,7 +104,24 @@ arranque (es idempotente).
 | `created_at` | datetime    |                                          |
 | `updated_at` | datetime    |                                          |
 
-### 2.2 `GET /notificaciones`
+### 2.2 `POST /push/baja`
+
+Da de baja **todos** los tokens de un aparato. La app la llama al arrancar y cada
+vez que vuelve a foreground, siempre que el permiso de notificaciones no esté
+concedido: sin permiso el token no entrega nada, y dejarlo activo haría que el
+backend siga contando ese teléfono entre los destinatarios.
+
+```json
+{ "device_id": "uuid" }
+```
+
+- Va **sin** `Authorization`: la baja es del aparato, no de la cuenta, y tiene que
+  poder mandarse con la sesión cerrada.
+- Es idempotente y siempre contesta `200 {"ok": true}`; llamarla de más no hace
+  daño. Un `device_id` vacío, que no sea string o de más de 256 caracteres, da 400.
+- Al volver a conceder el permiso, el `register` de siempre reactiva el token.
+
+### 2.3 `GET /notificaciones`
 
 Listado paginado del historial de notificaciones (alimenta la campanita y la
 pantalla de notificaciones). Ordenado por el **instante de envío real**
@@ -152,7 +183,7 @@ pantalla de notificaciones). Ordenado por el **instante de envío real**
   caen a `""`, `tipo` a `"generico"`, `target`/`imagen_url` a `null`).
 - **`Cache-Control`** del endpoint alineado a **30s** (la app pollea cada 30s).
 
-### 2.3 ⚠️ Dos shapes distintos: `target` (lista) vs `data` (push)
+### 2.4 ⚠️ Dos shapes distintos: `target` (lista) vs `data` (push)
 
 Hay **dos canales** con **shapes deliberadamente distintos**, y el backend tiene que
 producir los dos. No son intercambiables:
@@ -245,7 +276,7 @@ header `Authorization: Bearer <EXPO_ACCESS_TOKEN>`).
 Esto es **contrato estricto**: la app rutea según `data.kind`. Definido en
 `src/navigation.js → navigateOnNotificationTap`. Ojo: este `data` (del push) usa
 `kind`, distinto del `target` (`{tipo,id,url}`) que devuelve `GET /notificaciones`
-para la lista — ver [§2.3](#23--dos-shapes-distintos-target-lista-vs-data-push)
+para la lista — ver [§2.4](#24--dos-shapes-distintos-target-lista-vs-data-push)
 para el mapeo `target → data`.
 
 | `kind`      | campos adicionales en `data`      | a dónde navega la app                          |
@@ -302,7 +333,7 @@ para el mapeo `target → data`.
 - [ ] Envío a `exp.host/--/api/v2/push/send` en lotes de ≤100.
 - [ ] Manejo de tickets + receipts → desactivar tokens con `DeviceNotRegistered`.
 - [ ] Persistir cada notif con `target` = `{tipo, id, url}` (lo consume la lista).
-- [ ] Al enviar el push, derivar `data` = `{kind, evento_id|id, tag?}` desde `target` (ver §2.3).
+- [ ] Al enviar el push, derivar `data` = `{kind, evento_id|id, tag?}` desde `target` (ver §2.4).
 - [ ] (Opcional, recomendado) `EXPO_ACCESS_TOKEN` para autenticar el envío.
 
 ---
