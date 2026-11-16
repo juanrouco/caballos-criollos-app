@@ -17,6 +17,10 @@ cosas que las dos pantallas bloquean, la web tiene un chequeo que la app no
 tiene, la app avisa dos cosas antes que la web, y la app ofrece un caso que su
 propio POST rechaza.
 
+De esas seis, **cuatro ya están arregladas** a partir de esta corrida: D-1 y D-6
+en el backend, D-3 y D-5 acá. Quedan D-2 y D-4, que no son defectos sino la app
+avisando antes que la web.
+
 Y hay algo más grave, que sólo se ve cuando algo cambia **entre que el socio
 llena el alta y confirma**: de los cuatro validadores que se pueden mover a mitad
 de camino, la web mira dos (la ventana y el cupo) y **no mira los otros dos**. Con
@@ -113,10 +117,23 @@ El predicado real, medido con `extr:9061221` y el Equipo Uno: **6/29 bloqueado �
 `src/erroresInscripcion.js` («en Aparte, las categorías 15 y 29 cuentan como una
 sola porque comparten el cupo»).
 
-El validador aplica esa equivalencia. **`GET /equipos` no**: marca `bloqueado`
-sólo en 6/29, y en 6/15 devuelve el equipo habilitado y sin marca. La pantalla lo
-ofrece, el socio lo elige y el propio POST se lo rechaza al confirmar. Es un
-hueco del endpoint de equipos, no del validador.
+El validador aplicaba esa equivalencia. **`GET /equipos` no**: marcaba
+`bloqueado` sólo en 6/29, y en 6/15 devolvía el equipo habilitado y sin marca. La
+pantalla lo ofrecía, el socio lo elegía y el propio POST se lo rechazaba al
+confirmar. Era un hueco del endpoint de equipos, no del validador.
+
+**Resuelto en el backend (#276, PR #277, prod el 16/11).** `GET /equipos` calcula
+`bloqueado` con `ReglasInscripcion::EquipoBloqueado`, la misma función del
+validador: primero la categoría exacta y después la unidad 15/29, escrita una
+sola vez y compartida con el cupo de Aparte. En 6/15 el Equipo Uno ahora sale
+`bloqueado: true`. El shape no cambia, así que la app no necesitó tocar nada. La
+web también marca el equipo en paso5 y su texto del 422 pasó a decir «…en esta
+categoría o en la que comparte cupo con ella».
+
+Queda anotado como seguimiento del backend, sin hacer: `bloqueado_por` dice qué
+integrante bloquea, pero no qué regla disparó, así que la app no puede
+distinguir «ya está en esta categoría» de «comparte cupo con la otra». Haría
+falta un campo nuevo.
 
 ### D-5 · Con una sola alerta, la app muestra el texto dos veces (A1)
 
