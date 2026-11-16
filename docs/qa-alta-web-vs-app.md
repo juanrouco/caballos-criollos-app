@@ -15,13 +15,25 @@ se vuelven a medir: la igualdad web = API ya está probada en #59 (T-59-P1, el p
 **Ninguna de las tres capas es superconjunto de las otras.** El POST acepta dos
 cosas que las dos pantallas bloquean, la web tiene un chequeo que la app no
 tiene, la app avisa dos cosas antes que la web, y la app ofrece un caso que su
-propio POST rechaza. Las seis divergencias están abajo, ordenadas por
-consecuencia para el socio.
+propio POST rechaza.
+
+Y hay algo más grave, que sólo se ve cuando algo cambia **entre que el socio
+llena el alta y confirma**: de los cuatro validadores que se pueden mover a mitad
+de camino, la web mira dos (la ventana y el cupo) y **no mira los otros dos**. Con
+el jinete dado de baja y con el equipo borrado, la web dice «Felicitaciones» y
+**escribe**; la app rechaza en los cuatro.
+
+Las nueve divergencias están abajo: primero las seis que se ven en lo que cada
+pantalla ofrece, después las tres de las carreras.
 
 Tres escenarios del plan resultaron **irrealizables**, y las tres veces fue el
 plan y no la app: la «morfología sin jinete» de C-1, sus acentos (que el
 instrumento no puede tipear) y el 6/15 de C-3. Están explicados donde
 corresponde.
+
+Un cuarto desvío es **mío**: corrí el eje C antes que las carreras, al revés del
+orden del plan (§4), y eso dejó sin animal libre el equipo de B18. Está contado
+en la sección de las carreras.
 
 ---
 
@@ -111,6 +123,50 @@ Propietarios SRA» y, abajo, el mismo texto como términos. Sale de que el
 `terminos` de la API es el cuerpo de la última alerta —el defecto del bucle de la
 web, replicado a propósito— y la app además renderiza la alerta aparte.
 
+### D-7 · Con el jinete dado de baja, la web escribe igual (B17)
+
+Las dos pantallas paradas en confirmar con el mismo alta —`exis:9061213` en
+F.Z.B. · A con el jinete 9061205— y el jinete pasado a «no disponible» en el
+medio:
+
+| | qué mostró | ¿escribió? |
+|---|---|---|
+| **Web** | `paso6` → `alerta3` → `paso7`: «Felicitaciones!! Inscripción 'DEFINITIVA' realizada exitosamente» | **Sí**: inscripción **190076**, con `jinete: "QA WVA Carrera"` grabado |
+| **App** | cartel rojo en la pantalla de confirmar: «No se pudo inscribir — · F.Z.B. · A: **Este jinete no está disponible.**» | no |
+
+No es diferencia de redacción: es **diferencia de veredicto**. El 422
+`JineteNoDisponible` no tiene ningún equivalente del lado de la web, que no mira
+la disponibilidad del jinete en ningún momento del alta —ni al elegirlo en el
+popup, ni al confirmar—. Una inscripción definitiva queda con un jinete de baja.
+
+### D-8 · Con el equipo borrado, la web escribe igual (B18)
+
+Mismo montaje, con el equipo 9061204 borrado entre el certificado y el confirmar:
+
+| | qué mostró | ¿escribió? |
+|---|---|---|
+| **Web** | `paso7`: «Felicitaciones!! Inscripción 'DEFINITIVA' realizada exitosamente» | **Sí**: inscripción **190077**, apuntando a un `IdEquipo` que ya no existe |
+| **App** | «No se pudo inscribir — · Aparte Campero · B: **El equipo elegido ya no existe.**» | no |
+
+El detalle de la 190077 devolvía `equipo: {id: 9061204, nombre: "QA CDEV WvA
+Equipo Carrera"}` en sus `unidades_relacionadas` mientras
+`GET /inscripciones/eventos/{E}/opciones` ya no ofrecía ese equipo: el nombre
+está denormalizado en algún lado. Es cosa del backend y quedó avisada.
+
+### D-9 · La app muestra el cupo; la web no lo muestra nunca (B10)
+
+Con el único cupo de 3/9 «Corral de aparte · A» ya ocupado, y un animal que no
+está inscripto en ese evento:
+
+- **App**: la fila sale gris, con una chapita roja **«Cupo completo»** donde
+  antes decía «Cupo 0/1», y el checkbox no responde al toque.
+- **Web** (`paso5`): la categoría sale **igual que todas las demás**, con SI / NO
+  habilitados y sin ningún dato de cupo. El socio se entera recién en `paso7`,
+  con el alta entera completada.
+
+La app muestra el cupo siempre; la web no lo muestra nunca. Es el mismo patrón
+de D-2: la app corta antes, la web deja llegar al final.
+
 ---
 
 ## Eje A — Lo que cada pantalla ofrece
@@ -162,6 +218,9 @@ errores (o los tira por `alert`); la app deshabilita el botón y nombra qué fal
 | B11 | Animal con inscripción rechazada | ⚠️ **Difieren** — D-2 |
 | B22 | `SexoCastrado` | ⚠️ **Difieren** — D-3 |
 | B14 | Equipo ocupado / bloqueado | ⚠️ **Difieren en el marcado** — D-4 |
+| B10 | La categoría llena se ve llena | ⚠️ **Difieren** — D-9 |
+| B17 | Jinete dado de baja a mitad | ⚠️ **Difieren en el veredicto** — D-7 |
+| B18 | Equipo borrado a mitad | ⚠️ **Difieren en el veredicto** — D-8 |
 
 ### Por API directa
 
@@ -173,12 +232,49 @@ errores (o los tira por `alert`); la app deshabilita el botón y nombra qué fal
 | B27 | Equipo sin el animal | ⚠️ **201** — D-1 |
 | B28 | Yunta J-1 | ⚠️ **201** — D-1 |
 
+### Las carreras — algo cambia entre el certificado y el confirmar
+
+Protocolo: las dos pantallas llegan hasta confirmar sin confirmar, `caballos-tests`
+corre el modo con el OK del usuario, y recién ahí se confirma de los dos lados.
+B19 no necesitó modo: la carrera del cupo la arman las dos pantallas entre sí.
+
+| # | Validador | Web | App |
+|---|---|---|---|
+| B16 | `VentanaCerrada` | **rechaza**: «No se pudo registrar la inscripción — La inscripción para este evento no está abierta» | **rechaza**: «No se pudo inscribir — · La inscripción a este evento ya está cerrada» |
+| B17 | `JineteNoDisponible` | ⚠️ **acepta y escribe** — D-7 | **rechaza**: «Este jinete no está disponible» |
+| B18 | `EquipoInexistente` | ⚠️ **acepta y escribe** — D-8 | **rechaza**: «El equipo elegido ya no existe» |
+| B19 | `CupoLleno` | **rechaza**: «No se pudo registrar la inscripción — El cupo de esta prueba está completo» | **rechaza**: «Esta categoría ya no tiene cupo» |
+
+La web valida la ventana y el cupo; no valida ni el jinete ni el equipo.
+
+**Cuando las dos rechazan, la diferencia es de forma, y siempre la misma**: la
+web navega a `paso7`, una página de error con «Volver y corregir», y **pierde el
+certificado**; la app muestra el cartel rojo en la misma pantalla de confirmar,
+no navega a ningún lado y deja el formulario entero para reintentar.
+
+B19 se corrió en las dos direcciones, sobre 3/9 «Corral de aparte · A»
+(`CupoInscripcion = 1`): en E2 la web llenó el cupo (190078) y chocó la app; en
+E1 lo llenó la app (190079) y chocó la web. Ninguna de las dos escribió al
+chocar. B10 se leyó después, sobre esa misma 3/9 ya llena — ver D-9.
+
+**Nota de ambiente para quien repita B16**: con la ventana cerrada el evento
+desaparece de la lista del alta, así que no alcanza con cerrarla una vez para los
+dos lados. El ciclo tiene que ser abrir → armar hasta confirmar → cerrar →
+confirmar, **por cada lado**.
+
+**Desvío del plan en B18, y es mío.** El plan ponía B16–B18 *antes* del eje C
+justamente para que el equipo 9061204 llegara con un integrante libre; yo corrí
+el eje C primero, mientras esperaba los modos. Resultado: los tres integrantes
+del equipo (`exis:9061211`, `pdre:9061201`, `exis:9061213`) quedaron inscriptos
+en E1, y el 409 `Duplicado` se adelantaba al `EquipoInexistente`. Se destrabó
+dando de baja la 190076 —una inscripción borrada queda en estado 0 y no dispara
+el `Duplicado`— y B18 se corrió con **`exis:9061213`** en lugar del `exis:9061211`
+que pedía el plan. Mismo equipo, misma prueba, mismo 422.
+
 ### Pendientes
 
 | # | Caso | Por qué |
 |---|---|---|
-| B10, B19 | Cupo lleno (se ve / se choca) | Necesitan que `caballos-tests` corra los modos de carrera |
-| B16, B17, B18 | Ventana, jinete y equipo que cambian a mitad | Ídem |
 | B21 | Emoji en la cabaña | **Web: lo acepta en paso4** y pasa a paso5. **API: 400** (T-59-U). **App: no medible** — el envío de texto al simulador rompe los no-ASCII |
 | B20 | Mantenimiento | Fuera por R-6: el interruptor es código y cortaría el ambiente |
 
@@ -223,10 +319,19 @@ Para la limpieza, todas del usuario 9061201:
 - **E2 (9061202)**, por API: **190073**, la sonda que midió 6/22; **borrada**
   después con `DELETE /inscripciones/190073` para poder correr C-3 por pantalla.
   Quedó en estado 0.
-- **E1 (9061201)**, por pantalla: **190069**, **190071**, **190074**.
-- **E2 (9061202)**, por pantalla: **190070**, **190072**, **190075**.
+- **E1 (9061201)**, por pantalla: **190069**, **190071**, **190074** (eje C).
+- **E2 (9061202)**, por pantalla: **190070**, **190072**, **190075** (eje C).
+- **E1**, de las carreras: **190076** (B17, la que la web no debió escribir;
+  **dada de baja** desde la pantalla de la web para destrabar B18, quedó en
+  estado 0), **190077** (B18, ídem, ésta sigue viva) y **190079** (B19, la que
+  llenó el cupo para la vuelta).
+- **E2**, de las carreras: **190078** (B19, la que llenó el cupo para la ida).
 
-Los dos intentos rechazados de C-3 en 6/15 —web y app— no escribieron nada.
+La 190076 y la 190077 son el resultado de la divergencia: la web aceptó altas que
+la app rechazó. La 190078 y la 190079 **no sobran**, son parte de B19.
+
+No escribieron nada: los dos intentos rechazados de C-3 en 6/15, los dos de B16,
+el de la app en B17 y B18, y el que chocó el cupo de cada lado en B19.
 
 ---
 
@@ -246,6 +351,12 @@ Los dos intentos rechazados de C-3 en 6/15 —web y app— no escribieron nada.
   `401 No autenticado`. Se renueva con `POST /auth/refresh` usando el
   `refresh_token` del archivo, reescribiendo `qa-alta-token.json` y `.hdr` con
   umask 077 y sin que el valor pase por la salida.
+- **El `paso5` de la web arrastra la selección del alta anterior.** Tres veces
+  apareció con una prueba ya marcada —y con su equipo elegido— de una corrida
+  previa, sin que nada en la pantalla lo indicara. Hay que destildarla a mano y
+  verificar el certificado de `paso6` antes de confirmar. No es un caso de la
+  matriz, pero muerde a cualquiera que corra varias altas seguidas en la misma
+  sesión.
 - **La yunta de la web no se carga sola**: los radios de sexo no tienen
   `onclick`. Hay que tocar el botón **«Buscar»** que está al lado del campo del
   S.B.A. (`BotonBuscarYunta`), o Enter en ese campo.
