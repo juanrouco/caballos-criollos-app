@@ -1,203 +1,203 @@
 # Alta de inscripción: web vs app, lado a lado
 
-Matriz de casos para correr el alta por los dos caminos en **cdev**, con los
-mismos datos, y comparar tres cosas: lo que cada lado **pide**, las **reglas**
-que aplica, y la **inscripción terminada** que queda en la base.
+Casos para correr el alta por los dos caminos en **cdev**, con los mismos datos,
+y comparar lo que el socio obtiene por el teléfono contra lo que obtiene por la
+web.
 
-No es una suite automatizada: es una lista de casos para correr a mano una vez,
-anotando el resultado en la columna que está vacía. Lo que mide no es si la app
-funciona —eso ya lo cubren los tests— sino si **el socio obtiene lo mismo por el
-teléfono que por la web**.
+No es una suite automatizada: es una lista para correr a mano una vez, anotando
+el resultado en la columna vacía.
 
-## Por qué estos casos y no otros
+## Lo que ya está probado, y por eso no se repite
 
-El alta de la app se escribió leyendo la web, no comparándola contra ella: hay
-comentarios en el código que citan la línea exacta del PHP
-(`AltaInscripcionScreen.js:69` → `expositores_inscripcion_paso4.php:133`). Eso
-deja dos zonas con riesgo muy distinto.
+La primera versión de este documento proponía comparar también las filas que
+quedan en la base. **Eso ya está hecho en #59**, y con más rigor del que tendría
+una corrida a mano (`caballos-criollos/docs/plan-59-alta-inscripcion-app.md:484`):
 
-**Las 7 lecturas del #149 pasan por el mismo núcleo que la web** (`src/api/alta.js:4`),
-así que lo que ofrecen es, por construcción, lo que ofrece la web. Ahí lo único
-que puede divergir es lo que la app pone encima: `mapOpciones`, `mapJinete`, el
-recorte y dedup de cabañas, los candidatos de yunta, el orden de las listas. Es
-verificación, no sospecha → **eje A**, muestreo.
+- **T-59-P1** hace cada alta dos veces desde el mismo estado de base: la **web
+  real**, con un driver 5.6 que recorre `paso3 → paso4 → paso5 → paso6 → paso7`
+  con la `$_SESSION` serializada entre pasos, y la **API** con el JSON
+  equivalente. Compara **todas** las columnas de las 5 tablas, el log incluido,
+  salvo autoincrementales y fechas que pone la base. Unos quince escenarios:
+  morfología en cabestro y montado, castrado nuevo y existente, cría ajena,
+  funcional sin inspección, los cuatro tipos de socio, yunta, equipo, lista de
+  espera, tipo y aptitud, y los dos de acentos y espacios.
+- **T-59-R** da, por cada código del validador, un **par de payloads que
+  difieren en un solo campo**: uno 201 y el otro 422 con exactamente ese código.
+  Incluye los que la web decidía por la interfaz (`AnimalInexistente`,
+  `CategoriaSinCalcular`, `JineteNoDisponible`, `TablaSexo`, `PruebaNoOfrecida`…),
+  y los que no se pueden provocar quedan declarados con el motivo.
+- **T-59-M** compara el mail byte a byte, y **T-59-L** la línea del log.
 
-**Las reglas no se comparten del todo.** Los códigos del 422 están partidos en
-dos grupos (`docs/README.md` §Inscripciones): los del validador de la web, que
-son el mismo código, y «los de lo que la web decide por la UI», que la web nunca
-valida porque los vuelve imposibles armando el formulario, y que la API tuvo que
-**reimplementar** como reglas explícitas. Si la reimplementación quedó más
-estricta, el socio no puede por el teléfono algo que sí puede por la web; si
-quedó más laxa, entra algo que la ACCC después rechaza → **eje B**, uno por uno.
+O sea: **web = API ya está medido**. Lo que #59 nunca comparó es la **app**: su
+driver era el JSON, no la pantalla. Todo lo que sigue es sobre la capa que la app
+pone encima — el mapeo, los selects, el orden de los pasos y, sobre todo, lo que
+la app **bloquea antes de mandar**.
 
-Y hay una tercera asimetría, que no está en la API sino en la app: la app
-**bloquea antes de mandar** (botón «Continuar» deshabilitado). Un código que la
-app nunca deja llegar al servidor no es un código probado: es un código que no
-se ejerce. Por eso cada fila del eje B dice si el caso se puede provocar desde
-la app o si hay que llegar al endpoint directo.
+Eso cambia la pregunta de cada caso. No es «¿la API rechaza esto?», que ya se
+sabe, sino **«¿puede el socio llegar hasta acá desde la pantalla, y la web lo
+deja llegar al mismo lugar?»**.
 
-## Antes de empezar (pendiente de caballos-pm)
+## El entorno (confirmado por el PM, 2026-11-16)
 
-Nada de esto corre sin:
+| qué | dónde |
+|---|---|
+| Web legacy | `http://127.0.0.1:8190` — login en `/espanol/expositores_login.php` |
+| API | `http://127.0.0.1:8191` |
+| Mails | mailpit en `http://127.0.0.1:8192` |
 
-1. La **web legacy corriendo en cdev** contra la misma base que la API de
-   `127.0.0.1:8191`, y su URL.
-2. Una cuenta de QA que sea **socio de verdad**, con animales propios en
-   Pdre/Extr/Exis. La que se viene usando tiene `/perfil` con `socio: null`, así
-   que probablemente ni arranque el alta (`usuario_solo_web` /
-   `usuario_no_habilitado`). Es la siembra preparada que quedó sin correr.
-3. Un **evento de QA con ventana abierta** que ofrezca morfología, una prueba
-   con jinete, una con yunta y una con equipo, y con `pide_renspa` en `true`.
-4. Cómo comparar las filas escritas (eje C): dump de las filas, o el eje C lo
-   corre el PM y acá se cubren A y B por pantalla.
-5. Confirmación de que escribir **desde la web** en cdev entra en las mismas
-   reglas que ya valen para la app: sólo eventos de QA, equipos con nombre
-   `QA CDEV…`, nada a prod.
+Los dos lados pegan contra la **misma** cdev-db, así que lo que se compara son
+dos filas de la misma tabla y no dos bases.
 
-Regla que no cambia: la base de cdev es una copia del backup de producción con
-datos personales reales. Las inscripciones van sólo contra eventos de QA.
+**Reglas de escritura** (valen igual para la web que para la app):
 
-## Cómo se corre cada caso
+- Sólo eventos de QA. Equipos con nombre `QA CDEV…`. Nada a prod.
+- Los mails quedan en mailpit; no se abre ningún link a `caballoscriollos.com`.
+- **No tocar** las filas que ya dejó la app: inscripciones `190028` y `190029`,
+  equipo `9061105`.
+- Anotar **cada `IdInscripcion`** que se cree, para la limpieza.
+- `cdev-qa` (usuario `9061001`) lo comparten la app y el e2e, y el e2e **borra
+  por evento + usuario QA**: si una corrida del e2e pasa en el medio, se lleva lo
+  de esta.
 
-El mismo caso, en este orden, para que el segundo camino no herede estado del
-primero:
+**La siembra la prepara el PM y la corre el usuario** (el equipo tiene
+SELECT-only sobre cdev-db). No se le pide a otra sesión.
 
-1. **Web**: hacer el caso en `expositores_inscripcion_paso1…paso7`, anotar qué
-   pide cada paso, qué rechaza y con qué texto, y el precio de `paso6`.
-2. **App**: el mismo caso en «Mis inscripciones» → nueva, anotando lo mismo.
-3. Si el caso termina en alta: comparar las filas (eje C).
-4. Si termina en rechazo: comparar **el veredicto**, no el texto. Los textos son
-   distintos a propósito (`src/erroresInscripcion.js` los reescribe en
-   castellano llano); lo que tiene que coincidir es qué se acepta y qué no.
+## Quién corre qué
 
-El emparejamiento de pasos es tentativo salvo donde el código lo afirma: paso3 =
-candidatos de animal, paso4 = datos del expositor, paso6 = precio. Confirmarlo
-en la corrida.
+- **Ejes A y B (pantalla contra pantalla)**: acá, recorriendo la web en el
+  navegador y la app en el simulador.
+- **Filas**: las corre `caballos-tests` con SELECT y pasa el diff. No hace falta
+  repetir T-59-P1; lo único que vale mirar es C1 (abajo).
+
+Cada caso, en este orden, para que el segundo camino no herede estado del
+primero: primero la web (`paso1…paso7`, anotando qué pide cada paso, qué rechaza
+y el precio de `paso6`), después la app, y al final la comparación. Lo que tiene
+que coincidir es **el veredicto**, no el texto: los textos de la app están
+reescritos a propósito en castellano llano (`src/erroresInscripcion.js`).
 
 ---
 
 ## Eje A — Lo que se pide
 
-Expectativa: conjuntos idénticos. Lo que se compara es contenido **y orden**.
+El eje principal, porque es el único que #59 no toca. Se compara contenido **y
+orden**.
 
 | # | Caso | Web | App | Qué comparar |
 |---|---|---|---|---|
-| A1 | Alertas previas al evento | `expositores_alerta1.php` | paso `alertas` | Qué alertas y qué términos. La app replica a propósito el defecto del bucle de la web, que imprime el cuerpo de la última alerta (`mapAlertas`) |
+| A1 | Alertas previas | `expositores_alerta1.php` | paso `alertas` | Qué alertas y qué términos. La app replica a propósito el defecto del bucle de la web, que imprime el cuerpo de la última alerta (`mapAlertas`) |
 | A2 | Eventos ofrecidos | paso1 | paso `evento` | La misma lista, incluidos los cerrados con «rehacer» habilitado |
-| A3 | Avisos del evento elegido | `alerta2` / `alerta3` | paso `avisoEvento` / `alerta3` | Que aparezcan en el mismo momento del flujo |
+| A3 | Avisos del evento | `alerta2` / `alerta3` | paso `avisoEvento` / `alerta3` | Que aparezcan en el mismo momento del flujo |
 | A4 | Candidatos por SBA/RP/sexo | paso3 | paso `animal` | Mismos animales, mismo orden, y los ya inscriptos marcados igual |
 | A5 | Cabañas del socio | `<select>` de paso4 | paso `datos` | La lista recortada, sin vacías, sin repetidos, **en el orden de la web** |
-| A6 | Propietario | paso4 pide propietario (Select o New) | la app **no lo pide** | Ver D1: es la divergencia estructural, no un detalle de lista |
-| A7 | Opciones para el animal | paso5 | paso `participacion` | Morfología, tipo y aptitud, pruebas, categorías y el `propia` de cada una |
-| A8 | Jinetes | buscador de paso5 | paso `jinete` | Mismos resultados y el mismo marcado de deuda a la fecha del evento |
-| A9 | Candidatos de yunta | paso5 | paso `yunta` | Mismos candidatos y los mismos bloqueados |
-| A10 | Equipos | paso5 | paso `equipo` | Mismos equipos y los mismos ocupados |
-| A11 | Precio | paso6 | paso `confirmar` → 201 | El precio total y el de cada prueba. La app no calcula: lo muestra del 201 |
+| A6 | Opciones para el animal | paso5 | paso `participacion` | Morfología, tipo y aptitud, pruebas, categorías y el `propia` de cada una |
+| A7 | Jinetes | buscador de paso5 | paso `jinete` | Mismos resultados y el mismo marcado de deuda **a la fecha del evento** |
+| A8 | Candidatos de yunta | paso5 | paso `yunta` | Mismos candidatos y los mismos bloqueados |
+| A9 | Equipos | paso5 | paso `equipo` | Mismos equipos y los mismos ocupados |
+| A10 | Precio | paso6 | paso `confirmar` → 201 | Total y por prueba. La app no calcula: muestra lo que trae el 201 |
 
 ---
 
-## Eje B — Las reglas
+## Eje B — Lo que cada pantalla deja hacer
 
-Una fila por código. **Llega desde la app** dice si el caso se puede provocar
-tocando la pantalla: cuando dice «no», la app bloquea antes (columna «dónde») y
-el caso se ejerce con el endpoint directo — y lo que hay que mirar es si la web
-**también** bloquea, porque ahí es donde los dos caminos pueden diferir sin que
-nadie vea un error.
+Para cada caso: **¿la pantalla de la app permite llegar?** y **¿la de la web?**.
+Un «no» de los dos lados es coincidencia, no un agujero. Un «no» de la app con
+«sí» de la web es una función que el socio pierde en el teléfono; al revés, es un
+alta que la app deja intentar y la ACCC después rechaza.
 
-### B.1 — Las que la web decide por la UI (el grupo que importa)
+El 422 que devuelve la API en cada caso ya está probado en T-59-R: acá no se
+verifica el código, se verifica **si la pantalla lo puede provocar**.
 
-| # | Código | Caso | Llega desde la app | Dónde bloquea la app | Qué hace la web | Resultado |
-|---|---|---|---|---|---|---|
-| B1 | `CabaniaFaltante` | confirmar con la cabaña vacía | no | `AltaInscripcionScreen.js:738` | la pide: `paso4` err 4/8, con cabaña del select o tipeada | |
-| B2 | `UbicacionFaltante` | provincia y/o localidad vacías | no | `:738` | las pide como texto: `paso4` err 256/512. Los chequeos por id (`IdProvincia`, `IdDepartamento`, `IdLocalidad`) están **comentados** | |
-| B3 | `RenspaFaltante` | evento con `pide_renspa`, Renspa vacío | no | `:739` | `paso4:131` sólo si `$oEvento->Renspa` | |
-| B4 | `RenspaInvalido` | Renspa de 12 o 14 números | no | `:85`, misma regex que el PHP | `paso4:134`, regex idéntica | |
-| B5 | `TablaSexo` | tabla y sexo incoherentes (`IdExis` con sexo 1) | no | el sexo sale del animal elegido | lo vuelve imposible armando el form | |
-| B6 | `SexoCastrado` | castrado en una participación que no lo admite | a confirmar | — | ver qué ofrece paso5 para un castrado | |
-| B7 | `CategoriaSinCalcular` | animal sin categoría morfológica calculable | a confirmar | — | ver si paso5 ofrece morfología igual | |
-| B8 | `PruebaNoOfrecida` | prueba que el evento no ofrece para ese animal | no | sólo se listan las ofrecidas | ídem | |
-| B9 | `JineteNoDisponible` | jinete que dejó de estar disponible entre la lista y el envío | no | sólo se listan los disponibles | ídem. **Carrera de los dos lados**: vale probarlo con el endpoint | |
-| B10 | `EquipoInexistente` | equipo borrado entre la lista y el envío | no | ídem | ídem | |
-| B11 | `AnimalInexistente` | animal que no está en el stud book | no | se elige de la búsqueda | ídem | |
-| B12 | `ExpositorInexistente` | no se puede identificar al expositor | no | la app no manda expositor | ver D1 | |
-| B13 | `PruebaCategoriaUnica` | dos categorías «comunes» de la misma prueba | no | `src/reglasAlta.js` (`alternarCategoria`) | radios que comparten grupo | |
+| # | Caso | App | Dónde bloquea la app | Web | Resultado |
+|---|---|---|---|---|---|
+| B1 | Cabaña vacía | no | `AltaInscripcionScreen.js:738` | no: error 4/8 de `paso4:107`. Con sólo espacios, `CabaniaFaltante` de los dos lados (medido en T-59-P1, escenario 22) | |
+| B2 | Provincia o localidad vacías | no | `:738` | no: errores 256/512 de `paso4:126`. Los chequeos por id están **comentados**: los dos lados guardan texto libre | |
+| B3 | Renspa vacío con `pide_renspa` | no | `:739` | no: `paso4:131`, sólo si el evento lo pide | |
+| B4 | Renspa de 12 o 14 números | no | `:85` | no: `paso4:134`, **misma regex** que la app | |
+| B5 | Castrado en una participación que no lo admite | a medir | — | a medir: qué ofrece paso5 para un castrado | |
+| B6 | Animal sin categoría morfológica calculable | a medir | — | a medir: si paso5 ofrece morfología igual | |
+| B7 | Dos categorías «comunes» de la misma prueba | no | `src/reglasAlta.js` | no: radios que comparten grupo | |
+| B8 | Jinete con deuda a la fecha del evento | no | `:1291`, deshabilitado | a medir: si paso5 lo lista y lo deja elegir | |
+| B9 | Animal ajeno | **sí** | — | a medir: la web deriva el expositor del `PROP` del animal (ver D1) | |
+| B10 | Categoría sin cupo | **sí** | — | a medir | |
+| B11 | Animal ya inscripto en el evento | no (viene bloqueado) | a medir: y **una inscripción rechazada cuenta** (#189) | | |
+| B12 | Prueba o morfología sin jinete | no | `:916` | no | |
+| B13 | Yunta sin compañero | no | `:916` | no | |
+| B14 | Compañero o equipo ya ocupado | no (bloqueado en la lista) | no | | |
+| B15 | Confirmar sin ninguna participación | no | `:940` | no | |
 
-### B.2 — Las del validador compartido (muestreo, no exhaustivo)
+### Las carreras — los únicos 422 que un socio real se come
 
-Mismo código de los dos lados, así que acá sólo se confirma que la app lo
-**provoca y lo muestra** igual.
+Dependen del tiempo y no de la interfaz, así que son alcanzables desde la app
+**sin tocar el endpoint**. Son los que más vale la pena correr de verdad.
 
-| # | Código | Caso | Llega desde la app | Resultado |
-|---|---|---|---|---|
-| B14 | `ParticipacionVacia` | confirmar sin ninguna participación | no (`:940`) | |
-| B15 | `JineteFaltante` / `JineteMorfologia` | prueba o morfología sin jinete | no (`:916`) | |
-| B16 | `JineteImpago` | jinete con cuota impaga a la fecha del evento | no (`:1291`, deshabilitado) | |
-| B17 | `YuntaIncompleta` | prueba de yunta sin compañero | no (`:916`) | |
-| B18 | `YuntaOcupada` | compañero ya elegido en esa categoría | no (bloqueado en la lista) | |
-| B19 | `EquipoOcupado` / `AnimalEnOtroEquipo` | equipo o integrante ya anotado | no (bloqueado) | |
-| B20 | `CupoLleno` | categoría sin cupo | sí | |
-| B21 | `Pertenencia` | animal que no figura a nombre del socio | sí (los ajenos se pueden elegir) | |
-| B22 | `VentanaCerrada` | evento que se cierra entre el paso 1 y el confirmar | sí, con tiempo | |
+| # | Caso | Cómo | Resultado |
+|---|---|---|---|
+| B16 | `VentanaCerrada` | abrir el alta con la ventana abierta y cerrarla antes de confirmar | |
+| B17 | `JineteNoDisponible` | elegir el jinete y dejarlo no disponible antes de confirmar | |
+| B18 | `EquipoInexistente` | elegir el equipo y borrarlo antes de confirmar | |
+| B19 | `CupoLleno` | llenar el cupo entre la pantalla de pruebas y el confirmar | |
 
-### B.3 — Los que no son 422
+### Los que no son 422
 
 | # | Caso | Qué esperar | Resultado |
 |---|---|---|---|
-| B23 | Mismo animal, mismo evento, dos veces | `409 Duplicado` en la app; la web, su propio mensaje. **Y una inscripción rechazada cuenta** (#189) | |
-| B24 | `condicion` Titular/Suplente | la web la ofrecía sólo en los eventos 61/62 (cerrados); la API da `400` si llega | |
-| B25 | Mantenimiento de inscripciones activo | un solo interruptor para los dos lados: la web cierra y la API da `503 mantenimiento` | |
-| B26 | Cuenta 1278 / 1610 | `403 usuario_solo_web`: inscriben sólo por la web, a propósito | |
-| B27 | Caracteres fuera de latin1 (un emoji en la cabaña) | `400` en la API; ver qué hace la web con el mismo texto | |
+| B20 | Mantenimiento activo | un solo interruptor: la web cierra y la API da `503 mantenimiento` | |
+| B21 | Emoji en la cabaña | `400` en la API; ver qué hace la web con el mismo texto (en T-59-U el emoji da 400 y 0 filas) | |
 
 ---
 
-## Eje C — La inscripción terminada
-
-El caso fuerte: **la misma elección por los dos caminos**, en dos animales
-equivalentes del mismo socio (el mismo animal daría `409` en el segundo
-intento), y diff de lo que quedó escrito.
+## Eje C — Lo único que queda de las filas
 
 | # | Qué comparar | Resultado |
 |---|---|---|
-| C1 | La fila de `tblInscripcionAnimales`: todas las columnas salvo id, fecha y las que dependen del animal | |
-| C2 | Las filas de participación (morfología, tipo y aptitud, pruebas con su categoría, yunta, equipo) | |
-| C3 | La línea de `tblInscripcionesLogs` | |
-| C4 | El precio: total y por prueba (paso6 de la web vs el 201 de la API) | |
-| C5 | `estado` y `rechazo_funcional` | |
-| C6 | El mail del alta (pieza T3 de #59): que salga de los dos lados, al mismo destinatario | |
-| C7 | La inscripción vista después: `expositores_inscripcion_view.php` vs `GET /inscripciones/{id}` y el certificado | |
+| C1 | **El payload que arma la pantalla.** Para un escenario de T-59-P1, hacer la misma elección en la app y comparar su `POST /inscripciones` con el JSON que usó el arnés. Si coinciden, la igualdad de filas se hereda de T-59-P1 y no hay que volver a medirla; si no, la diferencia está en la app y no en el núcleo | |
 
-Metodología: es la de la skill `php8-formularios` —mismo POST a dos stacks,
-comparar tablas—, con la diferencia de que acá los dos stacks comparten la base,
-así que lo que se compara son dos filas de la misma tabla y no dos bases.
+Eso es todo: C2 a C7 de la primera versión (filas, log, mail, certificado) están
+cubiertos por T-59-P1, T-59-L y T-59-M.
 
 ---
 
-## Divergencias sospechadas antes de correr nada
+## Datos que necesita la siembra
 
-Salieron de leer los dos códigos, no de correrlos. Son hipótesis.
+Lo que el planner necesita para armarla exacta. Entre paréntesis, los casos que
+cada cosa habilita.
 
-**D1 — El propietario.** `paso4` de la web pide propietario, con dos opciones:
-elegir uno existente o cargar uno nuevo (err 1 y 2). La app **no lo pregunta**:
-el payload del POST no tiene propietario y el README dice que el expositor es
-siempre el dueño. Hay que ver qué hace la web cuando el propietario elegido no
-es el socio, y si eso convive con la regla `Pertenencia`. Es la única diferencia
-**estructural** de la matriz: no es un campo que se valide distinto, es un campo
-que de un lado existe y del otro no.
+| # | Qué | Para |
+|---|---|---|
+| S1 | Socio QA con `NroSocio` y `TipoSocio` Activo | todo (hoy `/perfil` da `socio: null`) |
+| S2 | Animales propios: 1 macho en `Pdre`, 1 hembra en `Exis`, 1 extranjero en `Extr`, 1 castrado | A4, B5 |
+| S3 | 1 animal ajeno (otro `PROP`) | B9 |
+| S4 | 1 animal del socio **ya inscripto** en el evento | A4, B11 |
+| S5 | Evento QA con ventana abierta y `pide_renspa = 1`, con morfología habilitada, 1 prueba individual, 1 de yunta, 1 de equipo y 1 ofrecida **sólo a machos** | A6, A10, B3, B4, B12–B14 |
+| S6 | 1 evento cerrado con «rehacer» habilitado | A2 |
+| S7 | 1 evento cuya ventana se pueda cerrar durante la corrida | B16 |
+| S8 | 1 jinete validado y disponible sin deuda; 1 con deuda **a la fecha del evento**; 1 domador | A7, B8, B17 |
+| S9 | 1 equipo del año con sus 3 ternas; 1 equipo ya anotado en la categoría | A9, B14, B18 |
+| S10 | 1 categoría con `CupoInscripcion` en 1, llenable durante la corrida | B10, B19 |
+| S11 | Al menos 2 cabañas en inscripciones viejas del socio, con repetidos y espacios | A5 |
 
-**D2 — La app es más estricta que el servidor, por diseño.** Nueve de los trece
-códigos del grupo B.1 no se pueden provocar desde la pantalla. Eso es bueno
-—el socio ve el problema antes de confirmar— pero significa que esos nueve
-caminos del validador **nunca se ejercen en producción desde la app**. Si uno
-quedó mal, se va a notar recién cuando una pantalla cambie.
+---
 
-**D3 — La ubicación por texto.** La web tiene comentados los chequeos de
-provincia/departamento/localidad **por id** y validados los de texto. O sea que
-los dos lados guardan texto libre. Vale confirmar que la app no normaliza algo
-que la web deja pasar tal cual (acentos, mayúsculas).
+## Divergencias sospechadas
 
-**D4 — Las carreras (B9, B10, B22).** Un jinete que deja de estar disponible, un
-equipo borrado o una ventana que se cierra entre la lectura y el envío son los
-únicos casos donde el 422 es alcanzable desde la app **sin tocar el endpoint**,
-porque dependen del tiempo y no de la UI. Son los que más vale la pena correr de
-verdad: son los que un socio real se va a comer.
+**D1 — El propietario: era una sospecha mía y se cayó.** `paso4` de la web pide
+propietario (errores 1 y 2 de su máscara) y la app no lo pregunta nunca, así que
+lo anoté como la única diferencia estructural. #59 lo midió y dice otra cosa: el
+expositor **se deriva del `PROP` del animal** en los dos lados (`paso4:89` =
+`paso7:196`, los dos `GetById($PROP)`), y por eso los estados `ObservadaPropietario`
+y `Pendiente` son inalcanzables desde la web igual que desde la API. Queda como
+caso B9 —animal ajeno— y no como diferencia de diseño. Lo dejo escrito porque la
+hipótesis estaba en el commit anterior.
+
+**D2 — La app es más estricta que el servidor, por diseño.** Doce de los
+diecinueve casos del eje B no se pueden provocar desde la pantalla. Eso es bueno
+para el socio —ve el problema antes de confirmar— pero significa que esos doce
+caminos del validador no se ejercen desde la app en producción. T-59-R los cubre
+por API; lo que nadie mide es si la pantalla **debería** dejar pasar alguno.
+
+**D3 — La ubicación por texto.** Los dos lados guardan texto libre, con los
+chequeos por id comentados en la web. Falta confirmar que la app no normaliza
+algo que la web deja pasar tal cual.
+
+**D4 — El e2e comparte la cuenta.** `cdev-qa` es del e2e también, y el e2e borra
+por evento + usuario. Si una corrida pasa en el medio, lo de esta desaparece.
