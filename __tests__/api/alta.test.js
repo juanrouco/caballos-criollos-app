@@ -237,6 +237,16 @@ describe('textos de los errores del 422', () => {
     expect(textoErrorInscripcion('AnimalEnOtroEquipo')).not.toMatch(/en esta prueba/);
   });
 
+  test('YuntaOcupada cubre sus dos casos, no sólo el de «ya fue elegido»', () => {
+    // Desde #275 el código llega también cuando el compañero ya está inscripto
+    // él mismo en esa prueba y categoría con otro. El texto no puede hablar
+    // sólo de haber sido «elegido» por otra inscripción.
+    const texto = textoErrorInscripcion('YuntaOcupada');
+    expect(texto).toMatch(/esta categoría/);
+    expect(texto).not.toMatch(/esta prueba/);
+    expect(texto).not.toMatch(/fue elegido/);
+  });
+
   test('AnimalFueraDeEquipo tiene su texto y no cae en el genérico', () => {
     // El código lo agregó el backend en #275, a partir de la corrida de QA: el
     // POST aceptaba un equipo que no tiene al animal. Por la pantalla no se

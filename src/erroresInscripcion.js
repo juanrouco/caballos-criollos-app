@@ -23,7 +23,11 @@ const TEXTOS = {
   CupoLleno: 'Esta categoría ya no tiene cupo.',
   YuntaIncompleta: 'Falta elegir el compañero de yunta.',
   YuntaInvalida: 'El compañero de yunta no es válido para esta prueba.',
-  YuntaOcupada: 'Ese compañero ya fue elegido por otra inscripción en esta categoría.',
+  // Dos casos desde #275, y el texto tiene que cubrir los dos: que el compañero
+  // ya lo haya elegido otra inscripción, y que el compañero ya esté inscripto él
+  // mismo en esa prueba y categoría con otro. Decir «ya fue elegido» dejaba
+  // afuera el segundo y el socio no entendía por qué.
+  YuntaOcupada: 'Ese compañero ya está en otra yunta de esta categoría.',
   EquipoFaltante: 'Falta elegir el equipo.',
   // Las dos son por prueba + categoría, no por prueba: un equipo anotado en
   // otra categoría de la misma prueba no molesta. (En Aparte, las categorías
