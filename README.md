@@ -162,8 +162,9 @@ de a Expo).
 - Reemplazar las fotos placeholder (URLs remotas a `caballoscriollos.com`) por
   assets propios. Son el fallback de las noticias y los eventos sin imagen.
 
-Los adjuntos de inscripción quedaron fuera de alcance; la API tampoco tiene
-ningún endpoint de subida.
+Las inscripciones no llevan adjuntos. Figuraban en el detalle de la Etapa 2 por
+error (lo corrigió el usuario el 2026-11-10): no es alcance recortado, es algo
+que el trámite no tiene. Por eso la API no expone ningún endpoint de subida.
 
 La paleta y el modo (`PALETTE` / `MODE` en `App.js`) quedan fijos a propósito:
 son constantes, no una preferencia del usuario.
