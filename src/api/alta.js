@@ -99,6 +99,11 @@ export function mapAnimalAlta(a) {
     // null si la búsqueda fue sin evento. Con una inscripción rechazada también
     // es true: el rechazo es definitivo para ese evento.
     yaInscripto: a.ya_inscripto ?? null,
+    // El HECHO del registro: está en tblCastrados por su SBA/RP. No depende del
+    // `sexo` de la consulta, que es el eco de lo que pidió el socio. Quien
+    // decide es la pantalla, combinando los dos (#2). Tri-estado como `propio`
+    // y por el mismo motivo: ausente es «no lo sé» y no bloquea nada.
+    castrado: a.castrado ?? null,
   };
 }
 

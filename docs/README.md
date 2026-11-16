@@ -2104,7 +2104,9 @@ El valor elegido se manda tal cual en `cabania` del `POST /inscripciones`; la we
 
 #### `GET /inscripciones/animales`
 
-A2. Parámetros: `sba` y/o `rp` (al menos uno), `sexo` 0/1/2, `evento` (opcional). Devuelve `[{id, nombre, sba, rp, sexo, fecha_nacimiento, pelo, propio, ya_inscripto}]`: los candidatos de paso3 (macho/castrado en Pdre + Extr, hembra en Extr + Exis), sin absorbidos. `ya_inscripto` es `null` sin `evento`. `ya_inscripto` es `true` también con una inscripción rechazada en el evento (#189).
+A2. Parámetros: `sba` y/o `rp` (al menos uno), `sexo` 0/1/2, `evento` (opcional). Devuelve `[{id, nombre, sba, rp, sexo, fecha_nacimiento, pelo, propio, ya_inscripto, castrado}]`: los candidatos de paso3 (macho/castrado en Pdre + Extr, hembra en Extr + Exis), sin absorbidos. `ya_inscripto` es `null` sin `evento`. `ya_inscripto` es `true` también con una inscripción rechazada en el evento (#189).
+
+`castrado` (bool, siempre presente, al final del objeto) es el **hecho** del registro: el animal está en `tblCastrados` por el HBAE/RPEX de su fila, con la misma regla que el `422 SexoCastrado` del POST. **No depende del `sexo` de la consulta**, que sigue siendo el eco de lo que pidió el socio: quien combina los dos es el cliente, que bloquea cuando `castrado && sexo == 1`. La regla es la del POST y **no la de la web**, que buscando sólo por S.B.A. deja pasar al castrado.
 
 #### `GET /inscripciones/eventos/{id}/opciones`
 

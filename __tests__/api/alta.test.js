@@ -63,6 +63,19 @@ describe('mappers del alta', () => {
     expect(mapAnimalAlta({ id: 'exis:1' }).propio).toBeNull();
   });
 
+  test('castrado es el hecho del registro y no el sexo pedido', () => {
+    // El `sexo` de la respuesta es el eco de lo que pidió el socio, así que no
+    // alcanza para decidir: un castrado buscado como macho vuelve con sexo 1.
+    // `castrado` es el dato aparte, y quien los combina es la pantalla (#2).
+    const a = mapAnimalAlta({ id: 'pdre:9061203', sexo: 1, castrado: true });
+    expect(a.castrado).toBe(true);
+    expect(a.sexo).toBe(1);
+    expect(mapAnimalAlta({ id: 'pdre:9061201', castrado: false }).castrado).toBe(false);
+    // Mismo tri-estado que `propio`: si un deploy dejara de mandarlo, el alta
+    // vuelve al 422 `SexoCastrado` al confirmar en vez de bloquear de más.
+    expect(mapAnimalAlta({ id: 'exis:1' }).castrado).toBeNull();
+  });
+
   test('mapOpciones arma pruebas con su modalidad y el cupo de cada categoría', () => {
     const o = mapOpciones({
       morfologia: { categoria: { id: 12, nombre: 'Potrancas' }, habilitada: true },

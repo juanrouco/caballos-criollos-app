@@ -422,6 +422,67 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(utils.queryByText('Ya está inscripto en este evento')).toBeNull();
   });
 
+  test('un castrado buscado como macho no se puede elegir', async () => {
+    // Es el 422 `SexoCastrado` adelantado al paso del animal (#2). La regla es
+    // la del POST, no la de la web: la web, buscando sólo por S.B.A., lo deja
+    // pasar (B22), así que acá se avisa también en ese camino.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, sexo: 1, castrado: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Macho'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('Está registrado como castrado: no puede participar como macho')).toBeTruthy();
+    fireEvent.press(utils.getByText('LA ÑANDÚ'));
+    expect(utils.queryByText('Cabestro')).toBeNull();
+  });
+
+  test('el mismo castrado, buscado como castrado, se elige sin aviso', async () => {
+    // El castrado no es un impedimento en sí: lo es sólo contra el macho. Si
+    // la pantalla mirara `castrado` a secas, no se podría inscribir a ningún
+    // castrado en su propia categoría.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, sexo: 0, castrado: true }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Castrado'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    expect(await utils.findByText('Cabestro')).toBeTruthy();
+    expect(utils.queryByText(/registrado como castrado/)).toBeNull();
+  });
+
+  test('sin el campo castrado el macho se sigue pudiendo elegir', async () => {
+    // Mismo fail-open que `propio`: si un deploy dejara de mandar el campo, el
+    // alta vuelve al 422 al confirmar en vez de bloquear a todos los machos.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, sexo: 1 }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Macho'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    fireEvent.press(await utils.findByText('LA ÑANDÚ'));
+    expect(await utils.findByText('Cabestro')).toBeTruthy();
+    expect(utils.queryByText(/registrado como castrado/)).toBeNull();
+  });
+
+  test('un castrado ajeno dice sólo que no es tuyo', async () => {
+    // Una sola leyenda por animal: cambiar el sexo de la búsqueda no lo haría
+    // suyo, así que lo que corresponde decir es lo otro.
+    api.buscarAnimalesAlta.mockResolvedValue([{ ...ANIMAL, sexo: 1, castrado: true, propio: false }]);
+    const utils = renderAlta();
+    fireEvent.press(await utils.findByText('Expo Palermo 2026'));
+    fireEvent.changeText(await utils.findByLabelText('S.B.A.'), '123456');
+    fireEvent.press(utils.getByText('Macho'));
+    fireEvent.press(utils.getByText('Buscar'));
+
+    expect(await utils.findByText('No figura a tu nombre')).toBeTruthy();
+    expect(utils.queryByText(/registrado como castrado/)).toBeNull();
+  });
+
   test('sin el campo propio el animal se sigue pudiendo elegir', async () => {
     // Fail-open a propósito: si un deploy dejara de mandar `propio`, el alta
     // vuelve a lo de antes (el 422 al confirmar) en vez de quedarse sin ningún

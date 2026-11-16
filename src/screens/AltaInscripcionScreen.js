@@ -632,7 +632,17 @@ function PasoAnimal({ t, evento, onElegir }) {
             // S.B.A., y «No encontramos animales con esos datos» sería falso.
             // El animal existe; lo que no es suyo.
             const ajeno = a.propio === false;
-            const bloqueado = ajeno || a.yaInscripto === true;
+            // El castrado no es un problema en sí: lo es sólo si el socio lo
+            // pidió como macho, que es exactamente lo que dispara el 422
+            // `SexoCastrado` del POST (#2). Con «Castrado» elegido en la
+            // búsqueda es legítimo y se puede inscribir.
+            //
+            // La regla es la del POST y no la de la web: la web, buscando sólo
+            // por S.B.A., deja pasar al castrado (B22 de
+            // `docs/qa-alta-web-vs-app.md`), así que acá se avisa también en
+            // ese camino.
+            const castradoComoMacho = a.castrado === true && sexo === 1;
+            const bloqueado = ajeno || a.yaInscripto === true || castradoComoMacho;
             const activo = elegido?.id === a.id;
             return (
               <TouchableOpacity key={a.id} onPress={() => !bloqueado && setElegido(a)} activeOpacity={0.8} disabled={bloqueado}>
@@ -659,6 +669,14 @@ function PasoAnimal({ t, evento, onElegir }) {
                     // definitivo para ese evento.
                     <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
                       Ya está inscripto en este evento
+                    </Text>
+                  )}
+                  {/* Último de la cascada: una sola leyenda por animal, y las
+                      otras dos hablan de impedimentos que no se arreglan
+                      cambiando el sexo de la búsqueda. */}
+                  {!ajeno && a.yaInscripto !== true && castradoComoMacho && (
+                    <Text style={{ fontFamily: F.bodyMed, fontSize: 11.5, color: t.live, marginTop: 6 }}>
+                      Está registrado como castrado: no puede participar como macho
                     </Text>
                   )}
                 </Card>

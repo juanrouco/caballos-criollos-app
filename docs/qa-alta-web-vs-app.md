@@ -73,13 +73,16 @@ Pronóstico del plan: «API más estricta». **Medido: la mitad.** Por el camino
 SBA solo los dos dejan pasar; tipeando el RP **la web tiene un aviso temprano que
 la app perdió**.
 
-**Se va a arreglar, y la app va a quedar mejor que la web.** El backend aceptó
-agregar `castrado: true|false` a `GET /inscripciones/animales` (plan
-`caballos-criollos/docs/plan-a2-castrado.md`), con la **regla del 422 del POST, no
-la de la web**. Como la web, buscando sólo por SBA, deja pasar al castrado, una
-vez que el campo esté la app va a avisar también en ese camino: deja de ser la
-que avisa menos y pasa a ser la única que avisa siempre. El issue #2 de este repo
-queda abierto y bloqueado hasta que el campo esté en prod.
+**Ya está arreglado, y la app quedó mejor que la web.** El backend agregó
+`castrado: true|false` a `GET /inscripciones/animales` (prod, #278), con la
+**regla del 422 del POST y no la de la web**, y la app lo usa: el animal sale
+gris con «Está registrado como castrado: no puede participar como macho» en
+cuanto se lo busca como macho. Como la web, buscando sólo por SBA, lo deja
+pasar, la app avisa **también en ese camino**: deja de ser la que avisa menos y
+pasa a ser la única que avisa siempre.
+
+Lo que no cambia: con «Castrado» elegido en la búsqueda se inscribe sin aviso, y
+el 422 `SexoCastrado` sigue existiendo para el POST armado a mano.
 
 ### D-4 · La app avisa antes; la web avisa menos y rechaza al final (A9 / B14)
 
