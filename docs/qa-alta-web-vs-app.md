@@ -12,10 +12,16 @@ se vuelven a medir: la igualdad web = API ya está probada en #59 (T-59-P1, el p
 
 ## Resultado en una línea
 
-**Ninguna de las tres capas es superconjunto de las otras.** La web tiene un
-chequeo que la app no tiene, la app tiene dos que la web no tiene, y el POST no
-tiene dos que las dos pantallas sí. Las cinco divergencias están abajo, ordenadas
-por consecuencia para el socio.
+**Ninguna de las tres capas es superconjunto de las otras.** El POST acepta dos
+cosas que las dos pantallas bloquean, la web tiene un chequeo que la app no
+tiene, la app avisa dos cosas antes que la web, y la app ofrece un caso que su
+propio POST rechaza. Las seis divergencias están abajo, ordenadas por
+consecuencia para el socio.
+
+Tres escenarios del plan resultaron **irrealizables**, y las tres veces fue el
+plan y no la app: la «morfología sin jinete» de C-1, sus acentos (que el
+instrumento no puede tipear) y el 6/15 de C-3. Están explicados donde
+corresponde.
 
 ---
 
@@ -49,17 +55,39 @@ Pronóstico del plan: «API más estricta». **Medido: la mitad.** Por el camino
 SBA solo los dos dejan pasar; tipeando el RP **la web tiene un aviso temprano que
 la app perdió**.
 
-### D-4 · La app marca equipos que la web no puede marcar (A9 / B14)
+### D-4 · La app avisa antes; la web avisa menos y rechaza al final (A9 / B14)
 
-Para `extr:9061221` en 6/29 de E2, `GET /equipos` devuelve «Equipo Deuda» con
-`habilitado: false` y `jinetes_inhabilitados: ['QA WVA Deuda']`, y «Equipo Uno»
-con `bloqueado: true`, `bloqueado_por: 'QA WvA Yegua Dos'` (comparte integrante
-con el Equipo Ocupado, ya anotado en esa categoría).
+Para `extr:9061221`, `GET /equipos` devuelve «Equipo Deuda» con
+`habilitado: false` y `jinetes_inhabilitados: ['QA WVA Deuda']`, y, en 6/29,
+«Equipo Uno» con `bloqueado: true`, `bloqueado_por: 'QA WvA Yegua Dos'`.
 
-El XML de la web para el mismo caso devuelve **los mismos dos equipos sin ningún
-campo de marca** (`Anio, FNac, FechaCreacion, IdAnimal, IdEquipo, IdEquipoAnimal,
-IdJinete, IdUsuario, Jinete, Nombre, Rp, Sba, Sexo, Tabla`). La tabla de la web se
-arma con ese XML, así que no tiene de dónde sacar el bloqueo.
+La web, medida **renderizada**:
+
+- **jinete no vigente**: lo informa, escribiéndolo en la etiqueta de la opción —
+  «QA CDEV WvA Equipo Deuda **(Jinetes No Vigentes: QA WVA Deuda)**». No lo
+  bloquea: se puede elegir.
+- **equipo con integrante compartido**: no lo marca de ninguna forma y lo
+  **rechaza al escribir**, en `paso7`: «El animal QA WvA Yegua Dos ya integra
+  otro equipo inscripto en esta prueba». El mensaje además es **impreciso**: no
+  es la prueba entera (6/22 sí se puede), es la categoría con la equivalencia
+  15 ≡ 29 — ver D-6.
+
+⚠️ Esta sección decía antes que «el XML de la web no trae con qué marcarlos».
+Del XML es cierto, pero la conclusión estaba mal: la página arma la etiqueta con
+esa información. Corregido con la pantalla a la vista.
+
+### D-6 · La app ofrece un equipo que su propio POST rechaza (6/15)
+
+El predicado real, medido con `extr:9061221` y el Equipo Uno: **6/29 bloqueado ·
+6/15 rechazado (422 `AnimalEnOtroEquipo`) · 6/22 aceptado (201)**. Es por prueba
++ categoría **con 15 ≡ 29**, que es lo que dice el comentario de
+`src/erroresInscripcion.js` («en Aparte, las categorías 15 y 29 cuentan como una
+sola porque comparten el cupo»).
+
+El validador aplica esa equivalencia. **`GET /equipos` no**: marca `bloqueado`
+sólo en 6/29, y en 6/15 devuelve el equipo habilitado y sin marca. La pantalla lo
+ofrece, el socio lo elige y el propio POST se lo rechaza al confirmar. Es un
+hueco del endpoint de equipos, no del validador.
 
 ### D-5 · Con una sola alerta, la app muestra el texto dos veces (A1)
 
@@ -83,8 +111,8 @@ web, replicado a propósito— y la app además renderiza la alerta aparte.
 | A6 | Opciones para el animal | **Coinciden**: 17 categorías en 6 pruebas para un macho, con el mismo agrupamiento propias/comunes y la misma categoría morfológica, «Categ. 7 - Padrillo - Adulto Mayor Cabestro». La web esconde las pruebas detrás de un SI/NO; la app las lista directo y muestra el cupo inline |
 | A7 | Jinetes | **Coinciden**: los mismos 5 por apellido «WVA», y el **no validado no aparece en ninguno** |
 | A8 | Candidatos de yunta | **Coinciden**: mismo mecanismo (SBA + sexo) y mismo candidato permitido |
-| A9 | Equipos | **Coinciden** en el conjunto y el orden; ⚠️ difieren en el marcado — ver D-4 |
-| A10 | Precio | **Pendiente**: sale del 201, va con el eje C |
+| A9 | Equipos | **Coinciden** en el conjunto y el orden; ⚠️ difieren en el marcado y en cuándo rechazan — ver D-4 y D-6 |
+| A10 | Precio | **No se puede ejercer con esta siembra**: el certificado de `paso6` muestra «Precio:» vacío y la pantalla de confirmar de la app tampoco muestra precio, porque los eventos sembrados no tienen precios cargados. Lo único comprobado es que ninguno de los dos inventa un número |
 
 ---
 
@@ -107,6 +135,7 @@ web, replicado a propósito— y la app además renderiza la alerta aparte.
 | B12 | Prueba sin jinete | no, nombrando qué falta | no avanza; **con reserva**: manejé la pantalla con clics sintéticos y no vi mensaje |
 | B13 | Yunta sin compañero | no: «Falta el compañero de Rodeos.» | no (mismo validador que B12) |
 | B15 | Sin ninguna participación | no: «Elegí al menos una participación.» | no: alert «Debe inscribir al animal en morfologia o pruebas funcionales» |
+| B29 | Morfología sin jinete | no: `:934` lo mete en los faltantes | no: «Debe seleccionar un jinete para inscribirse» |
 | B26 | Filtro por sexo del Freno de Oro | macho ⇒ sólo la 24 · hembra ⇒ sólo la 23 · **castrado ⇒ las dos** | idéntico (radio `5` con 23 y 24 para el castrado) |
 
 Las diferencias acá son de **forma**: la web deja mandar y después lista los
@@ -141,18 +170,49 @@ errores (o los tira por `alert`); la app deshabilita el botón y nombra qué fal
 
 ---
 
-## Eje C — Pendiente
+## Eje C — Las tres altas, hechas por pantalla
 
-C-1, C-2 y C-3 (las mismas altas por pantalla en E1 y E2) y su diff, que corre
-`caballos-tests`. **C-1 pide acentos y ñ**, que no puedo tipear en el simulador:
-va sin acentos o los tipea el usuario.
+La misma elección campo por campo en los dos lados: la web en E1 y la app en E2.
+
+| caso | qué ejercita | web (E1) | app (E2) |
+|---|---|---|---|
+| C-1 | yegua en cabestro, morfología + F.Z.B. A, cabaña **nueva** tipeada | **190069** | **190070** |
+| C-2 | padrillo montado, Rodeos A con yunta, cabaña **elegida de la lista** | **190071** | **190072** |
+| C-3 | extranjero, Aparte Campero **1/4 de Final** con el Equipo Uno | **190074** | **190075** |
+
+El diff de las filas lo corre `caballos-tests`.
+
+**Desvíos, los tres del plan y no de la app:**
+
+- **C-1 pedía «morfología sin jinete»** y las dos pantallas lo impiden (fila B29).
+  Se corrió con jinete en los dos lados.
+- **Los acentos y la ñ de C-1 no se pudieron tipear** (ver las notas de
+  instrumento): fue con «Cabana QA Nandu», Cordoba y Jesus Maria. **Ese punto
+  queda sin medir**, y era la razón de ser del caso: comparar el teclado real del
+  navegador en iso-8859-1 contra la app en UTF-8.
+- **C-3 pedía 6/15 con el Equipo Uno**, que es irrealizable por D-6: 15 ≡ 29 y el
+  Equipo Ocupado ya está anotado en 6/29. Los dos lados lo rechazaron —la web en
+  `paso7`, la app al confirmar— y se rehízo en **6/22**, que ejercita lo mismo
+  (el equipo de punta a punta y la derivación J-3 del jinete y el trío).
+
+En las tres, las dos pantallas derivaron solas la categoría morfológica, el
+jinete del equipo y el trío, y coincidieron sin que se les indicara nada.
 
 ---
 
 ## Inscripciones creadas
 
-Todas en **E3 (9061203)**, usuario 9061201, por API directa, anotadas para la
-limpieza: **190066** (B27), **190067** (preparación de B28), **190068** (B28).
+Para la limpieza, todas del usuario 9061201:
+
+- **E3 (9061203)**, por API: **190066** (B27), **190067** (preparación de B28),
+  **190068** (B28).
+- **E2 (9061202)**, por API: **190073**, la sonda que midió 6/22; **borrada**
+  después con `DELETE /inscripciones/190073` para poder correr C-3 por pantalla.
+  Quedó en estado 0.
+- **E1 (9061201)**, por pantalla: **190069**, **190071**, **190074**.
+- **E2 (9061202)**, por pantalla: **190070**, **190072**, **190075**.
+
+Los dos intentos rechazados de C-3 en 6/15 —web y app— no escribieron nada.
 
 ---
 
@@ -168,6 +228,13 @@ limpieza: **190066** (B27), **190067** (preparación de B28), **190068** (B28).
   `ref` del `read_page` el mapeo lo hace la herramienta.
 - **El panel del navegador se come los `alert()`**: para leerlos hay que
   interceptar `window.alert` antes de disparar la acción.
+- **El access token vence a la hora.** A mitad de la corrida empezó a dar
+  `401 No autenticado`. Se renueva con `POST /auth/refresh` usando el
+  `refresh_token` del archivo, reescribiendo `qa-alta-token.json` y `.hdr` con
+  umask 077 y sin que el valor pase por la salida.
+- **La yunta de la web no se carga sola**: los radios de sexo no tienen
+  `onclick`. Hay que tocar el botón **«Buscar»** que está al lado del campo del
+  S.B.A. (`BotonBuscarYunta`), o Enter en ese campo.
 - La web **no entra por `expositores_index.php`** con este usuario (`:34` lo manda
   al empadronamiento). El alta se entra directo por `expositores_inscripcion_paso1.php`,
   que no tiene ese gate. No es divergencia: `apiv2/src/Modulo/Perfil/Socio.php:40`
