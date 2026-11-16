@@ -290,7 +290,19 @@ La misma elección campo por campo en los dos lados: la web en E1 y la app en E2
 | C-2 | padrillo montado, Rodeos A con yunta, cabaña **elegida de la lista** | **190071** | **190072** |
 | C-3 | extranjero, Aparte Campero **1/4 de Final** con el Equipo Uno | **190074** | **190075** |
 
-El diff de las filas lo corre `caballos-tests`.
+**El diff de las filas lo corrió `caballos-tests` y pasa en los tres pares.** Por
+`SELECT`, según el §1.3 del plan: `tblInscripcionAnimales`, pruebas y logs dan
+**0 columnas distintas** en los tres (41, 25 y 6 columnas comparadas), y
+`tblCastrados` y `tblPropietarios` no suman filas. El control positivo —C-1 web
+contra C-2 app— sí lista `IdAnimal`, `Tabla` y otras 8 columnas, así que el
+instrumento distingue. `Cabania` no aparece en ese control porque C-2 eligió la
+de C-1, que es como estaba diseñado; tests probó aparte que la ve.
+
+En mailpit, **3 mails por alta, a los mismos destinatarios de los dos lados**.
+Los asuntos sólo cambian en la denominación del evento (E1 contra E2).
+
+Queda **sin medir T-59-U** (acentos), por la misma limitación del instrumento que
+dejó el punto de C-1 sin medir.
 
 **Desvíos, los tres del plan y no de la app:**
 
@@ -312,7 +324,12 @@ jinete del equipo y el trío, y coincidieron sin que se les indicara nada.
 
 ## Inscripciones creadas
 
-Para la limpieza, todas del usuario 9061201:
+**Ya están borradas**: `caballos-tests` corrió `limpiar` al cerrar la corrida
+(rc 0, 0 MAL), que se llevó las 190066–190079 y toda la siembra de `cdev-wva`.
+Las 15 inscripciones de `cdev-qa` (9061001) quedaron idénticas. El listado
+queda acá para que se entienda qué escribió cada caso.
+
+Todas del usuario 9061201:
 
 - **E3 (9061203)**, por API: **190066** (B27), **190067** (preparación de B28),
   **190068** (B28).
@@ -339,7 +356,8 @@ el de la app en B17 y B18, y el que chocó el cupo de cada lado en B19.
 
 - **El simulador no pega nada** mientras «Pegar desde otras apps» esté en
   «Preguntar» (Ajustes › Apps › Expo Go): el diálogo se come el pegado aunque uno
-  conteste que sí. Hay que ponerlo en «Permitir». Queda pendiente devolverlo.
+  conteste que sí. Hay que ponerlo en «Permitir» y **devolverlo al terminar**
+  (ya devuelto).
 - **El envío de texto al simulador rompe los no-ASCII**: «Córdoba» llega como
   `C√≥rdoba`. Todo lo que lleve acentos o ñ lo tiene que tipear una persona.
 - **Los clics por coordenada en el panel del navegador** usan un marco de 800x600
