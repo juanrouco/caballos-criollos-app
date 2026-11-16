@@ -30,6 +30,11 @@ const TEXTOS = {
   // 15 y 29 cuentan como una sola porque comparten el cupo.)
   EquipoOcupado: 'Ese equipo ya está anotado en esta categoría.',
   AnimalEnOtroEquipo: 'Un integrante del equipo ya está anotado en esta categoría con otro equipo.',
+  // #273 / backend #275: la pertenencia al equipo no la validaba nadie del lado
+  // del servidor, y por la pantalla no se llega — las dos ofrecen sólo los
+  // equipos que incluyen al animal. El texto está igual porque un POST armado a
+  // mano sí lo alcanza, y porque sin él el socio vería el genérico.
+  AnimalFueraDeEquipo: 'El animal o alguno de sus compañeros no integra el equipo elegido.',
   PruebaNoHabilitada: 'Esta prueba no está habilitada en el evento.',
   MorfologiaNoHabilitada: 'La morfología no está habilitada en el evento.',
   OtonioRegla: 'Esta inscripción no cumple las reglas del evento.',

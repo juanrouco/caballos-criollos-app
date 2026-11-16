@@ -237,6 +237,28 @@ describe('textos de los errores del 422', () => {
     expect(textoErrorInscripcion('AnimalEnOtroEquipo')).not.toMatch(/en esta prueba/);
   });
 
+  test('AnimalFueraDeEquipo tiene su texto y no cae en el genérico', () => {
+    // El código lo agregó el backend en #275, a partir de la corrida de QA: el
+    // POST aceptaba un equipo que no tiene al animal. Por la pantalla no se
+    // llega —las dos ofrecen sólo los equipos que lo incluyen—, pero sin texto
+    // propio el socio vería «no cumple una regla del evento» y no sabría cuál.
+    const texto = textoErrorInscripcion('AnimalFueraDeEquipo');
+    expect(texto).toBe('El animal o alguno de sus compañeros no integra el equipo elegido.');
+    expect(texto).not.toBe('Esta inscripción no cumple una regla del evento.');
+    expect(CODIGOS_CONOCIDOS).toContain('AnimalFueraDeEquipo');
+  });
+
+  test('el 422 de AnimalFueraDeEquipo llega con su prueba y su categoría', () => {
+    // El backend lo manda con `campo: null` y la prueba/categoría donde chocó,
+    // así la app lo muestra debajo de esa prueba y no suelto arriba.
+    const d = describirErrores([{ codigo: 'AnimalFueraDeEquipo', campo: null, prueba: 6, categoria: 15 }]);
+    expect(d[0]).toEqual({
+      codigo: 'AnimalFueraDeEquipo',
+      texto: 'El animal o alguno de sus compañeros no integra el equipo elegido.',
+      campo: null, prueba: 6, categoria: 15,
+    });
+  });
+
   test('sin errores devuelve lista vacía, no revienta', () => {
     expect(describirErrores(undefined)).toEqual([]);
     expect(describirErrores(null)).toEqual([]);

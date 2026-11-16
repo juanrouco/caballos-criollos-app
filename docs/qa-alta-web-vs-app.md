@@ -36,6 +36,12 @@ corresponde.
 
 Pronóstico del plan: «API más laxa». **Medido: se cumple, con los dos controles.**
 
+**Ya está arreglado en prod** (backend #275, del 2026-11-16, a partir de esta
+medición): B27 pasa a dar 422 con el código nuevo **`AnimalFueraDeEquipo`**, y
+B28 pasa a dar `YuntaOcupada`, que la app ya traducía. cdev sirve todavía el
+árbol viejo, así que lo medido acá es **el antes del fix**. El texto del código
+nuevo ya está en `src/erroresInscripcion.js`.
+
 ### D-2 · La app bloquea al animal rechazado; la web lo deja llegar al final (B11)
 
 Animal con inscripción **rechazada** en el evento (#189: el rechazo es definitivo).
