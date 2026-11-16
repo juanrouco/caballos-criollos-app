@@ -121,10 +121,16 @@ hueco del endpoint de equipos, no del validador.
 ### D-5 · Con una sola alerta, la app muestra el texto dos veces (A1)
 
 La web imprime el cuerpo bajo «TÉRMINOS Y CONDICIONES GENERALES» y nunca muestra
-el título de la alerta. La app muestra **las dos cosas**: el modal «Asociar
+el título de la alerta. La app mostraba **las dos cosas**: el modal «Asociar
 Propietarios SRA» y, abajo, el mismo texto como términos. Sale de que el
 `terminos` de la API es el cuerpo de la última alerta —el defecto del bucle de la
-web, replicado a propósito— y la app además renderiza la alerta aparte.
+web, replicado a propósito— y la app además renderizaba la alerta aparte.
+
+**Arreglado.** La alerta cuyo cuerpo ya va en la página de términos no se repite
+como popup: es la misma deduplicación que `PasoAvisoEvento` hacía con `alerta2`
+y que esta pantalla no tenía. Replicar el dato del contrato no era razón para
+repetir la pantalla. El comentario del código decía «es lo que la web hace», y
+esta medición lo desmintió.
 
 ### D-7 · Con el jinete dado de baja, la web escribe igual (B17)
 

@@ -526,6 +526,46 @@ describe('AltaInscripcionScreen — paso a paso', () => {
     expect(await utils.findByText('Expo Palermo 2026')).toBeTruthy();
   });
 
+  test('la alerta que ya va en los términos no se repite como popup', async () => {
+    // El caso real: `terminos` ES el cuerpo de la última alerta, porque la web
+    // lo imprime así por un defecto de su bucle y el contrato lo replica. Con
+    // una sola alerta eso dejaba al socio leyendo el mismo párrafo dos veces,
+    // una con título y otra sin él. Medido en A1: la web lo muestra una vez y
+    // nunca muestra el título.
+    const texto = '<p>Sólo los propietarios…</p>';
+    api.fetchAlertasAlta.mockResolvedValue({
+      terminos: texto,
+      alertas: [{ titulo: 'Asociar Propietarios SRA', texto }],
+    });
+    const utils = renderAlta();
+
+    expect(await utils.findByText('Términos y condiciones generales')).toBeTruthy();
+    expect(utils.queryByText('Asociar Propietarios SRA')).toBeNull();
+    expect(utils.queryByLabelText('Aceptar aviso')).toBeNull();
+
+    fireEvent.press(utils.getByLabelText('Aceptar términos'));
+    expect(await utils.findByText('Expo Palermo 2026')).toBeTruthy();
+  });
+
+  test('con varias alertas sólo se saltea la que repite los términos', async () => {
+    // Las otras siguen siendo avisos que el socio no vio en ninguna parte.
+    const ultima = '<p>Otra cosa</p>';
+    api.fetchAlertasAlta.mockResolvedValue({
+      terminos: ultima,
+      alertas: [
+        { titulo: 'Asociar Propietarios SRA', texto: '<p>Sólo los propietarios…</p>' },
+        { titulo: 'Segundo aviso', texto: ultima },
+      ],
+    });
+    const utils = renderAlta();
+
+    expect(await utils.findByText('Asociar Propietarios SRA')).toBeTruthy();
+    fireEvent.press(utils.getByLabelText('Aceptar aviso'));
+
+    expect(utils.queryByText('Segundo aviso')).toBeNull();
+    expect(utils.getByText('Términos y condiciones generales')).toBeTruthy();
+  });
+
   test('sin alertas pero con términos, muestra la página sin popups', async () => {
     api.fetchAlertasAlta.mockResolvedValue({ terminos: '<p>Términos generales</p>', alertas: [] });
     const utils = renderAlta();

@@ -381,10 +381,14 @@ function Popup({ t, aviso, onAceptar }) {
 function PasoAlertas({ t, onSeguir, onSalir }) {
   const [datos, setDatos] = React.useState(null);
   // Los avisos salen como la web: primero los popups, uno por uno, y recién
-  // después la página de términos. El texto de `terminos` repite el de la
-  // última alerta (la web lo imprime así y la API lo replica a propósito), así
-  // que sí, el socio lo ve dos veces: una en el popup y otra en la página. Es
-  // lo que la web hace y lo que pide el contrato.
+  // después la página de términos.
+  //
+  // `terminos` es el cuerpo de la ÚLTIMA alerta: la web lo imprime así por un
+  // defecto de su bucle de popups y el contrato lo replica a propósito. Pero
+  // replicar el dato no es repetir la pantalla — medido en A1, la web muestra
+  // ese texto UNA vez y nunca muestra el título de la alerta. Mostrarlo
+  // además como popup le hacía leer el mismo párrafo dos veces, y con una
+  // sola alerta (el caso normal) eso era todo lo que veía.
   const [popup, setPopup] = React.useState(0);
 
   React.useEffect(() => {
@@ -405,7 +409,12 @@ function PasoAlertas({ t, onSeguir, onSalir }) {
 
   if (!datos) return <Cargando t={t} />;
 
-  const conTexto = datos.alertas.filter((a) => tieneContenido(a.html) || a.titulo);
+  // La que ya va en la página de términos no se repite como popup. Es la misma
+  // deduplicación que hace PasoAvisoEvento con `alerta2`, por el mismo motivo.
+  const enTerminos = tieneContenido(datos.terminos) ? textoPlano(datos.terminos) : null;
+  const conTexto = datos.alertas.filter(
+    (a) => (tieneContenido(a.html) || a.titulo) && !(enTerminos && textoPlano(a.html) === enTerminos),
+  );
   const alertaActual = conTexto[popup] || null;
 
   return (
