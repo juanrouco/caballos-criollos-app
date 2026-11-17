@@ -381,13 +381,16 @@ la app. El resumen:
 - **Identifiers → User ID:** *Sí se recolecta.* Uso: **App Functionality**.
   **Vinculado** a la identidad. No usado para tracking.
 - **Identifiers → Device ID:** *Sí se recolecta.* Uso: **App Functionality**
-  (asociar el token de push). Hoy **no** vinculado a la identidad.
+  (asociar el token de push). **Vinculado** a la identidad desde la 2.0.1: con el
+  push por cuenta el backend ata el token y el `device_id` al socio.
 - **Contact Info → Name / Email / Phone:** la App no recolecta los datos del socio
   (los recibe), pero **sí envía nombre, apellido y documento de un jinete o
   domador** al buscarlo, que son datos de un tercero. La respuesta conservadora es
   declararlo.
 - **Location / Financial / Health / Browsing / Contacts / Photos:** *No se recolectan.*
-- **Usage Data:** *No se recolecta* (no hay analítica).
+- **Usage Data → Product Interaction:** *Sí se recolecta* desde la 2.0.1. Uso:
+  **Analytics**. **No** vinculado a la identidad: `POST /uso` no manda Bearer ni
+  `device_id`.
 - **Tracking:** **No.** (No se pide `App Tracking Transparency`.)
 
 **Google Play — "Data safety"**
@@ -400,9 +403,10 @@ la app. El resumen:
 - **Device or other IDs → Device ID:** *Recolectado.* Finalidad: **App
   functionality** (notificaciones). *Compartido con* proveedores de push (Expo /
   Apple / Google) para la entrega. No para publicidad.
+- **App activity → Product interaction:** *Recolectado* desde la 2.0.1.
+  Finalidad: **Analytics**. No vinculado a la identidad.
 - **Encriptado en tránsito:** **Sí** (HTTPS/TLS).
 - **¿Se puede pedir la eliminación de datos?** Sí, vía `info@caballoscriollos.com`.
 - **¿La recolección es opcional?** Las notificaciones sí. El login es necesario
   sólo para las funciones de socio; el resto de la App funciona sin cuenta.
-- **No** declarar: ubicación, contactos, fotos, datos financieros, actividad de la
-  app para analítica, ni publicidad.
+- **No** declarar: ubicación, contactos, fotos, datos financieros ni publicidad.
