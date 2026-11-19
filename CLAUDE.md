@@ -136,6 +136,14 @@ desde la lista, y abrirla ya corre `markAllSeen()`, así que lo borrado quedó
 detrás de `lastSeenAt` y el `since` del badge no lo vuelve a contar. Si algún día
 aparece un endpoint, el reemplazo es el transporte, no la pantalla.
 
+Se borra **deslizando la tarjeta a la izquierda** (`FilaDeslizable`, con
+`PanResponder` + `Animated` del core: un solo eje no justifica sumar un módulo
+nativo de gestos). Dos cosas de ahí que no son estéticas: el botón «Borrar» que
+queda detrás está **siempre montado**, porque es lo que alcanza VoiceOver —que no
+sabe deslizar— y lo que tocan los tests; y la decisión de qué pasa al soltar vive
+en `decidirGesto`, afuera del `PanResponder`, porque el gesto no se puede simular
+en los tests y la decisión sí.
+
 Push remoto solo funciona en build standalone (TestFlight / dev build) sobre device físico — Expo Go (SDK 53+) y el simulador iOS no lo entregan.
 
 ### Remote images

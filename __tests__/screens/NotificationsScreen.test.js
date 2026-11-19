@@ -40,6 +40,7 @@ const { fetchNotificaciones } = require('../../src/api');
 const { navigateOnNotificationTap } = require('../../src/navigation');
 const { __store: notifStore, __mocks: notifMocks } = require('../../src/NotificationsContext');
 const NotificationsScreen = require('../../src/screens/NotificationsScreen').default;
+const { decidirGesto } = require('../../src/screens/NotificationsScreen');
 const { T, navStub } = require('../helpers');
 
 const flushPromises = () => new Promise((res) => process.nextTick(res));
@@ -105,7 +106,7 @@ describe('NotificationsScreen borrado', () => {
     expect(getByText('Externo C')).toBeTruthy();
   });
 
-  test('tocar el basurero no dispara la navegación del item', async () => {
+  test('tocar «Borrar» no dispara la navegación del item', async () => {
     const nav = navStub();
     const { getByLabelText } = await renderList(nav);
     await act(async () => { fireEvent.press(getByLabelText('Borrar notificación: Noti A')); });
@@ -175,5 +176,27 @@ describe('NotificationsScreen borrado', () => {
     const { getByText, queryByLabelText } = await renderList(navStub());
     expect(getByText('No hay notificaciones.')).toBeTruthy();
     expect(queryByLabelText('Borrar todas')).toBeNull();
+  });
+});
+
+describe('NotificationsScreen gesto de deslizar', () => {
+  test('un tirón largo borra sin pasar por el botón', () => {
+    expect(decidirGesto(-240)).toBe('borrar');
+    expect(decidirGesto(-200)).toBe('borrar');
+  });
+
+  test('un deslizamiento corto deja la fila abierta', () => {
+    expect(decidirGesto(-96)).toBe('abrir');
+    expect(decidirGesto(-44)).toBe('abrir');
+  });
+
+  test('un roce no abre nada: la fila vuelve a su lugar', () => {
+    expect(decidirGesto(-43)).toBe('cerrar');
+    expect(decidirGesto(0)).toBe('cerrar');
+  });
+
+  test('el botón «Borrar» está montado aunque la fila esté cerrada (VoiceOver no desliza)', async () => {
+    const { getByLabelText } = await renderList(navStub());
+    expect(getByLabelText('Borrar notificación: Noti A')).toBeTruthy();
   });
 });
