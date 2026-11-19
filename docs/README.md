@@ -783,6 +783,8 @@ Cada **entry** (dentro de `subcategorias[].premios`, `gran_campeonato[].resultad
 }
 ```
 
+**`puntaje`** (morfología) es el **puntaje de mérito** — el de la tabla de méritos que alimenta los rankings, no el de la escala del evento. Lo cambió el backend el 19/11/2026 (su PR #294), en las dos APIs a la vez, así que el mismo premio puede mostrar hoy un número distinto al de antes: el Gran Campeón de Nacional A pasó de 28 a 23, y en Otoño el macho vale 23 y la hembra 28. Los eventos de categoría A sin clasificar usan la escala de Nacional A; clase C y tipo y aptitud no cambiaron. La app no hace cuentas con él: lo imprime tal cual y lo usa sólo como desempate a igual premio, que no cruza sexos porque `gran_campeonato` viene agrupado por sexo.
+
 Dentro de `subcategorias[].premios` puede haber entries con **`premio` y `puntaje` en `null`**: son animales que asistieron y no fueron rechazados pero no tienen premio de categoría cargado (ej. su resultado se cargó sólo a nivel campeonato). Se incluyen igual en la subcategoría (ordenados al final, después de los premiados) y el `animal` viene completo.
 
 Un entry de **ausente/rechazado** no lleva `premio` ni `puntaje` — sólo `animal` (mismo shape que arriba). El rechazado agrega `rechazo` con `tipo` / `condicion` / `observaciones` (los códigos crudos del importador, cualquiera puede venir `null`).
