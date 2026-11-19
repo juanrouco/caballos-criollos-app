@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, act, fireEvent } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Alert } from 'react-native';
 
 jest.mock('../../src/api', () => ({
   fetchNotificaciones: jest.fn(),
@@ -8,10 +8,29 @@ jest.mock('../../src/api', () => ({
   isUnreadSince: jest.requireActual('../../src/api/notificaciones').isUnreadSince,
 }));
 jest.mock('../../src/NotificationsContext', () => {
-  // markAllSeen estable entre renders (como el useCallback real), si no el
-  // efecto que depende de él se re-ejecuta en loop.
-  const value = { markAllSeen: jest.fn().mockResolvedValue(null) };
-  return { useNotifications: () => value };
+  // markAllSeen y deleteNotifs estables entre renders (como los useCallback
+  // reales), si no el efecto que depende de markAllSeen se re-ejecuta en loop.
+  // El borrado local vive en el contexto, así que el doble lo imita: guarda
+  // los ids y avisa a los suscriptores para que la pantalla re-renderice.
+  const React = require('react');
+  const store = { deleted: new Set(), listeners: new Set() };
+  const markAllSeen = jest.fn().mockResolvedValue(null);
+  const deleteNotifs = jest.fn((ids) => {
+    (Array.isArray(ids) ? ids : [ids]).forEach((id) => store.deleted.add(String(id)));
+    store.listeners.forEach((set) => set(new Set(store.deleted)));
+  });
+  return {
+    __store: store,
+    __mocks: { markAllSeen, deleteNotifs },
+    useNotifications: () => {
+      const [deletedIds, setDeletedIds] = React.useState(() => new Set(store.deleted));
+      React.useEffect(() => {
+        store.listeners.add(setDeletedIds);
+        return () => { store.listeners.delete(setDeletedIds); };
+      }, []);
+      return { markAllSeen, deletedIds, deleteNotifs };
+    },
+  };
 });
 jest.mock('../../src/navigation', () => ({
   navigateOnNotificationTap: jest.fn(),
@@ -19,6 +38,7 @@ jest.mock('../../src/navigation', () => ({
 
 const { fetchNotificaciones } = require('../../src/api');
 const { navigateOnNotificationTap } = require('../../src/navigation');
+const { __store: notifStore, __mocks: notifMocks } = require('../../src/NotificationsContext');
 const NotificationsScreen = require('../../src/screens/NotificationsScreen').default;
 const { T, navStub } = require('../helpers');
 
@@ -27,12 +47,15 @@ const flushPromises = () => new Promise((res) => process.nextTick(res));
 beforeEach(() => {
   fetchNotificaciones.mockReset();
   navigateOnNotificationTap.mockReset();
+  notifStore.deleted.clear();
+  notifMocks.deleteNotifs.mockClear();
 });
 
 const items = [
   { id: 1, titulo: 'Noti A', tipo: 'noticia', target: { tipo: 'noticia', id: 42, url: null }, fecha: '2026-06-08 10:00:00' },
   { id: 2, titulo: 'Evento B', tipo: 'evento',  target: { tipo: 'evento',  id: 7,  url: null }, fecha: '2026-06-08 11:00:00' },
   { id: 3, titulo: 'Externo C', tipo: 'generico', target: { tipo: null, id: null, url: 'https://x.com/y' }, fecha: '2026-06-08 12:00:00' },
+  { id: 4, titulo: 'Sin target D', tipo: 'generico', target: null, fecha: '2026-06-08 13:00:00' },
 ];
 
 async function renderList(nav) {
@@ -68,5 +91,89 @@ describe('NotificationsScreen onItemPress', () => {
     expect(nav.navigate).not.toHaveBeenCalled();
     expect(navigateOnNotificationTap).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe('NotificationsScreen borrado', () => {
+  test('borrar una: sale de la lista y el id va al borrado local', async () => {
+    const { getByLabelText, queryByText, getByText } = await renderList(navStub());
+    await act(async () => { fireEvent.press(getByLabelText('Borrar notificación: Evento B')); });
+    expect(notifMocks.deleteNotifs).toHaveBeenCalledWith(2);
+    expect(queryByText('Evento B')).toBeNull();
+    // las otras siguen
+    expect(getByText('Noti A')).toBeTruthy();
+    expect(getByText('Externo C')).toBeTruthy();
+  });
+
+  test('tocar el basurero no dispara la navegación del item', async () => {
+    const nav = navStub();
+    const { getByLabelText } = await renderList(nav);
+    await act(async () => { fireEvent.press(getByLabelText('Borrar notificación: Noti A')); });
+    expect(nav.navigate).not.toHaveBeenCalled();
+    expect(navigateOnNotificationTap).not.toHaveBeenCalled();
+  });
+
+  test('borrar todas: confirma, vacía la lista y muestra el estado vacío', async () => {
+    const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const { getByLabelText, getByText, queryByText, queryByLabelText } = await renderList(navStub());
+
+    fireEvent.press(getByLabelText('Borrar todas'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toBe('Borrar todas');
+    // mientras no se confirme, nada se borra
+    expect(notifMocks.deleteNotifs).not.toHaveBeenCalled();
+    expect(getByText('Noti A')).toBeTruthy();
+
+    const botones = spy.mock.calls[0][2];
+    const confirmar = botones.find((b) => b.text === 'Borrar');
+    await act(async () => { confirmar.onPress(); });
+
+    expect(notifMocks.deleteNotifs).toHaveBeenCalledWith([1, 2, 3, 4]);
+    expect(queryByText('Noti A')).toBeNull();
+    expect(queryByText('Evento B')).toBeNull();
+    expect(queryByText('Externo C')).toBeNull();
+    expect(queryByText('Sin target D')).toBeNull();
+    expect(getByText('No hay notificaciones.')).toBeTruthy();
+    // sin items, el botón de vaciar no tiene qué borrar
+    expect(queryByLabelText('Borrar todas')).toBeNull();
+    spy.mockRestore();
+  });
+
+  test('borrar todas: cancelar no borra nada', async () => {
+    const spy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const { getByLabelText, getByText } = await renderList(navStub());
+    fireEvent.press(getByLabelText('Borrar todas'));
+    const cancelar = spy.mock.calls[0][2].find((b) => b.text === 'Cancelar');
+    expect(cancelar.style).toBe('cancel');
+    expect(cancelar.onPress).toBeUndefined();
+    expect(notifMocks.deleteNotifs).not.toHaveBeenCalled();
+    expect(getByText('Noti A')).toBeTruthy();
+    spy.mockRestore();
+  });
+
+  test('una notif sin target (item deshabilitado) también se puede borrar', async () => {
+    const { getByLabelText, queryByText } = await renderList(navStub());
+    await act(async () => { fireEvent.press(getByLabelText('Borrar notificación: Sin target D')); });
+    expect(notifMocks.deleteNotifs).toHaveBeenCalledWith(4);
+    expect(queryByText('Sin target D')).toBeNull();
+  });
+
+  test('lo borrado antes no se lista aunque la API lo siga devolviendo', async () => {
+    notifStore.deleted.add('1');
+    notifStore.deleted.add('3');
+    const { queryByText, getByText } = await renderList(navStub());
+    expect(queryByText('Noti A')).toBeNull();
+    expect(queryByText('Externo C')).toBeNull();
+    expect(getByText('Evento B')).toBeTruthy();
+  });
+
+  test('si la API devuelve sólo notifs ya borradas, la lista queda en su estado vacío', async () => {
+    notifStore.deleted.add('1');
+    notifStore.deleted.add('2');
+    notifStore.deleted.add('3');
+    notifStore.deleted.add('4');
+    const { getByText, queryByLabelText } = await renderList(navStub());
+    expect(getByText('No hay notificaciones.')).toBeTruthy();
+    expect(queryByLabelText('Borrar todas')).toBeNull();
   });
 });

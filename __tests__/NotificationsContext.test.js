@@ -10,13 +10,15 @@ jest.mock('../src/api', () => ({
 const { fetchNotificaciones } = require('../src/api');
 const { NotificationsProvider, useNotifications } = require('../src/NotificationsContext');
 
-function Probe() {
-  const { unreadCount, lastSeenAt, markAllSeen } = useNotifications();
+function Probe({ borrar }) {
+  const { unreadCount, lastSeenAt, markAllSeen, deletedIds, deleteNotifs } = useNotifications();
   return (
     <>
       <Text testID="count">{String(unreadCount)}</Text>
       <Text testID="seen">{lastSeenAt || 'null'}</Text>
       <Text testID="mark" onPress={() => markAllSeen()}>mark</Text>
+      <Text testID="deleted">{[...deletedIds].join(',') || 'none'}</Text>
+      <Text testID="del" onPress={() => deleteNotifs(borrar)}>del</Text>
     </>
   );
 }
@@ -131,5 +133,81 @@ describe('NotificationsProvider', () => {
       await flushPromises();
     });
     expect(captured).toEqual(['2026-01-01T00:00:00.000Z']);
+  });
+});
+
+describe('NotificationsProvider borrado local', () => {
+  // La API no tiene borrado de notifs: el borrado vive en el dispositivo
+  // (AsyncStorage) y la pantalla filtra por estos ids al listar.
+  const renderProbe = (borrar) =>
+    render(<NotificationsProvider><Probe borrar={borrar} /></NotificationsProvider>);
+
+  test('deleteNotifs con un id: lo expone en deletedIds y lo persiste', async () => {
+    const { getByTestId } = renderProbe(7);
+    await waitFor(() => expect(getByTestId('seen').children[0]).not.toBe('null'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(getByTestId('deleted').children[0]).toBe('7');
+    expect(JSON.parse(await AsyncStorage.getItem('notifs:deletedIds'))).toEqual(['7']);
+  });
+
+  test('deleteNotifs con una lista (borrar todas): guarda todos los ids', async () => {
+    const { getByTestId } = renderProbe([3, 1, 2]);
+    await waitFor(() => expect(getByTestId('seen').children[0]).not.toBe('null'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(getByTestId('deleted').children[0]).toBe('3,1,2');
+    expect(JSON.parse(await AsyncStorage.getItem('notifs:deletedIds'))).toEqual(['3', '1', '2']);
+  });
+
+  test('borrar dos veces el mismo id no lo duplica', async () => {
+    await AsyncStorage.setItem('notifs:deletedIds', JSON.stringify(['7', '8']));
+    const { getByTestId } = renderProbe(7);
+    await waitFor(() => expect(getByTestId('deleted').children[0]).toBe('7,8'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(JSON.parse(await AsyncStorage.getItem('notifs:deletedIds'))).toEqual(['8', '7']);
+  });
+
+  test('ids vacíos o nulos se ignoran (no se persiste nada)', async () => {
+    const { getByTestId } = renderProbe([null, undefined, '']);
+    await waitFor(() => expect(getByTestId('seen').children[0]).not.toBe('null'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(getByTestId('deleted').children[0]).toBe('none');
+    expect(await AsyncStorage.getItem('notifs:deletedIds')).toBeNull();
+  });
+
+  test('boot: lee los ids borrados persistidos', async () => {
+    await AsyncStorage.setItem('notifs:deletedIds', JSON.stringify([11, 12]));
+    const { getByTestId } = renderProbe(1);
+    await waitFor(() => expect(getByTestId('deleted').children[0]).toBe('11,12'));
+  });
+
+  test('boot: un valor corrupto en storage no rompe nada', async () => {
+    await AsyncStorage.setItem('notifs:deletedIds', '{no json');
+    const { getByTestId } = renderProbe(5);
+    await waitFor(() => expect(getByTestId('seen').children[0]).not.toBe('null'));
+    expect(getByTestId('deleted').children[0]).toBe('none');
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(JSON.parse(await AsyncStorage.getItem('notifs:deletedIds'))).toEqual(['5']);
+  });
+
+  test('la lista de borrados se topea en 300 y descarta los más viejos', async () => {
+    const viejos = Array.from({ length: 300 }, (_, i) => String(i + 1));
+    await AsyncStorage.setItem('notifs:deletedIds', JSON.stringify(viejos));
+    const { getByTestId } = renderProbe(9001);
+    await waitFor(() => expect(getByTestId('deleted').children[0]).toContain('300'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    const guardados = JSON.parse(await AsyncStorage.getItem('notifs:deletedIds'));
+    expect(guardados).toHaveLength(300);
+    expect(guardados[0]).toBe('2');          // se cayó el más viejo
+    expect(guardados[299]).toBe('9001');     // y entró el nuevo
+  });
+
+  test('borrar no toca el contador: lo borrado ya quedó detrás de lastSeenAt', async () => {
+    await AsyncStorage.setItem('notifs:lastSeenAt', '2026-01-01T00:00:00.000Z');
+    fetchNotificaciones.mockResolvedValue({ data: [], meta: { total: 4 } });
+    const { getByTestId } = renderProbe(7);
+    await waitFor(() => expect(getByTestId('count').children[0]).toBe('4'));
+    await act(async () => { getByTestId('del').props.onPress(); await flushPromises(); });
+    expect(getByTestId('count').children[0]).toBe('4');
+    expect(fetchNotificaciones).toHaveBeenCalledTimes(1);
   });
 });

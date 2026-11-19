@@ -125,6 +125,17 @@ Cuatro cosas a **no romper**:
   tiene que poder salir con la sesión cerrada. Se manda al arrancar y en cada
   foreground mientras el permiso no esté concedido; es idempotente.
 
+**El borrado de la campanita es del dispositivo.** La API no tiene borrado de
+notifs (sólo `GET /notificaciones` y `GET /notificaciones/{id}`; el eliminar del
+admin web es un soft delete para todos, no por socio), así que
+`NotificationsContext` guarda los ids borrados en `AsyncStorage`
+(`notifs:deletedIds`, topeado en 300) y `NotificationsScreen` filtra por ellos al
+listar. Decisión tomada con el usuario: no viaja a otro teléfono y se pierde al
+reinstalar. El contador de no leídas no los descuenta a propósito — sólo se borra
+desde la lista, y abrirla ya corre `markAllSeen()`, así que lo borrado quedó
+detrás de `lastSeenAt` y el `since` del badge no lo vuelve a contar. Si algún día
+aparece un endpoint, el reemplazo es el transporte, no la pantalla.
+
 Push remoto solo funciona en build standalone (TestFlight / dev build) sobre device físico — Expo Go (SDK 53+) y el simulador iOS no lo entregan.
 
 ### Remote images

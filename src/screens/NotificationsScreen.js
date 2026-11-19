@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Linking, Alert } from 'react-native';
 import { Icon, Card, F } from '../components';
 import { fetchNotificaciones, mapNotificacion, isUnreadSince } from '../api';
 import { useNotifications } from '../NotificationsContext';
@@ -16,13 +16,22 @@ const TIPO_ICON = {
 };
 
 export default function NotificationsScreen({ t, navigation }) {
-  const { markAllSeen } = useNotifications();
+  const { markAllSeen, deletedIds, deleteNotifs } = useNotifications();
   const [items, setItems]   = React.useState(null); // null = loading, [] = vacío/error, [...] = ok
   const [error, setError]   = React.useState(null);
   // Snapshot del lastSeenAt previo a marcar todo como visto — se usa
   // para resaltar en la lista las notifs que llegaron después del
   // último check. Queda fijo mientras la pantalla está montada.
   const [seenSnapshot, setSeenSnapshot] = React.useState(null);
+
+  // La API no borra notifs: el borrado es local (ids en el contexto), así
+  // que la lista se deriva filtrando lo traído. Derivar en vez de sacar el
+  // item del state hace que un borrado se refleje incluso si `deletedIds`
+  // llega del AsyncStorage después de que resolvió el fetch.
+  const visibles = React.useMemo(
+    () => (items || []).filter((n) => !deletedIds.has(String(n.id))),
+    [items, deletedIds],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -61,6 +70,21 @@ export default function NotificationsScreen({ t, navigation }) {
     navigateOnNotificationTap({ kind: tgt.tipo, id: tgt.id, evento_id: tgt.id });
   };
 
+  const onDelete = (n) => { deleteNotifs(n.id); };
+
+  const onDeleteAll = () => {
+    const ids = visibles.map((n) => n.id);
+    if (!ids.length) return;
+    Alert.alert(
+      'Borrar todas',
+      'Se borran las notificaciones de este teléfono. No se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Borrar', style: 'destructive', onPress: () => deleteNotifs(ids) },
+      ],
+    );
+  };
+
   const renderItem = ({ item: n }) => {
     const isNew = isUnreadSince(n.fecha, seenSnapshot);
     return (
@@ -89,6 +113,14 @@ export default function NotificationsScreen({ t, navigation }) {
                 <Text style={{ fontFamily: F.body, fontSize: 13, color: t.textDim, marginTop: 2 }} numberOfLines={3}>{n.cuerpo}</Text>
               )}
             </View>
+            <TouchableOpacity
+              onPress={() => onDelete(n)}
+              accessibilityLabel={`Borrar notificación: ${n.titulo}`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Icon name="trash" size={16} color={t.textMute} />
+            </TouchableOpacity>
           </View>
         </Card>
       </TouchableOpacity>
@@ -102,23 +134,29 @@ export default function NotificationsScreen({ t, navigation }) {
           <Icon name="arrowL" size={18} color={t.text} />
         </TouchableOpacity>
         <Text style={{ fontFamily: F.display, fontSize: 28, color: t.text }}>Notificaciones</Text>
+        <View style={{ flex: 1 }} />
+        {visibles.length > 0 && (
+          <TouchableOpacity onPress={onDeleteAll} accessibilityLabel="Borrar todas">
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 12, color: t.textMute, letterSpacing: 0.6 }}>Borrar todas</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {items === null ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={t.accent} />
         </View>
-      ) : error && items.length === 0 ? (
+      ) : error && visibles.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
           <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center' }}>{error}</Text>
         </View>
-      ) : items.length === 0 ? (
+      ) : visibles.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
           <Text style={{ fontSize: 13, color: t.textMute, textAlign: 'center' }}>No hay notificaciones.</Text>
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={visibles}
           keyExtractor={(n) => String(n.id)}
           renderItem={renderItem}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 130, gap: 10 }}
