@@ -125,3 +125,128 @@ describe('EventsScreen - Remates', () => {
     expect(await findByText(/No se pudieron cargar los remates/)).toBeTruthy();
   });
 });
+
+// Hoy, según el mock de todayISO, es el 2026-06-04.
+describe('EventsScreen - filtros de mes y actividad', () => {
+  const unaPagina = (cats = [{ id: 7, nombre: 'Aparte Campero' }]) =>
+    ({ data: [ev({ id: 1, titulo: 'PRIMERO', categorias: cats })] });
+
+  const abrirMeses = async (utils) => {
+    await act(async () => { fireEvent.press(utils.getByLabelText('Elegir mes')); await flushPromises(); });
+  };
+  const elegirMes = async (utils, etiqueta) => {
+    await act(async () => { fireEvent.press(utils.getByLabelText(etiqueta)); await flushPromises(); });
+  };
+  const ultimaLlamada = () => fetchEventos.mock.calls[fetchEventos.mock.calls.length - 1][0];
+
+  test('arranca sin mes elegido y lo dice', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    expect(await utils.findByLabelText('Elegir mes')).toBeTruthy();
+    expect(utils.getByText('Todos los meses')).toBeTruthy();
+  });
+
+  test('elegir un mes futuro pide ese rango completo', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jul 2026');
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({
+      fecha_desde: '2026-07-01', fecha_hasta: '2026-07-31', sort: 'fecha_asc', offset: 0,
+    }));
+  });
+
+  test('el mes en curso no pide desde antes de hoy', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jun 2026');
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({
+      fecha_desde: '2026-06-04', fecha_hasta: '2026-06-30',
+    }));
+  });
+
+  test('en Próximos los meses que ya pasaron están apagados', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    await abrirMeses(utils);
+    expect(utils.getByLabelText('Mes May 2026').props.accessibilityState.disabled).toBe(true);
+    expect(utils.getByLabelText('Mes Jun 2026').props.accessibilityState.disabled).toBe(false);
+    const antes = fetchEventos.mock.calls.length;
+    fireEvent.press(utils.getByLabelText('Mes May 2026'));
+    expect(fetchEventos.mock.calls.length).toBe(antes);   // un mes apagado no pide nada
+  });
+
+  test('las flechas mueven el año y se puede elegir uno siguiente', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    await abrirMeses(utils);
+    await act(async () => { fireEvent.press(utils.getByLabelText('Año siguiente')); await flushPromises(); });
+    await elegirMes(utils, 'Mes Ene 2027');
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({
+      fecha_desde: '2027-01-01', fecha_hasta: '2027-01-31',
+    }));
+  });
+
+  test('se puede volver a todos los meses', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jul 2026');
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Todos los meses');
+    expect(ultimaLlamada().fecha_hasta).toBeUndefined();
+    expect(ultimaLlamada().fecha_desde).toBe('2026-06-04');
+  });
+
+  test('en Pasados el rango se corta en hoy', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByText('PRIMERO');
+    await act(async () => { fireEvent.press(utils.getByText('Pasados')); await flushPromises(); });
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jun 2026');
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({
+      fecha_desde: '2026-06-01', fecha_hasta: '2026-06-04',
+    }));
+  });
+
+  test('la actividad sale de lo cargado y viaja como id_categorias', async () => {
+    fetchEventos.mockResolvedValue(unaPagina([
+      { id: 7, nombre: 'Aparte Campero' }, { id: 3, nombre: 'Morfología' },
+    ]));
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    expect(await utils.findByLabelText('Actividad: Morfología')).toBeTruthy();
+    expect(utils.getByLabelText('Actividad: Aparte Campero')).toBeTruthy();
+    await act(async () => { fireEvent.press(utils.getByLabelText('Actividad: Morfología')); await flushPromises(); });
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({ id_categorias: '3' }));
+  });
+
+  test('la actividad elegida no borra del selector a las demás', async () => {
+    fetchEventos.mockResolvedValueOnce(unaPagina([
+      { id: 7, nombre: 'Aparte Campero' }, { id: 3, nombre: 'Morfología' },
+    ]));
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Actividad: Morfología');
+    // La respuesta filtrada ya no trae Aparte Campero, pero el chip sigue.
+    fetchEventos.mockResolvedValueOnce(unaPagina([{ id: 3, nombre: 'Morfología' }]));
+    await act(async () => { fireEvent.press(utils.getByLabelText('Actividad: Morfología')); await flushPromises(); });
+    expect(utils.getByLabelText('Actividad: Aparte Campero')).toBeTruthy();
+  });
+
+  test('sin resultados, el vacío nombra el mes y la actividad', async () => {
+    fetchEventos.mockResolvedValueOnce(unaPagina([{ id: 3, nombre: 'Morfología' }]));
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Actividad: Morfología');
+    fetchEventos.mockResolvedValue({ data: [] });
+    await act(async () => { fireEvent.press(utils.getByLabelText('Actividad: Morfología')); await flushPromises(); });
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jul 2026');
+    expect(await utils.findByText('No hay eventos próximos de Morfología en julio de 2026.')).toBeTruthy();
+  });
+});
