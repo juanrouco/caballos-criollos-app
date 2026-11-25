@@ -54,3 +54,15 @@ export function formatDateLong(s) {
   if (!month) return str;
   return `${day} de ${month} ${m[1]}`;
 }
+
+// ¿Este HTML dice algo? El editor del admin viejo deja cáscaras vacías
+// (`<p>&nbsp;</p>`, un `<br>` suelto) que no son contenido pero no son cadena
+// vacía: sin esto se abrirían secciones en blanco. Lo usan los avisos del alta
+// y los textos libres del evento.
+export function tieneContenido(html) {
+  if (!html) return false;
+  return String(html)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .trim().length > 0;
+}

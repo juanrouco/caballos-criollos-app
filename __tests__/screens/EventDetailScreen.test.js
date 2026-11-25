@@ -95,6 +95,52 @@ describe('EventDetailScreen', () => {
     expect(getByText('5 de abril 2026')).toBeTruthy();
   });
 
+  test('Info: el cronograma cargado en «Información adicional» se muestra', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({
+      id: 51,
+      informacion_adicional: '<h3>Cronograma</h3><table><tr><td>09:00</td><td>Morfología</td></tr></table>',
+    }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getAllByLabelText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 51 })} />,
+    );
+    expect(await findByText('Información adicional')).toBeTruthy();
+    // El HTML lo pinta el WebView de HtmlBody (stubeado): alcanza con que esté.
+    expect(getAllByLabelText('WebView').length).toBe(1);
+  });
+
+  test('Info: los tres textos salen cada uno con su título, y el vacío no abre sección', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({
+      id: 52,
+      informacion_adicional: '<p>Cronograma por día</p>',
+      descripcion_tarifas: '<p>&nbsp;</p>',          // cáscara del editor viejo
+      observaciones: '<p>Traer certificado sanitario</p>',
+    }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText, queryByText, getAllByLabelText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 52 })} />,
+    );
+    await findByText('Información adicional');
+    expect(getByText('Observaciones')).toBeTruthy();
+    expect(queryByText('Tarifas')).toBeNull();
+    expect(getAllByLabelText('WebView').length).toBe(2);
+  });
+
+  test('Info: un evento sin textos libres no muestra ninguna sección', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 53 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, queryByText, queryAllByLabelText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 53 })} />,
+    );
+    await findByText('Fecha');
+    expect(queryByText('Información adicional')).toBeNull();
+    expect(queryByText('Observaciones')).toBeNull();
+    expect(queryAllByLabelText('WebView').length).toBe(0);
+  });
+
   test('cap a 3 chips + chip "+N" cuando hay más categorías', async () => {
     fetchEvento.mockResolvedValueOnce(evento({
       categorias: [

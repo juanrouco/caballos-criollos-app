@@ -1,4 +1,4 @@
-import { formatDate, formatDateLong, fixCp1252 } from '../src/format';
+import { formatDate, formatDateLong, fixCp1252, tieneContenido } from '../src/format';
 
 describe('fixCp1252', () => {
   test('mapea los bytes de control cp1252 a su caracter Unicode', () => {
@@ -66,5 +66,24 @@ describe('formatDateLong', () => {
     expect(formatDateLong('16/07/2026')).toBe('16/07/2026');
     expect(formatDateLong(null)).toBe('');
     expect(formatDateLong('')).toBe('');
+  });
+});
+
+describe('tieneContenido', () => {
+  test('un texto de verdad cuenta como contenido', () => {
+    expect(tieneContenido('<p>Cronograma por día</p>')).toBe(true);
+    expect(tieneContenido('09:00 Morfología')).toBe(true);
+  });
+
+  test('las cáscaras vacías del editor viejo no cuentan', () => {
+    expect(tieneContenido('<p>&nbsp;</p>')).toBe(false);
+    expect(tieneContenido('<p>&#160;</p><br>')).toBe(false);
+    expect(tieneContenido('<div>   </div>')).toBe(false);
+  });
+
+  test('vacío, null y undefined tampoco', () => {
+    expect(tieneContenido('')).toBe(false);
+    expect(tieneContenido(null)).toBe(false);
+    expect(tieneContenido(undefined)).toBe(false);
   });
 });

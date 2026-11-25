@@ -4,7 +4,8 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { Icon, Card, Divider, F } from '../components';
 import { withAlpha } from '../theme';
-import { formatDate, formatDateLong, fixCp1252 } from '../format';
+import { formatDate, formatDateLong, fixCp1252, tieneContenido } from '../format';
+import HtmlBody from '../HtmlBody';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   isEmptyCatalog, isEmptyResults, mapEvent, imgUrl, categoriaEntries,
@@ -1412,7 +1413,22 @@ function AparteAnimalRow({ t, a, navigation }) {
 
 // ── Info ─────────────────────────────────────────────────────────
 
+// Los tres campos de texto libre del evento, con el rótulo que tienen en el
+// admin de la web, en el orden en que importan. Vienen como HTML (la API ya les
+// saca las imágenes embebidas en base64) y acá va lo que la ACCC quiera contar
+// del evento — el cronograma incluido: mientras lo carguen ahí, aparece solo.
+//
+// Un evento sin estos textos no muestra nada: el editor viejo deja cáscaras
+// vacías, y por eso el filtro es `tieneContenido` y no un chequeo de string.
+const TEXTOS_EVENTO = [
+  ['informacion_adicional', 'Información adicional'],
+  ['descripcion_tarifas',   'Tarifas'],
+  ['observaciones',         'Observaciones'],
+];
+
 function InfoTab({ t, event, mapped }) {
+  const { width } = useWindowDimensions();
+  const textos = TEXTOS_EVENTO.filter(([campo]) => tieneContenido(event[campo]));
   const rows = [
     ['Fecha', formatDateLong(event.fecha)],
     event.fecha_hasta && event.fecha_hasta !== event.fecha ? ['Hasta', formatDateLong(event.fecha_hasta)] : null,
@@ -1438,6 +1454,18 @@ function InfoTab({ t, event, mapped }) {
           ))}
         </View>
       </Card>
+
+      {textos.map(([campo, titulo]) => (
+        <View key={campo} style={{ marginTop: 22 }}>
+          <SectionTitle t={t}>{titulo}</SectionTitle>
+          {/* HtmlBody se pone sus propios 20 de padding lateral. El contenedor
+              de las tabs ya tiene otros 20, así que lo sacamos con un margen
+              negativo para que el texto quede alineado con las cards. */}
+          <View style={{ marginHorizontal: -20 }}>
+            <HtmlBody html={event[campo]} t={t} ancho={width - 40} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }

@@ -27,6 +27,13 @@ export default function HtmlBody({ html, t, ancho }) {
       a { color: ${t.accent}; text-decoration: none; }
       ul, ol { padding-left: 20px; margin: 0 0 12px; }
       blockquote { border-left: 3px solid ${t.accent}; padding-left: 12px; margin: 12px 0; color: ${t.textMute}; }
+      /* Los cronogramas de evento y algunos reglamentos vienen como tabla
+         pegada del editor del admin, con anchos en píxeles pensados para una
+         pantalla de escritorio. Sin esto se van de la pantalla: le sacamos el
+         ancho fijo y la dejamos desbordar con scroll propio en vez de cortar. */
+      table { width: 100% !important; max-width: 100%; border-collapse: collapse; margin: 0 0 12px; display: block; overflow-x: auto; }
+      th, td { border: 1px solid ${t.border}; padding: 6px 8px; text-align: left; vertical-align: top; width: auto !important; }
+      th { font-weight: 600; }
     </style></head><body>${html}</body></html>`;
   return (
     <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
@@ -39,7 +46,15 @@ export default function HtmlBody({ html, t, ancho }) {
         injectedJavaScript={`
           (function() {
             function post() {
-              var h = document.body ? document.body.scrollHeight : 0;
+              // El scrollHeight del body se queda corto cuando el último
+              // bloque tiene margen (se colapsa fuera de la caja del body) y
+              // ahí la última línea queda cortada. Tomamos el mayor de las
+              // cuatro medidas, que es lo que de verdad ocupa el contenido.
+              var b = document.body, d = document.documentElement;
+              var h = Math.max(
+                b ? b.scrollHeight : 0, b ? b.offsetHeight : 0,
+                d ? d.scrollHeight : 0, d ? d.offsetHeight : 0
+              );
               if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(String(h));
             }
             if (document.readyState === 'complete') post();
@@ -47,6 +62,12 @@ export default function HtmlBody({ html, t, ancho }) {
             Array.prototype.slice.call(document.images || []).forEach(function(img) {
               if (!img.complete) img.addEventListener('load', post);
             });
+            // El load no alcanza cuando el alto cambia después: una tabla que
+            // reacomoda sus columnas (los cronogramas de evento vienen con
+            // anchos fijos del editor) deja la última línea cortada si el alto
+            // quedó medido antes de ese reacomodo.
+            if (window.ResizeObserver) new ResizeObserver(post).observe(document.documentElement);
+            else { setTimeout(post, 300); setTimeout(post, 1200); }
           })();
           true;
         `}

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Keyboard, useWindowDimensions } from 'react-native';
 import { Icon, Card, Divider, SectionLabel, Field, Boton, F } from '../components';
 import { withAlpha } from '../theme';
-import { formatDate } from '../format';
+import { formatDate, tieneContenido } from '../format';
 import { describirErrores, describirErroresEquipo, textoEntradaInvalida, textoServicio, textoUsuario, SERVICIO_ALTA } from '../erroresInscripcion';
 import { alternarCategoria } from '../reglasAlta';
 import {
@@ -315,14 +315,6 @@ function dedup(paginas) {
     vistos.add(clave);
     return true;
   });
-}
-
-function tieneContenido(html) {
-  if (!html) return false;
-  return String(html)
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;|&#160;/gi, ' ')
-    .trim().length > 0;
 }
 
 // ── Avisos ─────────────────────────────────────────────────────────
