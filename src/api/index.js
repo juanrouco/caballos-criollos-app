@@ -29,6 +29,7 @@ export { registerPushToken, bajaPushToken } from './push';
 export { enviarUso, USO_PATH } from './uso';
 export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
+  fetchEventoCategorias,
   fetchResultadoDetalle,
   mapEvent, isEmptyCatalog, isEmptyResults, categoriaEntries,
 } from './eventos';

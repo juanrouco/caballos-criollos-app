@@ -3,19 +3,23 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 jest.mock('../../src/api', () => ({
   fetchEventos: jest.fn(),
+  fetchEventoCategorias: jest.fn(),
   mapEvent: jest.requireActual('../../src/api/eventos').mapEvent,
   fetchNoticias: jest.fn(),
   mapNoticia: jest.requireActual('../../src/api/noticias').mapNoticia,
   todayISO: () => '2026-06-04',
   fetchVivos: jest.fn(),
 }));
-const { fetchEventos, fetchNoticias, fetchVivos } = require('../../src/api');
+const { fetchEventos, fetchEventoCategorias, fetchNoticias, fetchVivos } = require('../../src/api');
 const { LiveProvider } = require('../../src/LiveContext');
 const EventsScreen = require('../../src/screens/EventsScreen').default;
 const { T, navStub, flushPromises } = require('../helpers');
 
 beforeEach(() => {
   fetchEventos.mockReset();
+  // Por defecto el catálogo no agrega nada: cada test que lo necesite lo dice.
+  fetchEventoCategorias.mockReset();
+  fetchEventoCategorias.mockResolvedValue({ data: [] });
   fetchNoticias.mockReset();
   fetchVivos.mockReset();
   fetchVivos.mockResolvedValue({ data: [] });
@@ -214,6 +218,39 @@ describe('EventsScreen - filtros de mes y actividad', () => {
     expect(ultimaLlamada()).toEqual(expect.objectContaining({
       fecha_desde: '2026-06-01', fecha_hasta: '2026-06-04',
     }));
+  });
+
+  test('el catálogo trae actividades que los eventos cargados no tienen', async () => {
+    fetchEventos.mockResolvedValue(unaPagina([{ id: 7, nombre: 'Aparte Campero' }]));
+    fetchEventoCategorias.mockResolvedValue({ data: [
+      { id: 7, nombre: 'Aparte Campero' }, { id: 3, nombre: 'Morfología' }, { id: 9, nombre: 'Rienda' },
+    ] });
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    // Rienda no está en ningún evento de la página y el selector igual la ofrece.
+    expect(await utils.findByLabelText('Actividad: Rienda')).toBeTruthy();
+    expect(utils.getByLabelText('Actividad: Morfología')).toBeTruthy();
+    await act(async () => { fireEvent.press(utils.getByLabelText('Actividad: Rienda')); await flushPromises(); });
+    expect(ultimaLlamada()).toEqual(expect.objectContaining({ id_categorias: '9' }));
+  });
+
+  test('el catálogo se pide con la fecha del eje, no con la del mes elegido', async () => {
+    fetchEventos.mockResolvedValue(unaPagina());
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    await utils.findByLabelText('Elegir mes');
+    expect(fetchEventoCategorias).toHaveBeenLastCalledWith({ fecha_desde: '2026-06-04' });
+    await abrirMeses(utils);
+    await elegirMes(utils, 'Mes Jul 2026');
+    // Moverse de mes no vuelve a pedirlo: la lista de opciones no se achica.
+    expect(fetchEventoCategorias).toHaveBeenCalledTimes(1);
+    await act(async () => { fireEvent.press(utils.getByText('Pasados')); await flushPromises(); });
+    expect(fetchEventoCategorias).toHaveBeenLastCalledWith({ fecha_hasta: '2026-06-04' });
+  });
+
+  test('si el catálogo falla, el selector sigue con lo que traen los eventos', async () => {
+    fetchEventos.mockResolvedValue(unaPagina([{ id: 3, nombre: 'Morfología' }]));
+    fetchEventoCategorias.mockRejectedValue(new Error('404'));
+    const utils = render(wrap(<EventsScreen t={T} navigation={navStub()} />));
+    expect(await utils.findByLabelText('Actividad: Morfología')).toBeTruthy();
   });
 
   test('la actividad sale de lo cargado y viaja como id_categorias', async () => {

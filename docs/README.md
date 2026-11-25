@@ -509,6 +509,27 @@ Params mandados como array (`x[]=...`): `titulo`, `suspendido`, `fecha_desde`, `
 - `imagen` es el nombre de archivo crudo (puede venir vacío). `imagen_optimizada` es la URL ya armada al endpoint `/img` (resize + recompresión + cache), o `null` si no hay imagen o el nombre no es válido. Ver [Imágenes optimizadas](#imágenes-optimizadas).
 - `observaciones`, `descripcion_tarifas` e `informacion_adicional` vienen como HTML. Las `<img src="data:image/...;base64,...">` embebidas por el editor del admin viejo se quitan (ahorran decenas de KB por respuesta).
 
+#### `GET /eventos/categorias`
+
+Catálogo de categorías para poblar el filtro por actividad del calendario, sin paginar. **Cache**: `Cache-Control: public, max-age=3600` (1 h). Público.
+
+Devuelve **sólo las categorías que tienen al menos un evento**, con el mismo filtro que `GET /eventos`: acepta `fecha_desde`, `fecha_hasta` (`YYYY-MM-DD`) y `suspendido`, con la misma semántica. Conviene mandarle las mismas fechas que al listado, así no ofrece una actividad que en ese período no tiene nada: con `fecha_desde` = hoy salen 13 de las 15. Una fecha mal formada da `400`, igual que en el listado.
+
+**Response**
+
+```json
+{
+  "data": [
+    { "id": 266, "nombre": "Aparte Campero" },
+    { "id": 271, "nombre": "Morfología" }
+  ]
+}
+```
+
+Orden: `Orden ASC`, después `Nombre ASC`, después `id` — como en `/noticias/categorias`. Hoy sale alfabético, porque en producción las categorías de eventos no tienen `Orden` cargado.
+
+⚠️ En **cdev la lista viene vacía**: la base de la web no tiene eventos cargados, y el catálogo se arma a partir de ellos. No es un error del endpoint. La app lo contempla — si el catálogo viene vacío o falla, el selector de actividad se arma con las categorías que traen los eventos listados.
+
 #### `GET /eventos/{id}`
 
 Detalle: el mismo item del listado, más `vivo_actual` al final (ver [Vivo actual en el detalle del evento](#vivo-actual-en-el-detalle-del-evento)).

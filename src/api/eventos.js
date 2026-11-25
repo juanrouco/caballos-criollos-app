@@ -2,6 +2,11 @@ import { apiGet } from './client';
 
 export const fetchEventos           = (params) => apiGet('/eventos', params);
 export const fetchEvento            = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}`);
+// Catálogo de categorías para el filtro por actividad. Devuelve sólo las que
+// tienen al menos un evento, y acepta los mismos `fecha_desde` / `fecha_hasta`
+// que el listado: conviene mandarle las mismas fechas, así no ofrece una
+// actividad que en ese período no tiene nada.
+export const fetchEventoCategorias  = (params) => apiGet('/eventos/categorias', params);
 export const fetchEventoCatalogo    = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/catalogo`);
 export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURIComponent(id)}/resultados`);
 // Desagregado de UN resultado (los sub-puntajes que suman el total).

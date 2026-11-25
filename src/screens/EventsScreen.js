@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image, Scrol
 import { Icon, Card, F } from '../components';
 import { withAlpha } from '../theme';
 import {
-  fetchEventos, mapEvent, todayISO,
+  fetchEventos, fetchEventoCategorias, mapEvent, todayISO,
   fetchNoticias, mapNoticia,
 } from '../api';
 import { useLive } from '../LiveContext';
@@ -62,14 +62,15 @@ export default function EventsScreen({ t, navigation }) {
 const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-// Suma al catálogo las actividades de una página, sin repetir y sin perder las
-// de las páginas anteriores. Devuelve el array previo cuando no entró ninguna
-// nueva: si no, cada página dispararía un render con una lista idéntica.
-export function sumarActividades(prev, raw) {
+// Suma actividades al catálogo, sin repetir y sin perder las de antes. Le
+// entran por dos lados: el endpoint del catálogo y las que traen los eventos
+// cargados. Devuelve el array previo cuando no entró ninguna nueva: si no, cada
+// página dispararía un render con una lista idéntica.
+export function sumarActividades(prev, cats) {
   const porId = new Map((prev || []).map((a) => [a.id, a]));
-  (raw || []).forEach((e) => (e.categorias || []).forEach((c) => {
+  (cats || []).forEach((c) => {
     if (c && c.id != null && !porId.has(c.id)) porId.set(c.id, { id: c.id, nombre: c.nombre || '' });
-  }));
+  });
   if (porId.size === (prev || []).length) return prev;
   // Alfabético: es el único orden con sentido mientras el backend no mande uno.
   return [...porId.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -248,7 +249,7 @@ function EventsList({ t, navigation, filter }) {
       if (myId !== reqIdRef.current) return;
       const raw  = r.data || [];
       const page = raw.map(mapEvent).filter((e) => !e.suspendido);
-      setActividades((prev) => sumarActividades(prev, raw));
+      setActividades((prev) => sumarActividades(prev, raw.flatMap((e) => e.categorias || [])));
       offsetRef.current = offset + raw.length;
       setItems((prev) => (reset ? page : [...(prev || []), ...page]));
       if (raw.length < PAGE_EVENTS) setReachedEnd(true);
@@ -262,6 +263,24 @@ function EventsList({ t, navigation, filter }) {
   }, [filter, mes, actividad]);
 
   React.useEffect(() => { fetchPage(true); }, [fetchPage]);
+
+  // El catálogo de actividades, una vez por eje. Le mandamos la fecha del eje y
+  // no la del mes elegido: así la lista de opciones no se achica al moverse de
+  // mes, que dejaría afuera a la que está seleccionada.
+  //
+  // Lo que trae se SUMA a lo derivado de los eventos, no lo reemplaza: el
+  // catálogo viene filtrado por fecha y puede no tener alguna categoría que sí
+  // está en la lista. Y si falla, quedan sólo las derivadas, que es como
+  // funcionaba antes de que el endpoint existiera — en cdev viene vacío, porque
+  // la base de la web no tiene eventos, y contra la API vieja da 404.
+  React.useEffect(() => {
+    let cancelado = false;
+    const pasados = filter !== 'proximos';
+    fetchEventoCategorias(pasados ? { fecha_hasta: todayISO() } : { fecha_desde: todayISO() })
+      .then((r) => { if (!cancelado) setActividades((prev) => sumarActividades(prev, r.data || [])); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [filter]);
 
   // Datos planos para FlatList: filas de fecha intercaladas con eventos.
   const rows = React.useMemo(() => {
