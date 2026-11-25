@@ -532,7 +532,17 @@ Orden: `Orden ASC`, después `Nombre ASC`, después `id` — como en `/noticias/
 
 #### `GET /eventos/{id}`
 
-Detalle: el mismo item del listado, más `vivo_actual` al final (ver [Vivo actual en el detalle del evento](#vivo-actual-en-el-detalle-del-evento)).
+Detalle: el mismo item del listado, más `jurados` y `vivo_actual` al final (ver [Vivo actual en el detalle del evento](#vivo-actual-en-el-detalle-del-evento)).
+
+**`jurados`**: las autoridades del evento, de `tblEventosMorfologicosAutoridades`.
+
+```json
+"jurados": [ { "id": 54, "nombre": "Pérez, Juan", "rol": "jurado" } ]
+```
+
+`rol` hoy es siempre `"jurado"`. Las columnas de secretarios y de otras disciplinas (`SAVE`, `JAMO`, `SAMO`, `JAMA`, `SAMA`) son legado —sólo tienen datos de 2010 a 2012— y **no se exponen**; si alguna vez se cargan secretarios, van a venir en el mismo array con otro `rol`, sin cambiar la forma.
+
+Viene `[]` cuando el evento no tiene autoridades cargadas, que es el caso de la mayoría. **La clave falta** sólo si falla la base de inscripciones: para la app es lo mismo que vacío.
 
 `{id}` se toma como entero con las reglas de las convenciones generales (`2057abc` ⇒ `2057`, `2057.9` ⇒ `2057`, `1e3` ⇒ `1`). Un id no numérico, `0` o negativo **no** da `400`: da `404` `"Evento no encontrado"`, igual que un evento inexistente o inactivo.
 

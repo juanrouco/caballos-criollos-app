@@ -1,4 +1,4 @@
-import { mapEvent, isEmptyCatalog, isEmptyResults } from '../../src/api/eventos';
+import { mapEvent, isEmptyCatalog, isEmptyResults, contarCatalogo } from '../../src/api/eventos';
 
 describe('mapEvent', () => {
   test('formatea fecha corta + larga + día de la semana', () => {
@@ -200,5 +200,45 @@ describe('isEmptyResults', () => {
     expect(isEmptyResults({
       aparte_campero: { pruebas: [{ clasificacion: 'Clasificatoria', equipos: [{ puesto: 1, total: 80, animales: [] }] }] },
     })).toBe(false);
+  });
+});
+
+describe('contarCatalogo', () => {
+  const animal = (id, numero) => ({ id, propietario: numero ? { numero, nombre: 'X' } : null });
+
+  test('un catálogo vacío o ausente cuenta cero', () => {
+    expect(contarCatalogo(null)).toEqual({ animales: 0, expositores: 0 });
+    expect(contarCatalogo({ pruebas_funcionales: [], morfologicas: [] })).toEqual({ animales: 0, expositores: 0 });
+  });
+
+  test('el mismo animal en dos categorías cuenta una vez', () => {
+    const c = {
+      pruebas_funcionales: [{ categorias: [{ animales: [animal('pdre:1', '10'), animal('pdre:2', '20')] }] }],
+      morfologicas: [{ animales: [animal('pdre:1', '10'), animal('pdre:3', '20')] }],
+    };
+    expect(contarCatalogo(c)).toEqual({ animales: 3, expositores: 2 });
+  });
+
+  test('cuenta también los de yuntas y los de equipos', () => {
+    const c = {
+      pruebas_funcionales: [
+        { categorias: [{ yuntas: [{ animales: [animal('pdre:1', '10'), animal('pdre:2', '11')] }] }] },
+        { categorias: [{ equipos: [{ animales: [animal('pdre:3', '12'), animal('pdre:4', '12')] }] }] },
+      ],
+      morfologicas: [],
+    };
+    expect(contarCatalogo(c)).toEqual({ animales: 4, expositores: 3 });
+  });
+
+  test('sin número de propietario, el expositor se distingue por nombre', () => {
+    const c = {
+      pruebas_funcionales: [],
+      morfologicas: [{ animales: [
+        { id: 'pdre:1', propietario: { numero: '', nombre: 'LA FLORIDA' } },
+        { id: 'pdre:2', propietario: { numero: null, nombre: 'LA FLORIDA' } },
+        { id: 'pdre:3', propietario: null },
+      ] }],
+    };
+    expect(contarCatalogo(c)).toEqual({ animales: 3, expositores: 1 });
   });
 });

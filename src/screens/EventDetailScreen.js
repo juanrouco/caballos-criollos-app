@@ -8,7 +8,7 @@ import { formatDate, formatDateLong, fixCp1252, tieneContenido } from '../format
 import HtmlBody from '../HtmlBody';
 import {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
-  isEmptyCatalog, isEmptyResults, mapEvent, imgUrl, categoriaEntries,
+  isEmptyCatalog, isEmptyResults, mapEvent, imgUrl, categoriaEntries, contarCatalogo,
 } from '../api';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
@@ -244,7 +244,7 @@ export default function EventDetailScreen({ t, navigation, route }) {
                 refreshing={refreshingResultados}
               />
             )}
-            {activeTab === 'info'       && <InfoTab       t={t} event={event} mapped={mapped} />}
+            {activeTab === 'info'       && <InfoTab       t={t} event={event} mapped={mapped} catalogo={catalogo} />}
           </>
         )}
       </View>
@@ -1426,8 +1426,37 @@ const TEXTOS_EVENTO = [
   ['observaciones',         'Observaciones'],
 ];
 
-function InfoTab({ t, event, mapped }) {
+// Rótulo de cada rol de autoridad. Hoy la API manda sólo «jurado», pero
+// avisaron que los secretarios van a aparecer con otro `rol` y la misma forma:
+// agrupando por rol desde ahora, el día que lleguen no hay que tocar nada ni
+// sale un secretario rotulado como jurado.
+const ROL_AUTORIDAD = { jurado: 'Jurados', secretario: 'Secretarios' };
+
+// Una fila por rol, con los nombres separados por coma. `jurados` puede venir
+// vacío (el evento no tiene autoridades cargadas) o directamente faltar —la API
+// omite la clave si se le cae la base de inscripciones—, y en los dos casos no
+// hay filas que mostrar.
+export function filasAutoridades(jurados) {
+  const porRol = new Map();
+  (jurados || []).forEach((j) => {
+    const nombre = String(j?.nombre || '').trim();
+    if (!nombre) return;
+    const rol = j?.rol || 'jurado';
+    if (!porRol.has(rol)) porRol.set(rol, []);
+    porRol.get(rol).push(nombre);
+  });
+  return [...porRol.entries()].map(([rol, nombres]) => [
+    ROL_AUTORIDAD[rol] || `${rol.charAt(0).toUpperCase()}${rol.slice(1)}`,
+    nombres.join(', '),
+  ]);
+}
+
+function InfoTab({ t, event, mapped, catalogo }) {
   const { width } = useWindowDimensions();
+  // Las cuentas salen del catálogo, que la pantalla ya trajo para su pestaña.
+  // En un evento que todavía no cerró inscripciones esto crece día a día, de
+  // ahí el rótulo «inscriptos» y no «animales» a secas.
+  const { animales, expositores } = contarCatalogo(catalogo);
   const textos = TEXTOS_EVENTO.filter(([campo]) => tieneContenido(event[campo]));
   const rows = [
     ['Fecha', formatDateLong(event.fecha)],
@@ -1436,6 +1465,9 @@ function InfoTab({ t, event, mapped }) {
     event.direccion ? ['Dirección', event.direccion] : null,
     event.region?.nombre ? ['Región', event.region.nombre] : null,
     mapped.disciplines.length > 0 ? ['Categorías', mapped.disciplines.join(', ')] : null,
+    ...filasAutoridades(event.jurados),
+    animales > 0 ? ['Animales inscriptos', String(animales)] : null,
+    expositores > 0 ? ['Expositores', String(expositores)] : null,
     event.web ? ['Web', event.web] : null,
     event.email ? ['Email', event.email] : null,
     event.fecha_inscripcion_desde ? ['Inscripción desde', formatDateLong(event.fecha_inscripcion_desde)] : null,

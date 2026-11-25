@@ -15,6 +15,35 @@ export const fetchEventoResultados  = (id)     => apiGet(`/eventos/${encodeURICo
 export const fetchResultadoDetalle  = (id, prueba, target) =>
   apiGet(`/eventos/${encodeURIComponent(id)}/resultados/${encodeURIComponent(prueba)}/${encodeURIComponent(target)}`);
 
+// Cuántos animales y cuántos expositores hay anotados, para la Info del evento.
+//
+// Dos cuidados: un animal aparece una vez por cada categoría en la que está
+// inscripto, así que se cuenta por id y no por apariciones; y hay tres formas
+// de listarlos —`animales[]`, `yuntas[].animales[]` (rodeos) y
+// `equipos[].animales[]` (aparte campero)—, las mismas tres que mira
+// `isEmptyCatalog`.
+//
+// El expositor es el propietario del animal. Lo identifica su `numero`; si una
+// fila no lo trae, cae al nombre, que es lo único que queda para distinguirlo.
+export function contarCatalogo(c) {
+  const animales = new Set();
+  const expositores = new Set();
+  const sumar = (a) => {
+    if (!a) return;
+    if (a.id != null) animales.add(String(a.id));
+    const clave = a.propietario?.numero || a.propietario?.nombre;
+    if (clave) expositores.add(String(clave).trim());
+  };
+  const porCategoria = (cat) => {
+    (cat?.animales || []).forEach(sumar);
+    (cat?.yuntas || []).forEach((y) => (y?.animales || []).forEach(sumar));
+    (cat?.equipos || []).forEach((e) => (e?.animales || []).forEach(sumar));
+  };
+  (c?.pruebas_funcionales || []).forEach((p) => (p?.categorias || []).forEach(porCategoria));
+  (c?.morfologicas || []).forEach(porCategoria);
+  return { animales: animales.size, expositores: expositores.size };
+}
+
 // Catálogo "vacío" = ninguna prueba funcional ni morfológica tiene animales
 // (o yuntas para rodeos / equipos para aparte campero, que usan esos shapes
 // en vez de animales[]).

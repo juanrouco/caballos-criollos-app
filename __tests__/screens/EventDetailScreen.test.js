@@ -10,6 +10,7 @@ jest.mock('../../src/api', () => {
     isEmptyCatalog:        actual.isEmptyCatalog,
     isEmptyResults:        actual.isEmptyResults,
     categoriaEntries:      actual.categoriaEntries,
+    contarCatalogo:        actual.contarCatalogo,
     mapEvent:              actual.mapEvent,
     imgUrl:                jest.requireActual('../../src/api/images').imgUrl,
   };
@@ -18,6 +19,7 @@ const {
   fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
 } = require('../../src/api');
 const EventDetailScreen = require('../../src/screens/EventDetailScreen').default;
+const { filasAutoridades } = require('../../src/screens/EventDetailScreen');
 const { T, navStub, routeStub } = require('../helpers');
 
 beforeEach(() => {
@@ -93,6 +95,68 @@ describe('EventDetailScreen', () => {
     expect(getByText('15 de abril 2026')).toBeTruthy();
     expect(getByText('1 de marzo 2026')).toBeTruthy();
     expect(getByText('5 de abril 2026')).toBeTruthy();
+  });
+
+  test('Info: los jurados salen en su propia fila', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 56, jurados: [
+      { id: 54, nombre: 'Führig, Tomás', rol: 'jurado' },
+      { id: 55, nombre: 'Pérez, Ana', rol: 'jurado' },
+    ] }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 56 })} />,
+    );
+    await findByText('Jurados');
+    expect(getByText('Führig, Tomás, Pérez, Ana')).toBeTruthy();
+  });
+
+  test('Info: sin jurados cargados no aparece la fila', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 57, jurados: [] }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 57 })} />,
+    );
+    await findByText('Fecha');
+    expect(queryByText('Jurados')).toBeNull();
+  });
+
+  test('Info: cuenta los animales y los expositores del catálogo', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 54 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({
+      pruebas_funcionales: [{ categorias: [{ animales: [
+        { id: 'pdre:1', propietario: { numero: '10', nombre: 'UNO' } },
+        { id: 'pdre:2', propietario: { numero: '11', nombre: 'DOS' } },
+      ] }] }],
+      // El mismo pdre:1 otra vez (cuenta una sola) y uno nuevo del mismo dueño.
+      morfologicas: [{ animales: [
+        { id: 'pdre:1', propietario: { numero: '10', nombre: 'UNO' } },
+        { id: 'pdre:3', propietario: { numero: '11', nombre: 'DOS' } },
+      ] }],
+    });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, getByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 54 })} />,
+    );
+    // Con catálogo cargado la pantalla arranca en esa pestaña, no en Info.
+    fireEvent.press(await findByText('Info'));
+    await findByText('Animales inscriptos');
+    expect(getByText('3')).toBeTruthy();      // tres animales distintos
+    expect(getByText('Expositores')).toBeTruthy();
+    expect(getByText('2')).toBeTruthy();      // dos propietarios distintos
+  });
+
+  test('Info: sin catálogo no aparecen las filas de animales ni expositores', async () => {
+    fetchEvento.mockResolvedValueOnce(evento({ id: 55 }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce({});
+    const { findByText, queryByText } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 55 })} />,
+    );
+    await findByText('Fecha');
+    expect(queryByText('Animales inscriptos')).toBeNull();
+    expect(queryByText('Expositores')).toBeNull();
   });
 
   test('Info: el cronograma cargado en «Información adicional» se muestra', async () => {
@@ -1537,5 +1601,29 @@ describe('EventDetailScreen', () => {
     await findByText('Expo Nacional');
     fireEvent.press(getByText('Catálogo'));
     await waitFor(() => expect(getByText('Cat. 17')).toBeTruthy());
+  });
+});
+
+describe('filasAutoridades', () => {
+  test('sin autoridades, o sin la clave, no hay filas', () => {
+    expect(filasAutoridades(undefined)).toEqual([]);   // la API la omite si se cae la base
+    expect(filasAutoridades([])).toEqual([]);
+    expect(filasAutoridades([{ id: 1, nombre: '   ', rol: 'jurado' }])).toEqual([]);
+  });
+
+  test('agrupa por rol y arma una fila por cada uno', () => {
+    expect(filasAutoridades([
+      { id: 1, nombre: 'Pérez, Juan', rol: 'jurado' },
+      { id: 2, nombre: 'Gómez, Ana', rol: 'secretario' },
+      { id: 3, nombre: 'Díaz, Luis', rol: 'jurado' },
+    ])).toEqual([
+      ['Jurados', 'Pérez, Juan, Díaz, Luis'],
+      ['Secretarios', 'Gómez, Ana'],
+    ]);
+  });
+
+  test('un rol que todavía no conocemos se rotula con su propio nombre', () => {
+    expect(filasAutoridades([{ id: 1, nombre: 'Soto, Eva', rol: 'veedor' }]))
+      .toEqual([['Veedor', 'Soto, Eva']]);
   });
 });

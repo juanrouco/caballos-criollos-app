@@ -31,7 +31,7 @@ export {
   fetchEventos, fetchEvento, fetchEventoCatalogo, fetchEventoResultados,
   fetchEventoCategorias,
   fetchResultadoDetalle,
-  mapEvent, isEmptyCatalog, isEmptyResults, categoriaEntries,
+  mapEvent, isEmptyCatalog, isEmptyResults, categoriaEntries, contarCatalogo,
 } from './eventos';
 export { fetchVivos } from './vivos';
 export {
