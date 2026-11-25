@@ -11,49 +11,81 @@ import { fetchAnimalPedigree, mapAnimalPedigree } from '../api';
 const animalCache = new Map();
 
 // 4-gen pedigree tree: 3 columns × 8 rows.
-function PedigreeNode({ parent, t, level }) {
+// Cada nodo del árbol trae su propio `id` compuesto (`pdre:N` / `exis:N` /
+// `extr:N`, ver el contrato de `/animales/{id}/pedigree`), así que tocarlo abre
+// su ficha sin resolver nada por nombre ni por S.B.A. Los huecos del árbol
+// (ancestro desconocido ⇒ `null`) y el caso raro de un nodo con nombre pero sin
+// id quedan como celda muerta: ni tocable ni con pinta de botón.
+function PedigreeNode({ parent, t, level, onPress }) {
   const accent = level === 1;
   const fontSize = level === 1 ? 13 : level === 2 ? 11.5 : 10.5;
   if (!parent || !parent.name) {
     return <View style={{ flex: 1, backgroundColor: withAlpha(t.surface2, 0.35), borderRadius: 6 }} />;
   }
   const sub = [parent.year, parent.sex].filter(Boolean).join(' · ');
-  return (
-    <View style={{ flex: 1, backgroundColor: accent ? t.surface2 : t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 6, padding: level === 1 ? 10 : 7, justifyContent: 'center' }}>
+  const tocable = !!(parent.id && onPress);
+  // Mismo estilo tocable o no: el objetivo es que se pueda tocar, no cambiar
+  // cómo se lee el árbol (y con id tiene casi todo nodo con datos, así que
+  // destacarlos no distinguiría nada).
+  const cuerpo = (
+    <>
       <Text numberOfLines={2} style={{ fontFamily: F.display, fontSize, color: accent ? t.accent : t.text }}>{parent.name}</Text>
       {!!sub && <Text style={{ fontSize: level === 1 ? 10 : 9, color: t.textMute, marginTop: 3, fontFamily: F.mono }}>{sub}</Text>}
-    </View>
+    </>
+  );
+  const estilo = { flex: 1, backgroundColor: accent ? t.surface2 : t.surface, borderWidth: 1, borderColor: t.border, borderRadius: 6, padding: level === 1 ? 10 : 7, justifyContent: 'center' };
+  if (!tocable) return <View style={estilo}>{cuerpo}</View>;
+  return (
+    <TouchableOpacity
+      onPress={() => onPress(parent.id)}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Ver el pedigree de ${parent.name}`}
+      style={estilo}
+    >
+      {cuerpo}
+    </TouchableOpacity>
   );
 }
 
-function PedigreeTree({ h, t }) {
+function PedigreeTree({ h, t, onPressAncestro }) {
   const sire = h.sire || {}, dam = h.dam || {};
   const ss = sire.sire || {}, sd = sire.dam || {}, ds = dam.sire || {}, dd = dam.dam || {};
   const ROW = 46, GAP = 5;
   const h4 = ROW * 4 + GAP * 3;
   const h2 = ROW * 2 + GAP;
+  const on = onPressAncestro;
   return (
     <View style={{ flexDirection: 'row', gap: 6 }}>
       {/* Col 1: parents */}
       <View style={{ flex: 1.05, gap: GAP }}>
-        <View style={{ height: h4 }}><PedigreeNode parent={h.sire} t={t} level={1} /></View>
-        <View style={{ height: h4 }}><PedigreeNode parent={h.dam} t={t} level={1} /></View>
+        <View style={{ height: h4 }}><PedigreeNode parent={h.sire} t={t} level={1} onPress={on} /></View>
+        <View style={{ height: h4 }}><PedigreeNode parent={h.dam} t={t} level={1} onPress={on} /></View>
       </View>
       {/* Col 2: grandparents */}
       <View style={{ flex: 0.97, gap: GAP }}>
-        <View style={{ height: h2 }}><PedigreeNode parent={sire.sire} t={t} level={2} /></View>
-        <View style={{ height: h2 }}><PedigreeNode parent={sire.dam} t={t} level={2} /></View>
-        <View style={{ height: h2 }}><PedigreeNode parent={dam.sire} t={t} level={2} /></View>
-        <View style={{ height: h2 }}><PedigreeNode parent={dam.dam} t={t} level={2} /></View>
+        <View style={{ height: h2 }}><PedigreeNode parent={sire.sire} t={t} level={2} onPress={on} /></View>
+        <View style={{ height: h2 }}><PedigreeNode parent={sire.dam} t={t} level={2} onPress={on} /></View>
+        <View style={{ height: h2 }}><PedigreeNode parent={dam.sire} t={t} level={2} onPress={on} /></View>
+        <View style={{ height: h2 }}><PedigreeNode parent={dam.dam} t={t} level={2} onPress={on} /></View>
       </View>
       {/* Col 3: great-grandparents */}
       <View style={{ flex: 0.97, gap: GAP }}>
         {[ss.sire, ss.dam, sd.sire, sd.dam, ds.sire, ds.dam, dd.sire, dd.dam].map((p, i) => (
-          <View key={i} style={{ height: ROW }}><PedigreeNode parent={p} t={t} level={3} /></View>
+          <View key={i} style={{ height: ROW }}><PedigreeNode parent={p} t={t} level={3} onPress={on} /></View>
         ))}
       </View>
     </View>
   );
+}
+
+// ¿Hay al menos un ancestro con ficha para abrir? Decide si va la ayuda de
+// «tocá un ancestro»: en un árbol todo hueco, prometer un tap sería mentira.
+function hayAncestroTocable(h) {
+  const nodos = [];
+  const push = (n) => { if (n) { nodos.push(n); push(n.sire); push(n.dam); } };
+  push(h?.sire); push(h?.dam);
+  return nodos.some((n) => n.id && n.name);
 }
 
 function BackButton({ t, onPress }) {
@@ -92,6 +124,20 @@ export default function HorseDetailScreen({ t, navigation, route }) {
 
   const onBack = () => navigation.goBack();
 
+  // Tocar un ancestro abre SU ficha. Va `push` y no `navigate` a propósito:
+  // `navigate` a la pantalla en la que ya estás no apila, sólo le cambia los
+  // params (HorseDetail no declara `getId` en ningún stack), así que el back
+  // volvería al animal del que salimos y no al del salto anterior. Con `push`
+  // cada salto es una pantalla más y el back desarma la cadena de a uno; el
+  // `animalCache` por id hace que la vuelta no re-fetchee ni muestre spinner.
+  // El evento `pantalla` de uso sale solo: `registrarNavegacion` lee
+  // `getCurrentRoute()`, que después del push ya es el HorseDetail nuevo con su
+  // `id` (`pdre:119914`).
+  const onPressAncestro = React.useCallback((ancestroId) => {
+    if (!ancestroId) return;
+    navigation.push('HorseDetail', { id: ancestroId });
+  }, [navigation]);
+
   if (error) {
     return (
       <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
@@ -124,6 +170,7 @@ export default function HorseDetailScreen({ t, navigation, route }) {
     ['Sexo',       horse.sex],
     ['Pelaje',     horse.pelaje],
   ].filter(([, v]) => v);
+  const conAncestros = hayAncestroTocable(horse);
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: bottomPad }} showsVerticalScrollIndicator={false}>
@@ -172,8 +219,15 @@ export default function HorseDetailScreen({ t, navigation, route }) {
         )}
       </View>
 
-      <SectionLabel t={t}>Pedigree · 4 generaciones</SectionLabel>
-      <View style={{ paddingHorizontal: 20 }}><PedigreeTree h={horse} t={t} /></View>
+      <SectionLabel t={t} style={conAncestros ? { marginBottom: 4 } : null}>Pedigree · 4 generaciones</SectionLabel>
+      {conAncestros && (
+        <Text style={{ paddingHorizontal: 20, marginBottom: 12, fontSize: 11, color: t.textMute, fontFamily: F.body }}>
+          Tocá un ancestro para ver su ficha.
+        </Text>
+      )}
+      <View style={{ paddingHorizontal: 20 }}>
+        <PedigreeTree h={horse} t={t} onPressAncestro={onPressAncestro} />
+      </View>
     </ScrollView>
   );
 }

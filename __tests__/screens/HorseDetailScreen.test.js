@@ -85,3 +85,96 @@ describe('HorseDetailScreen', () => {
     expect(fetchAnimalPedigree).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── Ancestros navegables ─────────────────────────────────────────
+// Cada nodo del pedigree trae su propio id compuesto, así que tocarlo abre su
+// ficha. Lo que se afirma acá: que el id que viaja es el del ancestro tocado,
+// que los huecos del árbol no son tocables, y que el salto se apila (push) en
+// vez de cambiarle los params a la pantalla actual — que es lo que rompería el
+// back al encadenar saltos.
+describe('HorseDetailScreen · ancestros navegables', () => {
+  const arbol = (id) => ({
+    animal: { id, nombre: 'RAIZ', sexo: 'M' },
+    pedigree: {
+      padre: {
+        id: 'pdre:2', nombre: 'EL PADRE', sexo: 'M',
+        padre: { id: 'pdre:4', nombre: 'ABUELO PATERNO', sexo: 'M', padre: { id: 'pdre:8', nombre: 'BISABUELO', sexo: 'M' } },
+        madre: null,
+      },
+      madre: { id: 'exis:3', nombre: 'LA MADRE', sexo: 'H' },
+    },
+  });
+
+  test('tocar el padre apila su ficha con su id', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(arbol('pdre:1'));
+    const nav = navStub();
+    const { findByText, getByText } = render(
+      <HorseDetailScreen t={T} navigation={nav} route={routeStub({ id: 'pdre:nav-1' })} />,
+    );
+    await findByText('RAIZ');
+    fireEvent.press(getByText('EL PADRE'));
+    expect(nav.push).toHaveBeenCalledWith('HorseDetail', { id: 'pdre:2' });
+    // `navigate` a la misma pantalla sólo le cambiaría los params: no se usa.
+    expect(nav.navigate).not.toHaveBeenCalled();
+  });
+
+  test('tocar la madre, un abuelo y un bisabuelo lleva el id de cada uno', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(arbol('pdre:nav-2'));
+    const nav = navStub();
+    const { findByText, getByText } = render(
+      <HorseDetailScreen t={T} navigation={nav} route={routeStub({ id: 'pdre:nav-2' })} />,
+    );
+    await findByText('RAIZ');
+    fireEvent.press(getByText('LA MADRE'));
+    fireEvent.press(getByText('ABUELO PATERNO'));
+    fireEvent.press(getByText('BISABUELO'));
+    expect(nav.push.mock.calls.map(([, p]) => p.id)).toEqual(['exis:3', 'pdre:4', 'pdre:8']);
+  });
+
+  test('los ancestros con datos quedan como botón accesible; los huecos no', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(arbol('pdre:nav-3'));
+    const { findByText, getByLabelText, queryAllByRole } = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'pdre:nav-3' })} />,
+    );
+    await findByText('RAIZ');
+    expect(getByLabelText('Ver el pedigree de EL PADRE')).toBeTruthy();
+    // 4 ancestros con datos en este árbol — los 10 huecos restantes del árbol
+    // de 4 generaciones no suman botones (el back de la pantalla sí es uno).
+    const botones = queryAllByRole('button').filter((b) =>
+      /^Ver el pedigree de /.test(b.props.accessibilityLabel || ''));
+    expect(botones).toHaveLength(4);
+  });
+
+  test('un nodo con nombre pero sin id no es tocable', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce({
+      animal: { id: 'pdre:nav-4', nombre: 'RAIZ SIN IDS' },
+      pedigree: { padre: { nombre: 'SIN ID' }, madre: null },
+    });
+    const nav = navStub();
+    const { findByText, getByText, queryByLabelText } = render(
+      <HorseDetailScreen t={T} navigation={nav} route={routeStub({ id: 'pdre:nav-4' })} />,
+    );
+    await findByText('RAIZ SIN IDS');
+    expect(getByText('SIN ID')).toBeTruthy();
+    expect(queryByLabelText('Ver el pedigree de SIN ID')).toBeNull();
+    fireEvent.press(getByText('SIN ID'));
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  test('la ayuda de «tocá un ancestro» sólo va si hay alguno con ficha', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(arbol('pdre:nav-5'));
+    const conAncestros = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'pdre:nav-5' })} />,
+    );
+    expect(await conAncestros.findByText(/Tocá un ancestro/)).toBeTruthy();
+
+    fetchAnimalPedigree.mockResolvedValueOnce({
+      animal: { id: 'pdre:nav-6', nombre: 'HUERFANO' }, pedigree: { padre: null, madre: null },
+    });
+    const sinAncestros = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'pdre:nav-6' })} />,
+    );
+    await sinAncestros.findByText('HUERFANO');
+    expect(sinAncestros.queryByText(/Tocá un ancestro/)).toBeNull();
+  });
+});

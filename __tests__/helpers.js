@@ -7,6 +7,7 @@ export const T = getTheme('tabaco', 'light');
 export function navStub(overrides = {}) {
   return {
     navigate: jest.fn(),
+    push: jest.fn(),
     goBack: jest.fn(),
     canGoBack: jest.fn(() => true),
     getParent: jest.fn(() => null),
