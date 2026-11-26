@@ -36,6 +36,7 @@ import SolanetDetalleScreen from './src/screens/SolanetDetalleScreen';
 import NewsDetailScreen from './src/screens/NewsDetailScreen';
 import ResultDetailScreen from './src/screens/ResultDetailScreen';
 import NewsScreen from './src/screens/NewsScreen';
+import VideosScreen from './src/screens/VideosScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 
 // ── Theme context ────────────────────────────────────────────────
@@ -63,6 +64,7 @@ const SolanetDetT = withT(SolanetDetalleScreen);
 const ResultDetT  = withT(ResultDetailScreen);
 const NewsT       = withT(NewsDetailScreen);
 const NewsListT   = withT(NewsScreen);
+const VideosT     = withT(VideosScreen);
 const NotifT      = withT(NotificationsScreen);
 
 // ── Navigators ───────────────────────────────────────────────────
@@ -93,6 +95,7 @@ function InicioStack() {
         component={NewsT}
         getId={({ params }) => String(params?.id ?? '')}
       />
+      <InicioStackN.Screen name="VideosList" component={VideosT} />
       <InicioStackN.Screen name="Notifications" component={NotifT} />
     </InicioStackN.Navigator>
   );

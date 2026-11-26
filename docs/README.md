@@ -363,6 +363,51 @@ Detalle de una noticia viva. **Cache**: `Cache-Control: public, max-age=300` (s�
 
 ---
 
+### Videos
+
+Los videos y podcasts que muestra la home del sitio, del más nuevo al más viejo. **Público** (sin `Authorization`). El video del vivo **no** sale por acá: eso es `GET /vivos`.
+
+#### `GET /videos`
+
+**Cache**: `Cache-Control: public, max-age=300` (5 min).
+
+**Query params**
+
+| Param | Tipo | Default | Descripción |
+|---|---|---|---|
+| `limit` | int | `20` | Máximo `100`, igual que `/noticias`. |
+| `offset` | int | `0` | Paginación. |
+
+**Response**
+
+```json
+{
+  "data": [
+    {
+      "id": 275,
+      "titulo": "Definición 2° cuarto de Final de Rodeos La Cautiva 2026",
+      "tipo": "video",
+      "proveedor": "youtube",
+      "youtube_id": "a3__HwfsIWo",
+      "url": "https://www.youtube.com/watch?v=a3__HwfsIWo",
+      "embed_url": "https://www.youtube.com/embed/a3__HwfsIWo",
+      "miniatura": "https://img.youtube.com/vi/a3__HwfsIWo/hqdefault.jpg"
+    }
+  ],
+  "meta": { "count": 1, "limit": 20, "offset": 0, "total": 261 }
+}
+```
+
+- **`tipo`**: `video` o `podcast`. **`proveedor`**: `youtube`, `spotify` o `facebook`.
+- **`youtube_id`** viene resuelto, listo para `react-native-youtube-iframe`. Es `null` si no es de YouTube **o si el link es a un canal** y no a un video.
+- **`miniatura`**: sólo la traen los de YouTube; en el resto es `null`.
+- **`url`** es el link para abrir afuera; **`embed_url`** sólo de sitios conocidos y con https, o `null`.
+- En **`/api`** (la vieja) esta ruta **no existe y da 404**: se trata como «sin sección», no como error.
+
+Lo que hay hoy en producción (261 items) es casi todo YouTube: 259 videos de YouTube, 1 de Facebook y 1 podcast de Spotify. Tres items no tienen `youtube_id` —el de Facebook, el de Spotify y un link a un canal de YouTube— y son los mismos tres sin `miniatura`. O sea que las dos excepciones del contrato existen de verdad y hay que dibujarlas, aunque sean una de cada.
+
+---
+
 ### Reglamentos
 
 Los reglamentos son noticias de una categoría fija (`IdCategoria = 11`, la misma que usa `web/reglamentos.php`) que se filtran por **Prueba** (el columnista). Es un alias semántico sobre noticias: mismo shape de item que `GET /noticias`, con la categoría ya aplicada, ordenado por prueba, y con el columnista expuesto como `prueba`.

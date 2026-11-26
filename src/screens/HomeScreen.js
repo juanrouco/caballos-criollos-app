@@ -4,13 +4,19 @@ import { CommonActions } from '@react-navigation/native';
 import { Icon, Crest, Card, SectionLabel, F } from '../components';
 import { withAlpha, DISCIPLINE_COLORS, DISCIPLINE_ICONS } from '../theme';
 import { DISCIPLINES } from '../data';
-import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, todayISO, imgUrl } from '../api';
+import { fetchEventos, mapEvent, fetchNoticias, mapNoticia, fetchNoticiaCategorias, fetchVideos, mapVideo, todayISO, imgUrl } from '../api';
 import { useLive } from '../LiveContext';
 import { useNotifications } from '../NotificationsContext';
 import { useMenu } from '../MenuContext';
+import VideoCard from '../VideoCard';
 
 const EVENT_PHOTO = { uri: 'https://caballoscriollos.com/web/assets/images/accc.jpg' };
 const NEWS_PHOTO = { uri: 'https://caballoscriollos.com/web/_recursos/noticias/imagenes/big/2025010305263856808.png' };
+// Cuatro y no más: cada tarjeta de YouTube monta un player (un WebView), y
+// esto es la home.
+const VIDEOS_EN_HOME = 4;
+// Ancho de la tarjeta del carrusel de videos; la miniatura va 16:9.
+const VIDEO_W = 300;
 
 export default function HomeScreen({ t, navigation }) {
   const { live } = useLive();
@@ -76,6 +82,18 @@ export default function HomeScreen({ t, navigation }) {
   }, []);
 
   React.useEffect(() => { loadNews(); }, [loadNews]);
+
+  // Videos y podcast: el set más nuevo, igual que la home del sitio. Si el
+  // endpoint falla —la /api vieja ni siquiera tiene la ruta y da 404— la
+  // sección no se dibuja, que es lo que pide el contrato: "sin sección".
+  const [videos, setVideos] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetchVideos({ limit: VIDEOS_EN_HOME })
+      .then((r) => { if (!cancelled) setVideos((r.data || []).map(mapVideo)); })
+      .catch(() => { if (!cancelled) setVideos([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Categorías de noticias: se cachean en memoria para mapear cada tile
   // de DISCIPLINES al filtro de /noticias. Si falla, los tiles quedan sin
@@ -304,6 +322,26 @@ export default function HomeScreen({ t, navigation }) {
             </TouchableOpacity>
           ))}
         </View>
+      )}
+
+      {/* Videos y Podcast — último de la home. Mientras carga, y si el
+          endpoint no está, no se dibuja nada: no tiene sentido un hueco. */}
+      {!!videos && videos.length > 0 && (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 28, marginBottom: 12 }}>
+            <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: t.textMute, letterSpacing: 1.6, textTransform: 'uppercase' }}>Videos y Podcast</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('VideosList')}>
+              <Text style={{ fontFamily: F.bodyBold, fontSize: 11, color: t.accent, letterSpacing: 1.2, textTransform: 'uppercase' }}>Ver todo</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+            {videos.map((v) => (
+              <View key={v.id} style={{ width: VIDEO_W }}>
+                <VideoCard t={t} v={v} ancho={VIDEO_W} lineasTitulo={2} />
+              </View>
+            ))}
+          </ScrollView>
+        </>
       )}
     </ScrollView>
   );
