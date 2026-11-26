@@ -43,6 +43,7 @@ export { fetchDelegados, mapDelegado, romanFromDelegacion } from './delegados';
 export { fetchRankings, fetchRanking, fetchSolanetDetalle, decodeEntities, curateRankingFiltros } from './rankings';
 export {
   fetchAnimales, fetchAnimal, fetchAnimalPedigree, mapAnimalPedigree,
+  fetchMeritosAnimal, mapMerito, meritosPorTemporada,
 } from './animales';
 export { todayISO } from './utils';
 export { imgUrl } from './images';

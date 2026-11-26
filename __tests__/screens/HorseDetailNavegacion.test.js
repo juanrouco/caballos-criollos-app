@@ -12,10 +12,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 jest.mock('../../src/api', () => ({
   fetchAnimalPedigree: jest.fn(),
   mapAnimalPedigree: jest.requireActual('../../src/api/animales').mapAnimalPedigree,
+  fetchMeritosAnimal: jest.fn(),
+  mapMerito: jest.requireActual('../../src/api/animales').mapMerito,
+  meritosPorTemporada: jest.requireActual('../../src/api/animales').meritosPorTemporada,
 }));
-const { fetchAnimalPedigree } = require('../../src/api');
+const { fetchAnimalPedigree, fetchMeritosAnimal } = require('../../src/api');
 const HorseDetailScreen = require('../../src/screens/HorseDetailScreen').default;
 const { T } = require('../helpers');
+
+beforeEach(() => { fetchMeritosAnimal.mockResolvedValue({ data: [] }); });
 
 const Stack = createNativeStackNavigator();
 const HorseT = (props) => <HorseDetailScreen {...props} t={T} />;

@@ -1,4 +1,4 @@
-import { mapAnimalPedigree } from '../../src/api/animales';
+import { mapAnimalPedigree, mapMerito, meritosPorTemporada } from '../../src/api/animales';
 
 describe('mapAnimalPedigree', () => {
   test('mapea el animal raíz al shape de pantalla', () => {
@@ -83,5 +83,54 @@ describe('mapAnimalPedigree', () => {
     const h = mapAnimalPedigree({ animal: { fecha_nacimiento: null, pelaje: null }, pedigree: {} });
     expect(h.born).toBe('');
     expect(h.pelaje).toBe('');
+  });
+});
+
+describe('mapMerito', () => {
+  const crudo = {
+    premio: { id: 2, nombre: '2025 - 2026' },
+    evento: 'EXPO MERCEDES 12/09/2025', fecha: '2025-09-12',
+    prueba: 'Morfologia', categoria: 'BPas', logro: 'Reservado Gran Campeón', puntos: 20,
+  };
+
+  test('los puntos enteros se muestran sin decimales', () => {
+    expect(mapMerito(crudo).puntosLabel).toBe('20');
+  });
+
+  test('los puntos con decimales se muestran con ellos', () => {
+    expect(mapMerito({ ...crudo, puntos: 19.5 }).puntosLabel).toBe('19.5');
+    expect(mapMerito({ ...crudo, puntos: 19.456 }).puntosLabel).toBe('19.46');
+  });
+
+  test('la temporada sale del nombre del premio, crudo', () => {
+    expect(mapMerito(crudo).temporada).toBe('2025 - 2026');
+  });
+
+  test('un mérito sin fecha ni puntos no rompe', () => {
+    const m = mapMerito({ premio: null, evento: 'X', fecha: null, puntos: null });
+    expect(m.fecha).toBeNull();
+    expect(m.puntos).toBeNull();
+    expect(m.puntosLabel).toBe('');
+    expect(m.temporada).toBe('');
+  });
+});
+
+describe('meritosPorTemporada', () => {
+  const m = (temporada, logro) => ({ temporada, logro });
+
+  test('sin méritos no hay grupos', () => {
+    expect(meritosPorTemporada([])).toEqual([]);
+    expect(meritosPorTemporada(null)).toEqual([]);
+  });
+
+  test('agrupa los consecutivos y conserva el orden que mandó la API', () => {
+    const grupos = meritosPorTemporada([
+      m('2026 - 2027', 'Tercer Premio'),
+      m('2025 - 2026', 'Reservado'),
+      m('2025 - 2026', 'Campeón'),
+      m('2024 - 2025', 'Finalista'),
+    ]);
+    expect(grupos.map((g) => g.temporada)).toEqual(['2026 - 2027', '2025 - 2026', '2024 - 2025']);
+    expect(grupos[1].meritos.map((x) => x.logro)).toEqual(['Reservado', 'Campeón']);
   });
 });

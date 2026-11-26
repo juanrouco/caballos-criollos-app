@@ -160,6 +160,32 @@ Detalle de un animal. El id es compuesto (`pdre:N`, `exis:N`, `extr:N`).
 - Un id **absorbido** por una unificación responde `200` con los datos **y el `id` del superviviente** (no hay redirect HTTP): el cliente tiene que leer `id` de la respuesta.
 - Los dados de baja se devuelven (`de_baja: true`); este endpoint nunca los ocultó.
 
+#### `GET /animales/{id}/meritos`
+
+Los méritos del animal en el **Premio Solanet** (`tblMeritosSolanet`), para la sección de méritos de su ficha. Público, sin `Authorization`. **Cache**: `Cache-Control: public, max-age=300`.
+
+**Response**
+
+```json
+{
+  "data": [
+    { "premio": { "id": 2, "nombre": "2025 - 2026" },
+      "evento": "EXPO MERCEDES 12/09/2025", "fecha": "2025-09-12",
+      "prueba": "Morfologia", "categoria": "BPas",
+      "logro": "Reservado Gran Campeón", "puntos": 20 }
+  ]
+}
+```
+
+- Orden: por fecha del evento, del más reciente al más viejo. **Incluye todos los premios**, no sólo el vigente.
+- Sólo los méritos que **suman** (`puntos > 0`): los de 0 ("Semifinalista" y compañía) no vienen.
+- `premio.nombre` viene crudo (`"2024 - 2025"`): el rótulo "Premio Emilio Solanet …" lo arma el cliente.
+- `fecha` es `YYYY-MM-DD`, o `null` si el evento no la tiene. `puntos` es número. Ojo: el nombre del evento **suele terminar con la fecha**, así que mostrar las dos cosas la repite.
+- Sin méritos: `data: []`. Animal inexistente: `404`. Id mal formado: `400`.
+- El vínculo con el animal es **la inscripción**, no el par SBA + RP: por eso no trae méritos de otro caballo (el match por SBA + RP se los pegaba a 41 animales ajenos). Un id absorbido por una unificación responde con los méritos del superviviente, igual que el detalle de Solanet.
+
+⚠️ **La API vieja (`/api`, el default de dev) no tiene esta ruta y devuelve `404`.** La ficha lo trata como "sin méritos" y no dibuja la sección.
+
 #### `GET /animales/{id}/pedigree`
 
 Devuelve el animal raíz y su árbol de ancestros (4 generaciones: padre, abuelos, bisabuelos, tatarabuelos).

@@ -4,12 +4,20 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 jest.mock('../../src/api', () => ({
   fetchAnimalPedigree: jest.fn(),
   mapAnimalPedigree: jest.requireActual('../../src/api/animales').mapAnimalPedigree,
+  fetchMeritosAnimal: jest.fn(),
+  mapMerito: jest.requireActual('../../src/api/animales').mapMerito,
+  meritosPorTemporada: jest.requireActual('../../src/api/animales').meritosPorTemporada,
 }));
-const { fetchAnimalPedigree } = require('../../src/api');
+const { fetchAnimalPedigree, fetchMeritosAnimal } = require('../../src/api');
 const HorseDetailScreen = require('../../src/screens/HorseDetailScreen').default;
 const { T, navStub, routeStub, flushPromises } = require('../helpers');
 
-beforeEach(() => { fetchAnimalPedigree.mockReset(); });
+beforeEach(() => {
+  fetchAnimalPedigree.mockReset();
+  // Por defecto, un animal sin méritos: la sección no se dibuja.
+  fetchMeritosAnimal.mockReset();
+  fetchMeritosAnimal.mockResolvedValue({ data: [] });
+});
 
 describe('HorseDetailScreen', () => {
   test('sin id → muestra mensaje y botón Volver', async () => {
@@ -176,5 +184,59 @@ describe('HorseDetailScreen · ancestros navegables', () => {
     );
     await sinAncestros.findByText('HUERFANO');
     expect(sinAncestros.queryByText(/Tocá un ancestro/)).toBeNull();
+  });
+});
+
+describe('HorseDetailScreen · méritos', () => {
+  const animal = (id) => ({
+    animal: { id, nombre: 'CHAKE VIROLA', sexo: 'H', rp: '5047', sba: 98015 },
+    ancestros: {},
+  });
+  const merito = (over = {}) => ({
+    premio: { id: 2, nombre: '2025 - 2026' },
+    evento: 'EXPO MERCEDES 12/09/2025', fecha: '2025-09-12',
+    prueba: 'Morfologia', categoria: 'BPas', logro: 'Reservado Gran Campeón', puntos: 20,
+    ...over,
+  });
+
+  test('los méritos salen agrupados por temporada, con sus puntos', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(animal('exis:meritos-1'));
+    fetchMeritosAnimal.mockResolvedValueOnce({ data: [
+      merito({ premio: { id: 3, nombre: '2026 - 2027' }, logro: 'Tercer Premio', puntos: 5 }),
+      merito(),
+      merito({ logro: 'Campeón', puntos: 23 }),
+    ] });
+    const { findByText, getByText, getAllByText } = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'exis:meritos-1' })} />,
+    );
+    expect(await findByText('Méritos')).toBeTruthy();
+    expect(getByText('2026 - 2027')).toBeTruthy();
+    expect(getByText('2025 - 2026')).toBeTruthy();   // una sola vez: los dos de esa temporada van juntos
+    expect(getByText('Reservado Gran Campeón')).toBeTruthy();
+    expect(getByText('23')).toBeTruthy();
+    // Misma unidad que el puntaje de morfología del evento, y una por mérito.
+    expect(getAllByText('PES')).toHaveLength(3);
+    // Los tres méritos son de la misma prueba, así que esa línea se repite.
+    expect(getAllByText('Morfologia · BPas')).toHaveLength(3);
+  });
+
+  test('un animal sin méritos no muestra la sección', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(animal('exis:meritos-2'));
+    fetchMeritosAnimal.mockResolvedValueOnce({ data: [] });
+    const { findByText, queryByText } = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'exis:meritos-2' })} />,
+    );
+    await findByText('CHAKE VIROLA');
+    expect(queryByText('Méritos')).toBeNull();
+  });
+
+  test('si el endpoint no existe (API vieja, 404) la ficha no se rompe', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(animal('exis:meritos-3'));
+    fetchMeritosAnimal.mockRejectedValueOnce(new Error('404'));
+    const { findByText, queryByText } = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'exis:meritos-3' })} />,
+    );
+    await findByText('CHAKE VIROLA');
+    expect(queryByText('Méritos')).toBeNull();
   });
 });

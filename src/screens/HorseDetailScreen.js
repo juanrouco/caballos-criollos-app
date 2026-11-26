@@ -4,11 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Crest, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
 import { formatDate } from '../format';
-import { fetchAnimalPedigree, mapAnimalPedigree } from '../api';
+import { fetchAnimalPedigree, mapAnimalPedigree, fetchMeritosAnimal, mapMerito, meritosPorTemporada } from '../api';
 
 // Cache por id de animal — mismo patrón que EventDetailScreen: evita re-fetch
 // y spinner al volver al mismo caballo dentro de la sesión.
 const animalCache = new Map();
+// Los méritos van en su propio cache: son otra request y un animal puede estar
+// cacheado de antes de que existiera la sección.
+const meritosCache = new Map();
 
 // 4-gen pedigree tree: 3 columns × 8 rows.
 // Cada nodo del árbol trae su propio `id` compuesto (`pdre:N` / `exis:N` /
@@ -88,6 +91,60 @@ function hayAncestroTocable(h) {
   return nodos.some((n) => n.id && n.name);
 }
 
+// Los méritos (los del Premio Solanet, que son los únicos que hay) agrupados
+// por temporada. El título dice «Méritos» a secas, por pedido. Sin méritos no hay
+// sección: la mayoría de los animales no tiene ninguno, y un título sobre una
+// lista vacía se lee como que algo falló.
+function Meritos({ t, meritos }) {
+  const grupos = React.useMemo(() => meritosPorTemporada(meritos), [meritos]);
+  if (!grupos.length) return null;
+  return (
+    <View style={{ marginTop: 26 }}>
+      <SectionLabel t={t}>Méritos</SectionLabel>
+      <View style={{ paddingHorizontal: 20, gap: 14 }}>
+        {grupos.map((g) => (
+          <View key={g.temporada || 'sin-temporada'}>
+            {!!g.temporada && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <Text style={{ fontSize: 10.5, color: t.accent, letterSpacing: 1.6, fontFamily: F.bodyBold }}>
+                  {g.temporada}
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: t.border }} />
+              </View>
+            )}
+            <View style={{ borderRadius: 14, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface }}>
+              {g.meritos.map((m, i) => (
+                <View
+                  key={`${m.evento}-${m.prueba}-${i}`}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.border }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{m.logro}</Text>
+                    <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 2 }} numberOfLines={1}>
+                      {[m.prueba, m.categoria].filter(Boolean).join(' · ')}
+                    </Text>
+                    {!!m.evento && (
+                      <Text style={{ fontSize: 11, color: t.textDim, marginTop: 3 }} numberOfLines={2}>{m.evento}</Text>
+                    )}
+                  </View>
+                  {/* «PES», igual que el puntaje de morfología en los resultados
+                      del evento: es el mismo número de la misma tabla de méritos.
+                      «PUNTOS» queda para el puntaje del evento (tipo y aptitud,
+                      rodeos), que es otra escala. */}
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={{ fontFamily: F.mono, fontSize: 14, color: t.text }}>{m.puntosLabel}</Text>
+                    <Text style={{ fontSize: 9, color: t.accent, letterSpacing: 1, fontFamily: F.bodyBold }}>PES</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function BackButton({ t, onPress }) {
   return (
     <TouchableOpacity onPress={onPress} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.surface, borderWidth: 1, borderColor: t.border, alignItems: 'center', justifyContent: 'center', marginBottom: 22 }}>
@@ -119,6 +176,26 @@ export default function HorseDetailScreen({ t, navigation, route }) {
         setHorse(mapped);
       })
       .catch((err) => { if (!cancelled) setError(err.message || 'No se pudo cargar el animal.'); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  // Méritos: van aparte del pedigree porque son otra request y porque pueden
+  // fallar sin que la ficha se caiga — contra la API vieja la ruta no existe.
+  // `null` = no hay (o no se pudo): la sección no se dibuja.
+  const [meritos, setMeritos] = React.useState(null);
+  React.useEffect(() => {
+    if (id == null) return;
+    const clave = String(id);
+    if (meritosCache.has(clave)) { setMeritos(meritosCache.get(clave)); return; }
+    let cancelled = false;
+    setMeritos(null);
+    fetchMeritosAnimal(id)
+      .then((r) => {
+        const lista = (r?.data || []).map(mapMerito);
+        meritosCache.set(clave, lista);
+        if (!cancelled) setMeritos(lista);
+      })
+      .catch(() => { if (!cancelled) setMeritos(null); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -228,6 +305,8 @@ export default function HorseDetailScreen({ t, navigation, route }) {
       <View style={{ paddingHorizontal: 20 }}>
         <PedigreeTree h={horse} t={t} onPressAncestro={onPressAncestro} />
       </View>
+
+      <Meritos t={t} meritos={meritos} />
     </ScrollView>
   );
 }
