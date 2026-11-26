@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, Crest, SectionLabel, F } from '../components';
+import { Icon, Crest, Cucarda, SectionLabel, F } from '../components';
 import { withAlpha } from '../theme';
+import { cucardaDeLogro } from '../cucardas';
 import { formatDate } from '../format';
 import { fetchAnimalPedigree, mapAnimalPedigree, fetchMeritosAnimal, mapMerito, meritosPorTemporada } from '../api';
 
@@ -118,6 +119,9 @@ function Meritos({ t, meritos }) {
                   key={`${m.evento}-${m.prueba}-${i}`}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: t.border }}
                 >
+                  {/* La cucarda del logro. El juego lo elige la prueba: en las
+                      funcionales «Campeón» no lleva la misma que en la jura. */}
+                  <Cucarda c={cucardaDeLogro(m.logro, m.prueba)} size={26} reservado />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={2}>{m.logro}</Text>
                     <Text style={{ fontSize: 11.5, color: t.textMute, marginTop: 2 }} numberOfLines={1}>

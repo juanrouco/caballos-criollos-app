@@ -83,6 +83,23 @@ describe('SolanetDetalleScreen', () => {
     expect(fetchAnimales).not.toHaveBeenCalled();
   });
 
+  test('cada mérito lleva la cucarda de su logro; la prueba elige el juego', async () => {
+    fetchSolanetDetalle.mockResolvedValue({
+      ...RESP,
+      filas: [
+        { animal: 'UNO', sba: '1', rp: '1', achievement: 'Gran Campeón', test: 'Morfologia', points: '23.00' },
+        { animal: 'DOS', sba: '2', rp: '2', achievement: 'Campeon', test: 'Freno de Oro', points: '20.00' },
+        // «Finalista» suma puntos pero no es una cucarda.
+        { animal: 'TRES', sba: '3', rp: '3', achievement: 'Finalista', test: 'Rodeos', points: '9.00' },
+      ],
+    });
+    const { findByText, getByTestId, queryAllByTestId } = renderDet();
+    expect(await findByText('UNO')).toBeTruthy();
+    expect(getByTestId('cucarda-gran-campeon')).toBeTruthy();
+    expect(getByTestId('cucarda-func-campeon')).toBeTruthy();
+    expect(queryAllByTestId(/^cucarda-/)).toHaveLength(2);
+  });
+
   test('sin méritos muestra empty state', async () => {
     fetchSolanetDetalle.mockResolvedValue({ columnas: [], filas: [] });
     const { findByText } = renderDet();

@@ -220,6 +220,26 @@ describe('HorseDetailScreen · méritos', () => {
     expect(getAllByText('Morfologia · BPas')).toHaveLength(3);
   });
 
+  test('cada mérito lleva la cucarda de su logro, y la prueba elige el juego', async () => {
+    fetchAnimalPedigree.mockResolvedValueOnce(animal('exis:meritos-cuc'));
+    fetchMeritosAnimal.mockResolvedValueOnce({ data: [
+      merito({ logro: 'Gran Campeón', prueba: 'Morfologia' }),
+      // Mismo «Campeón», otra cucarda: en las funcionales es la amarilla.
+      merito({ logro: 'Campeón', prueba: 'Morfologia' }),
+      merito({ logro: 'Campeon', prueba: 'Rodeos' }),
+      // «Finalista» no es cucarda.
+      merito({ logro: 'Finalista', prueba: 'Freno de Oro' }),
+    ] });
+    const { findByText, getByTestId, queryAllByTestId } = render(
+      <HorseDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 'exis:meritos-cuc' })} />,
+    );
+    expect(await findByText('Méritos')).toBeTruthy();
+    expect(getByTestId('cucarda-gran-campeon')).toBeTruthy();
+    expect(getByTestId('cucarda-campeon')).toBeTruthy();
+    expect(getByTestId('cucarda-func-campeon')).toBeTruthy();
+    expect(queryAllByTestId(/^cucarda-/)).toHaveLength(3);
+  });
+
   test('un animal sin méritos no muestra la sección', async () => {
     fetchAnimalPedigree.mockResolvedValueOnce(animal('exis:meritos-2'));
     fetchMeritosAnimal.mockResolvedValueOnce({ data: [] });

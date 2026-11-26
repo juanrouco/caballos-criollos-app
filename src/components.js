@@ -84,6 +84,31 @@ export function Medal({ size = 22, t }) {
   );
 }
 
+// ── Cucarda ──────────────────────────────────────────────────────
+// La escarapela del premio, al lado del resultado. `c` es lo que devuelven los
+// resolvedores de `src/cucardas.js`; con `null` no dibuja nada, que es el caso
+// de un resultado sin premio.
+//
+// No es accesible a propósito: el renglón de al lado ya dice el premio con
+// todas las letras, así que anunciarla de nuevo sería repetir. El `testID`
+// queda para los tests, que son los únicos que necesitan agarrarla.
+//
+// `reservado` deja el hueco cuando no hay cucarda, para las listas donde
+// conviven premiados y no premiados (los méritos, el detalle de Solanet): sin
+// eso las filas sin premio arrancan corridas a la izquierda.
+export function Cucarda({ c, size = 20, style, reservado = false }) {
+  if (!c) return reservado ? <View style={{ width: size, height: size }} /> : null;
+  return (
+    <Image
+      source={c.src}
+      accessible={false}
+      testID={`cucarda-${c.slug}`}
+      resizeMode="contain"
+      style={[{ width: size, height: size }, style]}
+    />
+  );
+}
+
 // ── Divider ──────────────────────────────────────────────────────
 export function Divider({ t, style }) {
   return <View style={[{ height: 1, backgroundColor: t.border }, style]} />;

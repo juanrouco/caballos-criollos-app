@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions, Linking } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import YoutubePlayer from 'react-native-youtube-iframe';
-import { Icon, Card, Divider, F } from '../components';
+import { Icon, Card, Cucarda, Divider, F } from '../components';
 import { withAlpha } from '../theme';
+import { cucardaDePremio, cucardaFuncional } from '../cucardas';
 import { formatDate, formatDateLong, fixCp1252, tieneContenido } from '../format';
 import HtmlBody from '../HtmlBody';
 import {
@@ -644,6 +645,7 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
         : current.kind === 'rodeos'
           ? <RodeosSection
               t={t}
+              pruebaKey={current.key}
               pruebas={(current.data.pruebas || []).filter((p) => (p.yuntas || []).length > 0)}
               // Tocar un animal de la yunta abre el detalle del resultado
               // (vaca por vaca); el pedigree se ve desde ahí.
@@ -653,6 +655,7 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
           : current.kind === 'corral'
             ? <CorralSection
                 t={t}
+                pruebaKey={current.key}
                 pruebas={(current.data.pruebas || []).filter((p) => (p.resultados || []).length > 0)}
                 // F.Z.B., corral de aparte y Copa Incentivo abren el detalle
                 // del resultado al tocar la fila (freno sigue al pedigree: su
@@ -665,6 +668,7 @@ function ResultsContent({ t, eventoId, resultados, navigation, onRefresh, refres
               />
             : <AparteSection
                 t={t}
+                pruebaKey={current.key}
                 pruebas={(current.data.pruebas || []).filter((p) => (p.equipos || []).length > 0)}
                 navigation={navigation}
               />
@@ -928,6 +932,9 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
   const showPuntaje = statusLabel == null && entry.puntaje != null;
   // Unidad del puntaje: morfología usa "PES"; tipo y aptitud, "PUNTOS".
   const unitLabel = entry.categoria_morfologica?.tipo_aptitud ? 'PUNTOS' : 'PES';
+  // La cucarda del premio, al lado del nombre del premio. Ausente/rechazado y
+  // «Sin Premio» no llevan: no premiaron.
+  const cuc = statusLabel == null ? cucardaDePremio(entry.premio) : null;
   const medidas = fmtMedidas(a.medidas);
   return (
     <TouchableOpacity onPress={() => a.id && navigation.navigate('HorseDetail', { id: a.id })} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
@@ -935,6 +942,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
       <View style={{ width: 1, height: 42, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Cucarda c={cuc} size={19} style={{ marginRight: -2 }} />
           <Text style={{ flex: 1, fontSize: 10.5, fontFamily: F.bodyBold, color: top ? t.accent : t.textMute, letterSpacing: 1.1, textTransform: 'uppercase' }} numberOfLines={1}>{topLabel}</Text>
           {showPuntaje && (
             <View style={{ alignItems: 'center' }}>
@@ -954,7 +962,7 @@ function ResultEntry({ t, entry, rank, navigation, statusLabel }) {
 
 // ── Rodeos ───────────────────────────────────────────────────────
 
-function RodeosSection({ t, pruebas, openDetail, navigation }) {
+function RodeosSection({ t, pruebas, openDetail, navigation, pruebaKey }) {
   return (
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
@@ -973,6 +981,7 @@ function RodeosSection({ t, pruebas, openDetail, navigation }) {
             title={title}
             prueba={p}
             featured={featured}
+            pruebaKey={pruebaKey}
             // Tocar un animal abre el detalle del resultado de la yunta.
             onPressYunta={openDetail ? (yunta) => navigation.navigate('ResultDetail', {
               eventoId: openDetail.eventoId,
@@ -993,7 +1002,7 @@ function RodeosSection({ t, pruebas, openDetail, navigation }) {
 // Acordeón por prueba/categoría, mismo patrón que el resto del catálogo /
 // resultados: card blanco, header con título + conteo de yuntas, colapsado por
 // default. Al abrir muestra las yuntas como grupos sobre blanco.
-function RodeoCard({ t, title, prueba, featured, onPressYunta, navigation }) {
+function RodeoCard({ t, title, prueba, featured, onPressYunta, navigation, pruebaKey }) {
   const [open, setOpen] = React.useState(false);
   const yuntas = prueba.yuntas || [];
   if (yuntas.length === 0) return null;
@@ -1020,6 +1029,7 @@ function RodeoCard({ t, title, prueba, featured, onPressYunta, navigation }) {
                 yunta={y}
                 fallbackRank={i + 1}
                 clasificacion={prueba.clasificacion}
+                pruebaKey={pruebaKey}
                 onPressYunta={onPressYunta}
                 navigation={navigation}
               />
@@ -1044,7 +1054,7 @@ function fmtPts(n) {
 // Una yunta en resultados: header chico (puesto + "Yunta" + total) y las dos
 // filas de animales, todo sobre blanco — misma idea que CatalogYuntaGroup, con
 // las líneas extra de Día 1 / Día 2 y Última vaca que aporta el rodeo.
-function RodeoYunta({ t, yunta, fallbackRank, clasificacion, onPressYunta, navigation }) {
+function RodeoYunta({ t, yunta, fallbackRank, clasificacion, onPressYunta, navigation, pruebaKey }) {
   const isCopa = clasificacion === 'CopaEspecial';
   // Para CopaEspecial no hay puesto.general (la API ordena por dia1 desc),
   // así que usamos el índice del array como rank visual.
@@ -1066,6 +1076,9 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, onPressYunta, navig
   // En clasificatoria las yuntas van por orden de salida, sin puesto: el
   // header dice "Yunta N" (como el catálogo) en vez del "N°" de posición.
   const esClasificatoria = clasificacion === 'Clasificatoria';
+  // Cucarda sólo en la final, y sólo con puesto de verdad: el `fallbackRank`
+  // es el índice del array, no un podio.
+  const cuc = cucardaFuncional({ puesto: yunta.puesto?.general, clasificacion, pruebaKey });
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
@@ -1076,6 +1089,7 @@ function RodeoYunta({ t, yunta, fallbackRank, clasificacion, onPressYunta, navig
         ) : (
           <>
             <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank}°</Text>
+            <Cucarda c={cuc} size={20} />
             <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>Yunta</Text>
           </>
         )}
@@ -1158,7 +1172,7 @@ function RodeoAnimalRow({ t, a, onPress, navigation }) {
 // A diferencia de rodeos es individual (un animal/jinete por resultado, sin
 // yuntas ni equipos). Un card acordeón por prueba+categoría; adentro, una fila
 // por resultado con puesto, animal, jinete y total.
-function CorralSection({ t, pruebas, openDetail, navigation }) {
+function CorralSection({ t, pruebas, openDetail, navigation, pruebaKey }) {
   return (
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
@@ -1183,6 +1197,7 @@ function CorralSection({ t, pruebas, openDetail, navigation }) {
             title={title}
             prueba={p}
             featured={featured}
+            pruebaKey={pruebaKey}
             // Tocar una fila abre el detalle del resultado en vez del pedigree.
             onPressResult={openDetail ? (r) => navigation.navigate('ResultDetail', {
               eventoId: openDetail.eventoId,
@@ -1200,7 +1215,7 @@ function CorralSection({ t, pruebas, openDetail, navigation }) {
   );
 }
 
-function CorralCard({ t, title, prueba, featured, onPressResult, navigation }) {
+function CorralCard({ t, title, prueba, featured, onPressResult, navigation, pruebaKey }) {
   const [open, setOpen] = React.useState(false);
   const resultados = prueba.resultados || [];
   if (resultados.length === 0) return null;
@@ -1222,7 +1237,7 @@ function CorralCard({ t, title, prueba, featured, onPressResult, navigation }) {
         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
           {resultados.map((r, i) => (
             <View key={`r-${r.animal?.id ?? i}`}>
-              <CorralResultRow t={t} r={r} fallbackRank={i + 1} onPressResult={onPressResult} navigation={navigation} />
+              <CorralResultRow t={t} r={r} fallbackRank={i + 1} clasificacion={prueba.clasificacion} pruebaKey={pruebaKey} onPressResult={onPressResult} navigation={navigation} />
               {i < resultados.length - 1 && <Divider t={t} style={{ marginLeft: 14 }} />}
             </View>
           ))}
@@ -1232,10 +1247,11 @@ function CorralCard({ t, title, prueba, featured, onPressResult, navigation }) {
   );
 }
 
-function CorralResultRow({ t, r, fallbackRank, onPressResult, navigation }) {
+function CorralResultRow({ t, r, fallbackRank, onPressResult, navigation, clasificacion, pruebaKey }) {
   const a = r.animal || {};
   const rank = r.puesto ?? fallbackRank;
   const top = rank === 1;
+  const cuc = cucardaFuncional({ puesto: r.puesto, clasificacion, pruebaKey });
   const jinete = a.jinete ? [a.jinete.nombre, a.jinete.apellido].filter(Boolean).join(' ') : '';
   const reg = [a.sba != null && `S.B.A. ${a.sba}`, a.rp != null && `R.P. ${a.rp}`].filter(Boolean).join(' · ');
   // Con onPressResult la fila abre el detalle del resultado (y el pedigree se
@@ -1244,6 +1260,7 @@ function CorralResultRow({ t, r, fallbackRank, onPressResult, navigation }) {
   return (
     <TouchableOpacity onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
       <Text numberOfLines={1} allowFontScaling={false} style={{ width: 38, fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text, textAlign: 'center' }}>{rank}°</Text>
+      <Cucarda c={cuc} size={20} style={{ marginLeft: -6 }} />
       <View style={{ width: 1, height: 28, backgroundColor: t.border }} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14.5, color: t.text }} numberOfLines={1}>{a.nombre || '—'}</Text>
@@ -1275,7 +1292,7 @@ function fmtTiempo(n) {
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
-function AparteSection({ t, pruebas, navigation }) {
+function AparteSection({ t, pruebas, navigation, pruebaKey }) {
   return (
     <View style={{ gap: 10 }}>
       {pruebas.map((p, i) => {
@@ -1293,6 +1310,7 @@ function AparteSection({ t, pruebas, navigation }) {
             title={title}
             prueba={p}
             featured={featured}
+            pruebaKey={pruebaKey}
             navigation={navigation}
           />
         );
@@ -1301,7 +1319,7 @@ function AparteSection({ t, pruebas, navigation }) {
   );
 }
 
-function AparteCard({ t, title, prueba, featured, navigation }) {
+function AparteCard({ t, title, prueba, featured, navigation, pruebaKey }) {
   const [open, setOpen] = React.useState(false);
   const equipos = prueba.equipos || [];
   if (equipos.length === 0) return null;
@@ -1323,7 +1341,7 @@ function AparteCard({ t, title, prueba, featured, navigation }) {
         <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
           {equipos.map((e, i) => (
             <View key={`e-${i}`}>
-              <AparteEquipo t={t} equipo={e} navigation={navigation} />
+              <AparteEquipo t={t} equipo={e} clasificacion={prueba.clasificacion} pruebaKey={pruebaKey} navigation={navigation} />
               {i < equipos.length - 1 && <Divider t={t} style={{ marginLeft: 0 }} />}
             </View>
           ))}
@@ -1337,9 +1355,10 @@ function AparteCard({ t, title, prueba, featured, navigation }) {
 // animales y un renglón por día (tiempo · vacas encerradas) más el Total.
 // Los equipos que no corrieron vienen con puesto null → "—".
 // Compat: datos viejos cacheados traían `total` en vez de `tiempo`.
-function AparteEquipo({ t, equipo, navigation }) {
+function AparteEquipo({ t, equipo, navigation, clasificacion, pruebaKey }) {
   const rank = equipo.puesto;
   const top = rank === 1;
+  const cuc = cucardaFuncional({ puesto: rank, clasificacion, pruebaKey });
   const animales = equipo.animales || [];
   const rondas = equipo.rondas || [];
   const tiempoDe = (r) => r?.tiempo ?? r?.total;
@@ -1368,6 +1387,7 @@ function AparteEquipo({ t, equipo, navigation }) {
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 2 }}>
         <Text style={{ fontFamily: F.display, fontSize: 14, color: top ? t.accent : t.text }}>{rank != null ? `${rank}°` : '—'}</Text>
+        <Cucarda c={cuc} size={20} />
         <Text style={{ flex: 1, fontSize: 10, color: t.textMute, letterSpacing: 1.4, textTransform: 'uppercase', fontFamily: F.bodyBold }} numberOfLines={1}>
           {equipo.equipo?.nombre ? `Equipo ${equipo.equipo.nombre}` : 'Equipo'}
         </Text>

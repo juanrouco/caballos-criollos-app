@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Icon, Divider, F } from '../components';
+import { Icon, Cucarda, Divider, F } from '../components';
 import { decodeEntities } from '../api';
 
 // Tabla genérica de ranking en fila compacta: posición (si la hay) + entidad
@@ -18,9 +18,12 @@ import { decodeEntities } from '../api';
 // Modo acordeón (`expandable` + `detailOf`): la fila colapsa el detalle; al
 // tocarla se abre una tabla Evento/Tiempo (`detailOf(fila) → [{evento,tiempo}]`)
 // más los miembros. Usado por Aparte Campero.
+//
+// `cucardaOf(fila)` dibuja la escarapela del logro a la izquierda de la fila
+// (detalle del Premio Solanet). Devolver `null` no deja hueco.
 export default function RankingTable({
   t, columnas = [], filas = [], onRowPress, isTappable,
-  membersOf, onMemberPress, pointsKey = 'points', pointsLabel,
+  membersOf, onMemberPress, pointsKey = 'points', pointsLabel, cucardaOf,
   expandable = false, detailOf, detailValueLabel = 'Tiempo', secondaryLines,
 }) {
   const [openIdx, setOpenIdx] = React.useState(null);
@@ -73,6 +76,7 @@ export default function RankingTable({
               {hasPosition && (
                 <Text style={{ width: 30, textAlign: 'center', fontFamily: F.display, fontSize: 18, color: isTop ? t.accent : t.textMute }}>{fila.position}</Text>
               )}
+              {cucardaOf && <Cucarda c={cucardaOf(fila)} size={26} reservado style={{ marginTop: 1 }} />}
               <View style={{ flex: 1 }}>
                 {(!!primary || points != null) && (
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>

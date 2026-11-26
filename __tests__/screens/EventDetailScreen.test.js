@@ -1627,3 +1627,143 @@ describe('filasAutoridades', () => {
       .toEqual([['Veedor', 'Soto, Eva']]);
   });
 });
+
+// ── Cucardas ───────────────────────────────────────────────────────
+// Las escarapelas del premio, al lado del resultado. El mapeo en sí vive en
+// __tests__/cucardas.test.js; acá se chequea que lleguen a la pantalla y que
+// los casos sin premio no dibujen ninguna.
+describe('EventDetailScreen · cucardas', () => {
+  const soloResultados = (id, resultados) => {
+    fetchEvento.mockResolvedValueOnce(evento({ id }));
+    fetchEventoCatalogo.mockResolvedValueOnce({ pruebas_funcionales: [], morfologicas: [] });
+    fetchEventoResultados.mockResolvedValueOnce(resultados);
+  };
+
+  test('morfología: cada premio lleva su cucarda y el «Sin Premio» no', async () => {
+    soloResultados(7101, {
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Categ. 17',
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'Primero', box: 'A-1' }, premio: { id: 9, nombre: 'Primer Premio', tipo_id: 3, tipo_nombre: 'Premios' } },
+            { animal: { id: 'pdre:2', nombre: 'Mencion', box: 'A-2' }, premio: { id: 13, nombre: 'Primer Mención', tipo_id: 4, tipo_nombre: 'Menciones' } },
+            { animal: { id: 'pdre:3', nombre: 'NoPremio', box: 'A-3' }, premio: { id: 17, nombre: 'Sin Premio', tipo_id: 5, tipo_nombre: 'Sin Premio' } },
+          ] }],
+        }],
+      },
+    });
+    const { findByText, getByText, getByTestId, queryAllByTestId } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7101 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 17'));
+    await waitFor(() => expect(getByText('Primero')).toBeTruthy());
+    expect(getByTestId('cucarda-premio-1')).toBeTruthy();
+    expect(getByTestId('cucarda-mencion-1')).toBeTruthy();
+    // Tres animales, dos cucardas: el «Sin Premio» no premió.
+    expect(queryAllByTestId(/^cucarda-/)).toHaveLength(2);
+  });
+
+  test('gran campeonato: la cucarda la elige el id, no el nombre repetido', async () => {
+    soloResultados(7102, {
+      morfologia: {
+        gran_campeonato: [{ sexo: 'M', resultados: [
+          { animal: { id: 'pdre:1', nombre: 'GranCampeon', box: 'A-1' }, premio: { id: 1, nombre: 'Gran Campeón', tipo_id: 1 } },
+          { animal: { id: 'pdre:3', nombre: 'TercerMejorExpo', box: 'A-3' }, premio: { id: 3, nombre: 'Tercer Mejor', tipo_id: 1 } },
+        ] }],
+      },
+    });
+    const { findByText, getByText, getByTestId, queryByTestId } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7102 })} />,
+    );
+    fireEvent.press(await findByText('Machos'));
+    await waitFor(() => expect(getByText('GranCampeon')).toBeTruthy());
+    expect(getByTestId('cucarda-gran-campeon')).toBeTruthy();
+    expect(getByTestId('cucarda-gran-tercer-mejor')).toBeTruthy();
+    expect(queryByTestId('cucarda-tercer-mejor')).toBeNull();   // ésa es la del campeonato
+  });
+
+  test('ausentes y rechazados no llevan cucarda', async () => {
+    soloResultados(7103, {
+      morfologia: {
+        categorias: [{
+          id: 1, nombre: 'Categ. 17',
+          subcategorias: [{ numero: 1, premios: [
+            { animal: { id: 'pdre:1', nombre: 'NoPremio', box: 'A-1' }, premio: { id: 17, nombre: 'Sin Premio', tipo_id: 5, tipo_nombre: 'Sin Premio' } },
+          ] }],
+          ausentes: [{ animal: { id: 'pdre:a', nombre: 'Faltó', box: 'A-9' } }],
+          rechazados: [{ animal: { id: 'pdre:r', nombre: 'Rechazado', box: 'A-8' }, rechazo: { observaciones: 'Cojera' } }],
+        }],
+      },
+    });
+    const { findByText, getByText, queryAllByTestId } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7103 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 17'));
+    await waitFor(() => expect(getByText('Faltó')).toBeTruthy());
+    expect(queryAllByTestId(/^cucarda-/)).toHaveLength(0);
+  });
+
+  test('funcionales: la final lleva cucarda, la clasificatoria no', async () => {
+    soloResultados(7104, {
+      rodeos: {
+        pruebas: [
+          {
+            prueba: { id: 2, nombre: 'Rodeos' }, categoria: { id: 1, nombre: 'Categ. 19' },
+            clasificacion: 'Final',
+            yuntas: [{ puesto: { general: 1 }, totales: { dia1: 88, dia2: 86 }, animales: [{ id: 'pdre:1', nombre: 'YuntaFinal' }] }],
+          },
+          {
+            prueba: { id: 2, nombre: 'Rodeos' }, categoria: { id: 2, nombre: 'Categ. 20' },
+            clasificacion: 'Clasificatoria',
+            yuntas: [{ orden: 1, totales: { dia1: 40 }, animales: [{ id: 'pdre:2', nombre: 'YuntaClasi' }] }],
+          },
+        ],
+      },
+    });
+    const { findByText, getByText, getByTestId, queryAllByTestId } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7104 })} />,
+    );
+    fireEvent.press(await findByText('Categ. 19 · Final'));
+    await waitFor(() => expect(getByText('YuntaFinal')).toBeTruthy());
+    expect(getByTestId('cucarda-func-campeon')).toBeTruthy();
+    fireEvent.press(getByText('Categ. 20 · Clasificatoria'));
+    await waitFor(() => expect(getByText('YuntaClasi')).toBeTruthy());
+    expect(queryAllByTestId(/^cucarda-/)).toHaveLength(1);   // sigue siendo sólo la de la final
+  });
+
+  test('la cucarda de cuarto funcional es sólo del Freno de Oro', async () => {
+    soloResultados(7105, {
+      freno_oro: {
+        pruebas: [{
+          prueba: { id: 4, nombre: 'Freno de Oro' }, categoria: { id: 1, nombre: 'A' },
+          clasificacion: 'Final',
+          resultados: [
+            { puesto: 1, total: 20, animal: { id: 'exis:1', nombre: 'FrenoUno' } },
+            { puesto: 4, total: 17, animal: { id: 'exis:4', nombre: 'FrenoCuatro' } },
+          ],
+        }],
+      },
+      fzb: {
+        pruebas: [{
+          prueba: { id: 5, nombre: 'F.Z.B.' }, categoria: { id: 2, nombre: 'B' },
+          clasificacion: 'Final',
+          resultados: [{ puesto: 4, total: 10, animal: { id: 'exis:9', nombre: 'FzbCuatro' } }],
+        }],
+      },
+    });
+    const { findByText, getByText, getByTestId, queryByTestId } = render(
+      <EventDetailScreen t={T} navigation={navStub()} route={routeStub({ id: 7105 })} />,
+    );
+    // La sub-tab que abre sola es F.Z.B. (va antes en la lista de pruebas).
+    fireEvent.press(await findByText('Freno de Oro'));
+    fireEvent.press(await findByText('Categoría A · Final'));
+    await waitFor(() => expect(getByText('FrenoUno')).toBeTruthy());
+    expect(getByTestId('cucarda-func-campeon')).toBeTruthy();
+    expect(getByTestId('cucarda-func-cuarto')).toBeTruthy();
+    // La misma cuarta posición en F.Z.B. no lleva ninguna.
+    fireEvent.press(getByText('F.Z.B.'));
+    fireEvent.press(await findByText('Categoría B · Final'));
+    await waitFor(() => expect(getByText('FzbCuatro')).toBeTruthy());
+    expect(queryByTestId('cucarda-func-cuarto')).toBeNull();
+  });
+});

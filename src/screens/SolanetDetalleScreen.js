@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Icon, F } from '../components';
+import { cucardaDeLogro } from '../cucardas';
 import { fetchSolanetDetalle, fetchAnimales } from '../api';
 import RankingTable from './RankingTable';
 
@@ -84,6 +85,10 @@ export default function SolanetDetalleScreen({ t, navigation, route }) {
             t={t}
             columnas={columnas}
             filas={filas}
+            // El logro viene como texto (`achievement`) y la prueba (`test`)
+            // es la que decide el juego de cucardas: «Campeón» de morfología y
+            // «Campeon» del Freno de Oro no llevan la misma.
+            cucardaOf={(fila) => cucardaDeLogro(fila.achievement, fila.test)}
             isTappable={(fila) => fila.sba != null || !!fila.animalId}
             onRowPress={openAnimal}
           />
